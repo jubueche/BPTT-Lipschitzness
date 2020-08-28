@@ -404,6 +404,16 @@ class HeySnipsNetworkADS(BaseModel):
                 batched_rate_output = self.get_data(filtered_batch=filtered)
                 tgt_signals = tgt_signals[:,:filtered.shape[1],:]
 
+                loss_params = {'min_tau': 0.01,
+                            'reg_tau': 10000.0,
+                            'reg_l2_rec': 100000.0,
+                            'reg_act1': 2.0,
+                            'reg_act2': 2.0,
+                            'lambda_mse': 1000.0}
+                if(self.use_lipschitzness):
+                    loss_params['net'] = self.net
+                    loss_params['input_lipschitz'] = filtered
+
                 # - Do the training step
                 self.net.reset_all()
                 # - Works well for 512
@@ -416,14 +426,7 @@ class HeySnipsNetworkADS(BaseModel):
                     debug_nans = False,
                     loss_fcn = loss_func,
                     opt_params = {"step_size": 1e-4},
-                    loss_params = {'min_tau': 0.01,
-                                   'reg_tau': 10000.0,
-                                   'reg_l2_rec': 100000.0,
-                                   'reg_act1': 2.0,
-                                   'reg_act2': 2.0,
-                                   'net': self.net,
-                                   'input_lipschitz': filtered,
-                                   'lambda_mse': 1000.0})
+                    loss_params = loss_params)
 
                 epoch_loss += fLoss[0]
                 losses.append(fLoss[0])
