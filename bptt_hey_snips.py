@@ -30,7 +30,7 @@ import argparse
 from typing import List, Dict
 
 
-def loss_mse_reg_stack(
+def loss_lipschitzness(
             params: List,
             states_t: Dict[str, jnp.ndarray],
             output_batch_t: jnp.ndarray,
@@ -155,11 +155,85 @@ def loss_mse_reg_stack(
         # - Return loss
         return (fLoss, loss_dict)
 
+@jit
+def loss_mse_reg_stack(
+            params: List,
+            states_t: Dict[str, jnp.ndarray],
+            output_batch_t: jnp.ndarray,
+            target_batch_t: jnp.ndarray,
+            min_tau: float,
+            lambda_mse: float,
+            reg_tau: float,
+            reg_l2_rec: float,
+            reg_act1: float,
+            reg_act2: float,
+    ):
+        """
+        Loss function for target versus output
+
+        :param List params:                 List of packed parameters from each layer
+        :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
+        :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
+        :param float min_tau:               Minimum time constant
+        :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
+        :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
+        :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
+
+        :return float: Current loss value
+        """
+        # - Measure output-target loss
+        mse = lambda_mse * jnp.mean((output_batch_t - target_batch_t) ** 2)
+
+        # - Get loss for tau parameter constraints
+        # - Measure recurrent L2 norms
+        tau_loss = 0.0
+        w_res_norm = 0.0
+        act_loss = 0.0
+        
+        lyrIn = params[0]
+        lyrRes = params[1]
+        lyrRO = params[2]
+        
+        taus = jnp.concatenate((
+            lyrIn["tau_mem"],
+            lyrIn["tau_syn"],
+            lyrRes["tau_mem"],
+            lyrRes["tau_syn"],
+            lyrRO["tau_syn"],
+        ))
+        
+        tau_loss += reg_tau * jnp.mean(
+            jnp.where(
+                taus < min_tau,
+                jnp.exp(-(taus - min_tau)),
+                0,
+            )
+        )
+        
+        w_res_norm += reg_l2_rec * jnp.mean(lyrIn["w_in"] ** 2)    
+        w_res_norm += reg_l2_rec * jnp.mean(lyrRes["w_recurrent"] ** 2)
+
+        act_loss += reg_act1 * jnp.mean(states_t[1]["surrogate"])
+        act_loss += reg_act2 * jnp.mean(states_t[1]["Vmem"] ** 2)
+        
+        # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
+        fLoss = mse + tau_loss + w_res_norm + act_loss
+
+        loss_dict = {}
+        loss_dict["fLoss"] = fLoss
+        loss_dict["mse"] = mse
+        loss_dict["tau_loss"] = tau_loss
+        loss_dict["w_res_norm"] = w_res_norm
+
+        # - Return loss
+        return (fLoss, loss_dict)
+
 class HeySnipsNetworkADS(BaseModel):
     def __init__(self,
                  labels,
                  num_neurons,
                  num_epochs,
+                 use_lipschitzness,
                  fs=16000.,
                  verbose=0,
                  name="Snips ADS",
@@ -176,6 +250,7 @@ class HeySnipsNetworkADS(BaseModel):
         self.verbose = verbose
         self.noise_std = 0.0
         self.dt = 0.001
+        self.use_lipschitzness = use_lipschitzness 
 
         self.base_path = "/home/julian/Documents/robustBPTT/"
 
@@ -309,6 +384,10 @@ class HeySnipsNetworkADS(BaseModel):
         lip_losses = []
         losses = []
 
+        loss_func = loss_mse_reg_stack
+        if(self.use_lipschitzness):
+            loss_func = loss_lipschitzness
+
         for epoch in range(self.num_epochs):
 
             epoch_loss = 0
@@ -332,7 +411,7 @@ class HeySnipsNetworkADS(BaseModel):
                     batch_axis = 0,
                     loss_aux = True,
                     debug_nans = False,
-                    loss_fcn = loss_mse_reg_stack,
+                    loss_fcn = loss_func,
                     opt_params = {"step_size": 1e-4},
                     loss_params = {'min_tau': 0.01,
                                    'reg_tau': 10000.0,
@@ -346,11 +425,15 @@ class HeySnipsNetworkADS(BaseModel):
                 epoch_loss += fLoss[0]
                 losses.append(fLoss[0])
                 mses.append(onp.sum(fLoss[1]["mse"]))
-                lip_losses.append(onp.sum(fLoss[1]["loss_lip"]))
+                if(self.use_lipschitzness):
+                    lip_losses.append(onp.sum(fLoss[1]["loss_lip"]))
 
                 print("--------------------", flush=True)
                 print("Epoch", epoch, "Batch ID", batch_id , flush=True)
-                print("Loss", fLoss[0], "Lipschitzness Loss:", onp.sum(fLoss[1]["loss_lip"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
+                if(self.use_lipschitzness):
+                    print("Loss", fLoss[0], "Lipschitzness Loss:", onp.sum(fLoss[1]["loss_lip"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
+                else:
+                    print("Loss", fLoss[0], "MSE Loss:", onp.sum(fLoss[1]["mse"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
                 print("--------------------", flush=True)
 
                 if((batch_id+1) % 10 == 0 and self.verbose > 0):
@@ -379,9 +462,10 @@ class HeySnipsNetworkADS(BaseModel):
                         plt.subplot(413)
                         plt.plot(mses, label="MSE")
                         plt.legend()
-                        plt.subplot(414)
-                        plt.plot(lip_losses, label="Lipschitzness")
-                        plt.legend()
+                        if(self.use_lipschitzness):
+                            plt.subplot(414)
+                            plt.plot(lip_losses, label="Lipschitzness")
+                            plt.legend()
                         plt.draw()
                         plt.pause(1.0)
                     
@@ -555,12 +639,14 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', default=1, type=int, help="Level of verbosity. Default=0. Range: 0 to 2")
     parser.add_argument('--epochs', default=5, type=int, help="Number of training epochs")
     parser.add_argument('--percentage-data', default=1.0, type=float, help="Percentage of total training data used. Example: 0.02 is 2%.")
+    parser.add_argument('--lipschitzness', default=False, action='store_true', help="Use Lipschitzness in loss")
 
     args = vars(parser.parse_args())
     num = args['num']
     verbose = args['verbose']
     num_epochs = args['epochs']
     percentage_data = args['percentage_data']
+    use_lipschitzness = args['lipschitzness']
 
     batch_size = 10
     balance_ratio = 1.0
@@ -581,7 +667,8 @@ if __name__ == "__main__":
     model = HeySnipsNetworkADS(labels=experiment._data_loader.used_labels,
                                 num_neurons=num,
                                 num_epochs=num_epochs,
-                                verbose=verbose)
+                                verbose=verbose,
+                                use_lipschitzness=use_lipschitzness)
 
     experiment.set_model(model)
     experiment.set_config({'num_train_batches': num_train_batches,
