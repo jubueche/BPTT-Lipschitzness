@@ -253,8 +253,11 @@ class HeySnipsNetworkADS(BaseModel):
         self.use_lipschitzness = use_lipschitzness 
 
         self.base_path = "/home/julian/Documents/robustBPTT/"
+        # self.base_path = "/home/julian_synsense_ai/BPTT-Lipschitzness/"
 
         self.network_name = "Resources/bptt.json"
+        if(self.use_lipschitzness):
+            self.network_name = "Resources/bptt_lipschitznes.json"
 
         rate_net_path = os.path.join(self.base_path, "Resources/rate_heysnips_tanh_0_16.model")
         with open(rate_net_path, "r") as f:
@@ -284,11 +287,11 @@ class HeySnipsNetworkADS(BaseModel):
 
 
         # - Create spiking net
-        model_path_bptt_net = os.path.join(self.base_path,"Resources/bptt.json")
-        if(os.path.exists(model_path_bptt_net)):
+        self.model_path_bptt_net = os.path.join(self.base_path, self.network_name)
+        if(os.path.exists(self.model_path_bptt_net)):
             print("Network already trained. Exiting. If you would like to re-train, please comment out this line and delete/rename the model.")
             sys.exit(0)
-            self.net = self.load_net(model_path_bptt_net)
+            self.net = self.load_net(self.model_path_bptt_net)
             print("Loaded pretrained network")
         else:
             # - Create spiking net
@@ -482,7 +485,7 @@ class HeySnipsNetworkADS(BaseModel):
                 self.best_model = self.net
 
                 # - Save model
-                self.save(os.path.join(self.base_path, self.network_name))
+                self.save(self.model_path_bptt_net)
 
                 if(val_acc > 0.87):
                     return
@@ -627,7 +630,7 @@ class HeySnipsNetworkADS(BaseModel):
         test_acc = correct / counter
         rate_acc = correct_rate / counter
         print("Test accuracy is %.3f | Rate accuracy is %.3f" % (test_acc, rate_acc), flush=True)
-        self.save(os.path.join(self.base_path, self.network_name), use_best = True)
+        self.save(self.model_path_bptt_net, use_best = True)
 
 if __name__ == "__main__":
 
