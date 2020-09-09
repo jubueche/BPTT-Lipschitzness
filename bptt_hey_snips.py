@@ -1,9 +1,12 @@
 import warnings
 warnings.filterwarnings('ignore')
-# import json
 import ujson as json
 import numpy as onp
 import jax.numpy as jnp
+
+from jax import config
+# config.update('jax_disable_jit', True)
+
 from jax import vmap, jit, grad
 import jax.random as rand
 from jax.lax import clamp
@@ -114,10 +117,21 @@ def loss_lipschitzness(
             lip = jnp.mean(jnp.sum((output_batch_t - batched_spiking_output)**2, axis=1)) / dict_norm(theta_start,theta)
             return lip
 
-        step_size = 0.00001
-        number_steps = 3
+        
+        # - TODO Order of random sampling and size correlates weirdly. Expected behavior: dist(initial theta_star,theta_start) ~ dist(theta_random,theta_start) 
+        # - Create a version using 20% mismatch
+        theta_random = {}
+        theta_random["bias"] =  theta_start["bias"] + theta_start["bias"]*0.2*rand.normal(key = net.LIF_Reservoir._rng_key)
+        _, net.LIF_Reservoir._rng_key = rand.split(net.LIF_Reservoir._rng_key)
+        theta_random["tau_syn"] = jnp.abs(theta_start["tau_syn"] + theta_start["tau_syn"]*0.2*rand.normal(key = net.LIF_Reservoir._rng_key))
+        _, net.LIF_Reservoir._rng_key = rand.split(net.LIF_Reservoir._rng_key)
+        theta_random["tau_mem"] = jnp.abs(theta_start["tau_mem"] + theta_start["tau_mem"]*0.2*rand.normal(key = net.LIF_Reservoir._rng_key))
+        _, net.LIF_Reservoir._rng_key = rand.split(net.LIF_Reservoir._rng_key)
+
+        step_size = 0.0005
+        number_steps = 5
         beta = 1.0
-        initial_std = 0.05
+        initial_std = 0.2
         theta_star = {}
 
         theta_star["bias"] =  theta_start["bias"] + theta_start["bias"]*initial_std*rand.normal(key = net.LIF_Reservoir._rng_key)
@@ -127,18 +141,29 @@ def loss_lipschitzness(
         theta_star["tau_mem"] = jnp.abs(theta_start["tau_mem"] + theta_start["tau_mem"]*initial_std*rand.normal(key = net.LIF_Reservoir._rng_key))
         _, net.LIF_Reservoir._rng_key = rand.split(net.LIF_Reservoir._rng_key)
 
+
+        lipschitzness_over_time = []
+        theta_start_star_distance = []
+
         for _ in range(number_steps):
+            # - Evaluate Lipschitzness for each Theta
+            lipschitzness_over_time.append(lipschitzness(theta_star))
+            theta_start_star_distance.append(dict_norm(theta_star,theta_start))
             # - Compute the gradient w.r.t. theta
             theta_grad = grad(lipschitzness)(theta_star)
 
             # - Update theta_star
             for key in theta_star.keys():
-                theta_star[key] = theta_star[key] + step_size*theta_grad[key]
+                # - Normalize gradient and do update
+                theta_star[key] = theta_star[key] + step_size*theta_grad[key] / jnp.linalg.norm(theta_grad[key])
                 # - Compute deviation and clamp to
-                theta_star[key] = clamp(-3*initial_std*theta_start[key], theta_star[key], 3*initial_std*theta_start[key])
-                if(key == "tau_mem" or key == "tau_syn"):
-                    theta_star[key] = clamp(0.001, theta_star[key], 0.9)
+                # theta_star[key] = clamp(-3*initial_std*theta_start[key], theta_star[key], 3*initial_std*theta_start[key])
+                # if(key == "tau_mem" or key == "tau_syn"):
+                #     theta_star[key] = clamp(0.001, theta_star[key], 0.9)
 
+        lipschitzness_over_time.append(lipschitzness(theta_star))
+        theta_start_star_distance.append(dict_norm(theta_star,theta_start))
+        lipschitzness_random = lipschitzness(theta_random)
 
         loss_lip = beta*lipschitzness(theta=theta_star)
         
@@ -151,6 +176,12 @@ def loss_lipschitzness(
         loss_dict["tau_loss"] = tau_loss
         loss_dict["w_res_norm"] = w_res_norm
         loss_dict["loss_lip"] = loss_lip
+        loss_dict["lipschitzness_over_time"] = lipschitzness_over_time
+        loss_dict["theta_start_star_distance"] = theta_start_star_distance
+        loss_dict["theta_start"] = theta_start
+        loss_dict["theta_star"] = theta_star
+        loss_dict["lipschitzness_random"] = lipschitzness_random
+        loss_dict["random_distance_to_start"] = dict_norm(theta_start, theta_random)
 
         # - Return loss
         return (fLoss, loss_dict)
@@ -252,7 +283,7 @@ class HeySnipsNetworkADS(BaseModel):
         self.dt = 0.001
         self.use_lipschitzness = use_lipschitzness 
 
-        self.base_path = "/home/julian/Documents/robustBPTT/"
+        self.base_path = "/home/julian/Documents/BPTT-Lipschitzness/"
         # self.base_path = "/home/julian_synsense_ai/BPTT-Lipschitzness/"
 
         self.network_name = "Resources/bptt.json"
@@ -290,7 +321,7 @@ class HeySnipsNetworkADS(BaseModel):
         self.model_path_bptt_net = os.path.join(self.base_path, self.network_name)
         if(os.path.exists(self.model_path_bptt_net)):
             print("Network already trained. Exiting. If you would like to re-train, please comment out this line and delete/rename the model.")
-            sys.exit(0)
+            # sys.exit(0)
             self.net = self.load_net(self.model_path_bptt_net)
             print("Loaded pretrained network")
         else:
@@ -348,14 +379,11 @@ class HeySnipsNetworkADS(BaseModel):
             self.net = JaxStack([lyrLIFInput, lyrLIFRecurrent, lyrLIFReadout])
             self.best_val_acc = 0.0
 
+            if(os.path.exists(os.path.join(self.base_path, "Resources/bptt.json"))):
+                self.net = self.load_net(os.path.join(self.base_path, "Resources/bptt.json"))
 
-        self.best_model = self.net
-
-    def save(self, fn, use_best = False):
-        if(use_best):
-            savedict = self.best_model.to_dict()
-        else:
-            savedict = self.net.to_dict()
+    def save(self, fn):
+        savedict = self.net.to_dict()
         savedict["threshold0"] = self.threshold0
         savedict["best_val_acc"] = self.best_val_acc
         savedict["best_boundary"] = float(self.best_boundary)
@@ -382,7 +410,6 @@ class HeySnipsNetworkADS(BaseModel):
 
     def train(self, data_loader, fn_metrics):
 
-        self.best_model = self.net
         mses = []
         lip_losses = []
         losses = []
@@ -437,45 +464,79 @@ class HeySnipsNetworkADS(BaseModel):
                 print("--------------------", flush=True)
                 print("Epoch", epoch, "Batch ID", batch_id , flush=True)
                 if(self.use_lipschitzness):
-                    print("Loss", fLoss[0], "Lipschitzness Loss:", onp.sum(fLoss[1]["loss_lip"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
+                    print("Loss", fLoss[0], "MSE Loss:", onp.sum(fLoss[1]["mse"]), "Lipschitzness Loss:", onp.sum(fLoss[1]["loss_lip"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
+                    print("Lipschitzness over time", [float(e) for e in onp.array(fLoss[1]["lipschitzness_over_time"])])
+                    print("Distance theta start, theta star", [float(e) for e in onp.array(fLoss[1]["theta_start_star_distance"])])
+                    print("lipschitzness_random", fLoss[1]["lipschitzness_random"])
+                    print("random_distance_to_start", fLoss[1]["random_distance_to_start"])
                 else:
                     print("Loss", fLoss[0], "MSE Loss:", onp.sum(fLoss[1]["mse"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
                 print("--------------------", flush=True)
 
-                if((batch_id+1) % 10 == 0 and self.verbose > 0):
-                    batched_spiking_output, _, _ = vmap(self.net._evolve_functional, in_axes=(None, None, 0))(self.net._pack(), self.net._state, filtered)
-                    correct = counter = 0
-                    for idx in range(batched_spiking_output.shape[0]):
-                        counter += 1
-                        predicted_label = 0
-                        if(onp.any(batched_spiking_output[idx] > self.threshold)):
-                            predicted_label = 1
+                # plt.clf()
+                # plt.subplot(311)
+                # plt.title("Tau mem")
+                # plt.hist(self.net.LIF_Reservoir.tau_mem, bins=50)
+                # plt.xlim([0.001,0.1])
+                # plt.subplot(312)
+                # plt.hist(self.net.LIF_Reservoir.tau_syn, bins=50)
+                # plt.title("Tau Syn")
+                # plt.xlim([0.001,0.1])
+                # plt.subplot(313)
+                # plt.hist(self.net.LIF_Reservoir.bias, bins=50)
+                # plt.title("Bias")
+                # plt.draw()
+                # plt.pause(0.001)
+
+                plt.clf()
+                plt.subplot(211)
+                plt.hist(fLoss[1]["theta_start"]["tau_mem"], bins=50, label=r"$\Theta_{\tau_{mem}}^{start}$")
+                plt.hist(fLoss[1]["theta_star"]["tau_mem"], bins=50, label=r"$\Theta_{\tau_{mem}}^*$")
+                plt.legend()
+                plt.hist(fLoss[1]["theta_start"]["tau_syn"], bins=50, label=r"$\Theta_{\tau_{syn}}^{start}$")
+                plt.hist(fLoss[1]["theta_star"]["tau_syn"], bins=50, label=r"$\Theta_{\tau_{syn}}^*$")
+                plt.legend()
+                plt.subplot(212)
+                plt.hist(self.net.LIF_Reservoir.tau_mem, bins=50, label=r"$\tau_{mem}$")
+                plt.hist(self.net.LIF_Reservoir.tau_syn, bins=50, label=r"$\tau_{syn}$")
+                plt.legend()
+                plt.draw()
+                plt.pause(0.1)
+
+                # if((batch_id+1) % 10 == 0 and self.verbose > 0):
+                #     batched_spiking_output, _, _ = vmap(self.net._evolve_functional, in_axes=(None, None, 0))(self.net._pack(), self.net._state, filtered)
+                #     correct = counter = 0
+                #     for idx in range(batched_spiking_output.shape[0]):
+                #         counter += 1
+                #         predicted_label = 0
+                #         if(onp.any(batched_spiking_output[idx] > self.threshold)):
+                #             predicted_label = 1
                         
-                        if(predicted_label == target_labels[idx]):
-                            correct += 1
+                #         if(predicted_label == target_labels[idx]):
+                #             correct += 1
                     
-                        plt.clf()
-                        plt.subplot(411)
-                        time_base = onp.arange(0,batched_spiking_output.shape[1]*self.dt, self.dt) 
-                        plt.plot(time_base, batched_spiking_output[idx], label="Spiking")
-                        plt.plot(time_base, tgt_signals[idx], label="Target")
-                        plt.plot(time_base, batched_rate_output[idx], label="Rate")
-                        plt.ylim([-0.3,1.0])
-                        plt.legend()
-                        plt.subplot(412)
-                        plt.plot(losses, label="Loss")
-                        plt.legend()
-                        plt.subplot(413)
-                        plt.plot(mses, label="MSE")
-                        plt.legend()
-                        if(self.use_lipschitzness):
-                            plt.subplot(414)
-                            plt.plot(lip_losses, label="Lipschitzness")
-                            plt.legend()
-                        plt.draw()
-                        plt.pause(1.0)
+                #         plt.clf()
+                #         plt.subplot(411)
+                #         time_base = onp.arange(0,batched_spiking_output.shape[1]*self.dt, self.dt) 
+                #         plt.plot(time_base, batched_spiking_output[idx], label="Spiking")
+                #         plt.plot(time_base, tgt_signals[idx], label="Target")
+                #         plt.plot(time_base, batched_rate_output[idx], label="Rate")
+                #         plt.ylim([-0.3,1.0])
+                #         plt.legend()
+                #         plt.subplot(412)
+                #         plt.plot(losses, label="Loss")
+                #         plt.legend()
+                #         plt.subplot(413)
+                #         plt.plot(mses, label="MSE")
+                #         plt.legend()
+                #         if(self.use_lipschitzness):
+                #             plt.subplot(414)
+                #             plt.plot(lip_losses, label="Lipschitzness")
+                #             plt.legend()
+                #         plt.draw()
+                #         plt.pause(1.0)
                     
-                    print("Test acc.:", correct / counter)
+                #     print("Test acc.:", correct / counter)
 
             # - End epoch
             yield {"train_loss": epoch_loss}
@@ -485,8 +546,6 @@ class HeySnipsNetworkADS(BaseModel):
 
             if(val_acc >= self.best_val_acc):
                 self.best_val_acc = val_acc
-                self.best_model = self.net
-
                 # - Save model
                 self.save(self.model_path_bptt_net)
 
@@ -584,9 +643,9 @@ class HeySnipsNetworkADS(BaseModel):
 
 
     def test(self, data_loader, fn_metrics):
-        correct = 0
-        correct_rate = 0
-        counter = 0
+
+        correct = correct_rate = counter = 0
+        self.net = self.load_net(self.model_path_bptt_net)
 
         for batch_id, [batch, _] in enumerate(data_loader.test_set()):
         
@@ -595,7 +654,7 @@ class HeySnipsNetworkADS(BaseModel):
 
             filtered = onp.stack([s[0][1] for s in batch])
             target_labels = [s[1] for s in batch]
-            batched_spiking_output, _, _ = vmap(self.best_model._evolve_functional, in_axes=(None, None, 0))(self.best_model._pack(), self.best_model._state, filtered)
+            batched_spiking_output, _, _ = vmap(self.net._evolve_functional, in_axes=(None, None, 0))(self.net._pack(), self.net._state, filtered)
             tgt_signals = onp.stack([s[2] for s in batch])
             batched_rate_output = self.get_data(filtered_batch=filtered)
 
@@ -629,15 +688,25 @@ class HeySnipsNetworkADS(BaseModel):
                 print("TESTING: True:", target_labels[idx], "Predicted:", predicted_label, "Rate:", predicted_rate_label, flush=True)
                 print("--------------------", flush=True)
 
+                if(self.verbose > 1):
+                    # - Also evolve over input and plot a little bit
+                    plt.clf()
+                    plt.plot(onp.linspace(0,5,batched_spiking_output.shape[1]), batched_spiking_output[0], label="Spiking")
+                    plt.plot(onp.linspace(0,5,tgt_signals.shape[1]), tgt_signals[0], label="Target")
+                    plt.plot(onp.linspace(0,5,batched_rate_output.shape[1]), batched_rate_output[0], label="Rate")
+                    plt.ylim([-0.3,1.0])
+                    plt.legend()
+                    plt.draw()
+                    plt.pause(0.001)
+
         # - End for batch
         test_acc = correct / counter
         rate_acc = correct_rate / counter
         print("Test accuracy is %.3f | Rate accuracy is %.3f" % (test_acc, rate_acc), flush=True)
-        self.save(self.model_path_bptt_net, use_best = True)
 
 if __name__ == "__main__":
 
-    onp.random.seed(42)
+    # onp.random.seed(42)
 
     parser = argparse.ArgumentParser(description='Learn classifier using pre-trained rate network')
     
@@ -654,7 +723,7 @@ if __name__ == "__main__":
     percentage_data = args['percentage_data']
     use_lipschitzness = args['lipschitzness']
 
-    batch_size = 10
+    batch_size = 1
     balance_ratio = 1.0
     snr = 10.
 
