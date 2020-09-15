@@ -98,10 +98,10 @@ def loss_lipschitzness(
         theta_start = {"tau_mem": lyrRes["tau_mem"], "tau_syn": lyrRes["tau_syn"], "bias": lyrRes["bias"]}
 
         def dict_norm(d1,d2):
-            l2 = 0.0
+            norm = 0.0
             for key in d1.keys():
-                l2 += jnp.linalg.norm(d1[key]-d2[key])
-            return l2
+                norm += jnp.linalg.norm(d1[key]-d2[key]) / jnp.sqrt(jnp.linalg.norm(d1[key])*jnp.linalg.norm(d2[key]))
+            return norm
 
         # - Define function to compute Lipschitzness of network w.r.t. parameters Theta
         def lipschitzness(theta):
@@ -126,18 +126,17 @@ def loss_lipschitzness(
             return spiking_output
 
         
-        # - TODO Order of random sampling and size correlates weirdly. Expected behavior: dist(initial theta_star,theta_start) ~ dist(theta_random,theta_start) 
-        # - Create a version using 20% mismatch
-        step_size = 0.0005
+        step_size = 0.005
         number_steps = 5
         beta = 1.0
-        initial_std = 0.2
-        net.LIF_Reservoir._rng_key, *sks = rand.split(net.LIF_Reservoir._rng_key, 7)
+        initial_std = 0.05
+        key = rand.PRNGKey(jnp.sum(input_batch_t).astype(int))
+        _, *sks = rand.split(key, 7)
 
         theta_random = {}
-        theta_random["bias"] =  theta_start["bias"] + theta_start["bias"]*0.2*rand.normal(key = sks[0])
-        theta_random["tau_syn"] = jnp.abs(theta_start["tau_syn"] + theta_start["tau_syn"]*0.2*rand.normal(key = sks[1]))
-        theta_random["tau_mem"] = jnp.abs(theta_start["tau_mem"] + theta_start["tau_mem"]*0.2*rand.normal(key = sks[2]))
+        theta_random["bias"] =  theta_start["bias"] + theta_start["bias"]*initial_std*rand.normal(key = sks[0])
+        theta_random["tau_syn"] = jnp.abs(theta_start["tau_syn"] + theta_start["tau_syn"]*initial_std*rand.normal(key = sks[1]))
+        theta_random["tau_mem"] = jnp.abs(theta_start["tau_mem"] + theta_start["tau_mem"]*initial_std*rand.normal(key = sks[2]))
 
         theta_star = {}
         theta_star["bias"] =  theta_start["bias"]  + theta_start["bias"]*initial_std*rand.normal(key = sks[3])
@@ -149,7 +148,6 @@ def loss_lipschitzness(
         batched_output_over_time = []
 
         batched_output_over_time.append(evolve_using(theta_random))
-        batched_output_over_time.append(evolve_using(theta_start))
         for _ in range(number_steps):
             # - Evaluate Lipschitzness for each Theta
             lipschitzness_over_time.append(lipschitzness(theta_star))
@@ -161,9 +159,10 @@ def loss_lipschitzness(
             # - Update theta_star
             for key in theta_star.keys():
                 # - Normalize gradient and do update
+                # TODO
                 theta_star[key] = theta_star[key] + step_size*theta_grad[key] / jnp.linalg.norm(theta_grad[key])
                 # - Compute deviation and clamp to
-                # - ...
+                # TODO
 
         lipschitzness_over_time.append(lipschitzness(theta_star))
         theta_start_star_distance.append(dict_norm(theta_star,theta_start))
@@ -187,6 +186,7 @@ def loss_lipschitzness(
         loss_dict["lipschitzness_random"] = lipschitzness_random
         loss_dict["random_distance_to_start"] = dict_norm(theta_start, theta_random)
         loss_dict["batched_output_over_time"] = batched_output_over_time
+        loss_dict["output_batch_t"] = output_batch_t
 
         # - Return loss
         return (fLoss, loss_dict)
@@ -458,7 +458,7 @@ class HeySnipsNetworkADS(BaseModel):
                     loss_aux = True,
                     debug_nans = False,
                     loss_fcn = loss_func,
-                    opt_params = {"step_size": 0.0},
+                    opt_params = {"step_size": 1e-4},
                     loss_params = loss_params)
 
                 epoch_loss += fLoss[0]
@@ -497,12 +497,13 @@ class HeySnipsNetworkADS(BaseModel):
                 if(self.use_lipschitzness):
                     plt.clf()
                     plt.plot(time_base, tgt_signals[0], label="Target")
-                    for idx,output in enumerate(fLoss[1]["batched_output_over_time"][:2]):
-                        plt.plot(time_base, onp.squeeze(output[0]), label=f"Iter. {idx}")
+                    plt.plot(time_base, fLoss[1]["output_batch_t"][0], label="Output")
+                    plt.plot(time_base, fLoss[1]["batched_output_over_time"][0][0], label="Random 20%")
+                    for idx,output in enumerate(fLoss[1]["batched_output_over_time"][1:]):
+                        plt.plot(time_base, output[0], label=f"Iter. {idx}")
                     plt.legend()
                     plt.draw()
                     plt.pause(0.001)
-
 
 
             # - End epoch
