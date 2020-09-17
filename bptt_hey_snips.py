@@ -1,15 +1,8 @@
 import warnings
 warnings.filterwarnings('ignore')
 import ujson as json
-import numpy as onp
-import jax.numpy as jnp
-
-from jax import config
-# config.update('jax_disable_jit', True)
-
-from jax import vmap, jit, grad
-import jax.random as rand
-from jax.lax import clamp
+import numpy as np
+from jax import vmap
 import matplotlib
 matplotlib.rc('font', family='Times New Roman')
 matplotlib.rc('text')
@@ -30,240 +23,8 @@ if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore")
 import argparse
+from loss import loss_lipschitzness, loss_mse_reg_stack
 
-
-def loss_lipschitzness(
-            params,
-            states_t,
-            input_batch_t,
-            output_batch_t,
-            target_batch_t,
-            min_tau,
-            net,
-            lambda_mse,
-            reg_tau,
-            reg_l2_rec,
-            reg_act1,
-            reg_act2,
-    ):
-        """
-        Loss function for target versus output
-
-        :param List params:                 List of packed parameters from each layer
-        :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
-        :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
-        :param float min_tau:               Minimum time constant
-        :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
-        :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
-        :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
-
-        :return float: Current loss value
-        """
-        # - Measure output-target loss
-        mse = lambda_mse * jnp.mean((output_batch_t - target_batch_t) ** 2)
-
-        # - Get loss for tau parameter constraints
-        # - Measure recurrent L2 norms
-        tau_loss = 0.0
-        w_res_norm = 0.0
-        act_loss = 0.0
-        
-        lyrIn = params[0]
-        lyrRes = params[1]
-        lyrRO = params[2]
-        
-        taus = jnp.concatenate((
-            lyrIn["tau_mem"],
-            lyrIn["tau_syn"],
-            lyrRes["tau_mem"],
-            lyrRes["tau_syn"],
-            lyrRO["tau_syn"],
-        ))
-        
-        tau_loss += reg_tau * jnp.mean(
-            jnp.where(
-                taus < min_tau,
-                jnp.exp(-(taus - min_tau)),
-                0,
-            )
-        )
-        
-        w_res_norm += reg_l2_rec * jnp.mean(lyrIn["w_in"] ** 2)    
-        w_res_norm += reg_l2_rec * jnp.mean(lyrRes["w_recurrent"] ** 2)
-
-        act_loss += reg_act1 * jnp.mean(states_t[1]["surrogate"])
-        act_loss += reg_act2 * jnp.mean(states_t[1]["Vmem"] ** 2)
-
-        # - Lipschitzness loss
-        theta_start = {"tau_mem": lyrRes["tau_mem"], "tau_syn": lyrRes["tau_syn"], "bias": lyrRes["bias"]}
-
-        def dict_norm(d1,d2):
-            norm = 0.0
-            for key in d1.keys():
-                norm += jnp.linalg.norm(d1[key]-d2[key]) / jnp.sqrt(jnp.linalg.norm(d1[key])*jnp.linalg.norm(d2[key]))
-            return norm
-
-        # - Define function to compute Lipschitzness of network w.r.t. parameters Theta
-        def lipschitzness(theta):
-            # - Apply theta to the network
-            params = net._pack()
-            params[1]["tau_mem"] = theta["tau_mem"]
-            params[1]["tau_syn"] = theta["tau_syn"]
-            params[1]["bias"] = theta["bias"]
-            # - Evaluate: f(X,Theta*)
-            spiking_output, _, _ = net._evolve_functional(params=params, all_states=net._state, ext_inputs=input_batch_t)
-            # - Compute the loss
-            lip = jnp.mean((output_batch_t - spiking_output)**2) / dict_norm(theta_start,theta)
-            return lip
-
-        def evolve_using(theta):
-            params = net._pack()
-            params[1]["tau_mem"] = theta["tau_mem"]
-            params[1]["tau_syn"] = theta["tau_syn"]
-            params[1]["bias"] = theta["bias"]
-            # - Evaluate: f(X,Theta*)
-            spiking_output, _, _ = net._evolve_functional(params=params, all_states=net._state, ext_inputs=input_batch_t)
-            return spiking_output
-
-        
-        step_size = 0.005
-        number_steps = 5
-        beta = 1.0
-        initial_std = 0.05
-        key = rand.PRNGKey(jnp.sum(input_batch_t).astype(int))
-        _, *sks = rand.split(key, 7)
-
-        theta_random = {}
-        theta_random["bias"] =  theta_start["bias"] + theta_start["bias"]*initial_std*rand.normal(key = sks[0])
-        theta_random["tau_syn"] = jnp.abs(theta_start["tau_syn"] + theta_start["tau_syn"]*initial_std*rand.normal(key = sks[1]))
-        theta_random["tau_mem"] = jnp.abs(theta_start["tau_mem"] + theta_start["tau_mem"]*initial_std*rand.normal(key = sks[2]))
-
-        theta_star = {}
-        theta_star["bias"] =  theta_start["bias"]  + theta_start["bias"]*initial_std*rand.normal(key = sks[3])
-        theta_star["tau_syn"] = jnp.abs(theta_start["tau_syn"] + theta_start["tau_syn"]*initial_std*rand.normal(key = sks[4]))
-        theta_star["tau_mem"] = jnp.abs(theta_start["tau_mem"] + theta_start["tau_mem"]*initial_std*rand.normal(key = sks[5]))
-        
-        lipschitzness_over_time = []
-        theta_start_star_distance = []
-        batched_output_over_time = []
-
-        batched_output_over_time.append(evolve_using(theta_random))
-        for _ in range(number_steps):
-            # - Evaluate Lipschitzness for each Theta
-            lipschitzness_over_time.append(lipschitzness(theta_star))
-            theta_start_star_distance.append(dict_norm(theta_star,theta_start))
-            # - Compute the gradient w.r.t. theta
-            theta_grad = grad(lipschitzness)(theta_star)
-            batched_output_over_time.append(evolve_using(theta_star))
-
-            # - Update theta_star
-            for key in theta_star.keys():
-                # - Normalize gradient and do update
-                # TODO
-                theta_star[key] = theta_star[key] + step_size*theta_grad[key] / jnp.linalg.norm(theta_grad[key])
-                # - Compute deviation and clamp to
-                # TODO
-
-        lipschitzness_over_time.append(lipschitzness(theta_star))
-        theta_start_star_distance.append(dict_norm(theta_star,theta_start))
-        lipschitzness_random = lipschitzness(theta_random)
-
-        loss_lip = beta*lipschitzness(theta=theta_star)
-        
-        # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
-        fLoss = mse + tau_loss + w_res_norm + act_loss + loss_lip
-
-        loss_dict = {}
-        loss_dict["fLoss"] = fLoss
-        loss_dict["mse"] = mse
-        loss_dict["tau_loss"] = tau_loss
-        loss_dict["w_res_norm"] = w_res_norm
-        loss_dict["loss_lip"] = loss_lip
-        loss_dict["lipschitzness_over_time"] = lipschitzness_over_time
-        loss_dict["theta_start_star_distance"] = theta_start_star_distance
-        loss_dict["theta_start"] = theta_start
-        loss_dict["theta_star"] = theta_star
-        loss_dict["lipschitzness_random"] = lipschitzness_random
-        loss_dict["random_distance_to_start"] = dict_norm(theta_start, theta_random)
-        loss_dict["batched_output_over_time"] = batched_output_over_time
-        loss_dict["output_batch_t"] = output_batch_t
-
-        # - Return loss
-        return (fLoss, loss_dict)
-
-@jit
-def loss_mse_reg_stack(
-            params,
-            states_t,
-            input_batch_t,
-            output_batch_t,
-            target_batch_t,
-            min_tau,
-            lambda_mse,
-            reg_tau,
-            reg_l2_rec,
-            reg_act1,
-            reg_act2,
-    ):
-        """
-        Loss function for target versus output
-
-        :param List params:                 List of packed parameters from each layer
-        :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
-        :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
-        :param float min_tau:               Minimum time constant
-        :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
-        :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
-        :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
-
-        :return float: Current loss value
-        """
-        # - Measure output-target loss
-        mse = lambda_mse * jnp.mean((output_batch_t - target_batch_t) ** 2)
-
-        # - Get loss for tau parameter constraints
-        # - Measure recurrent L2 norms
-        tau_loss = 0.0
-        w_res_norm = 0.0
-        act_loss = 0.0
-        
-        lyrIn = params[0]
-        lyrRes = params[1]
-        lyrRO = params[2]
-        
-        taus = jnp.concatenate((
-            lyrIn["tau_mem"],
-            lyrIn["tau_syn"],
-            lyrRes["tau_mem"],
-            lyrRes["tau_syn"],
-            lyrRO["tau_syn"],
-        ))
-        
-        tau_loss += reg_tau * jnp.mean(
-            jnp.where(
-                taus < min_tau,
-                jnp.exp(-(taus - min_tau)),
-                0,
-            )
-        )
-        
-        w_res_norm += reg_l2_rec * jnp.mean(lyrIn["w_in"] ** 2)    
-        w_res_norm += reg_l2_rec * jnp.mean(lyrRes["w_recurrent"] ** 2)
-
-        act_loss += reg_act1 * jnp.mean(states_t[1]["surrogate"])
-        act_loss += reg_act2 * jnp.mean(states_t[1]["Vmem"] ** 2)
-        
-        # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
-        fLoss = mse + tau_loss + w_res_norm + act_loss
-
-        loss_dict = {}
-        loss_dict["fLoss"] = fLoss
-        loss_dict["mse"] = mse
-        loss_dict["tau_loss"] = tau_loss
-        loss_dict["w_res_norm"] = w_res_norm
-
-        # - Return loss
-        return (fLoss, loss_dict)
 
 class HeySnipsNetworkADS(BaseModel):
     def __init__(self,
@@ -300,9 +61,9 @@ class HeySnipsNetworkADS(BaseModel):
         with open(rate_net_path, "r") as f:
             config = json.load(f)
 
-        self.w_in = onp.array(config['w_in'])
-        self.w_rec = onp.array(config['w_recurrent'])
-        self.w_out = onp.array(config['w_out'])
+        self.w_in = np.array(config['w_in'])
+        self.w_rec = np.array(config['w_recurrent'])
+        self.w_out = np.array(config['w_out'])
         self.bias = config['bias']
         self.tau_rate = config['tau']
 
@@ -347,11 +108,11 @@ class HeySnipsNetworkADS(BaseModel):
                 w_spiking_out = self.w_scale_out * self.w_out
             else:
                 # - Works well for 512 neurons
-                D = 0.01*onp.random.randn(self.num_neurons, self.num_units)
+                D = 0.01*np.random.randn(self.num_neurons, self.num_units)
                 w_spiking_in = self.w_scale_in * (self.w_in @ D.T)
-                w_spiking_rec = onp.zeros((self.num_neurons, self.num_neurons))
+                w_spiking_rec = np.zeros((self.num_neurons, self.num_neurons))
                 w_spiking_out = self.w_scale_out * (D @ self.w_out)
-                spiking_bias = onp.mean(self.bias)
+                spiking_bias = np.mean(self.bias)
                 spiking_tau_mem = 0.05
 
             lyrLIFInput = FFLIFCurrentInJax_SO(
@@ -430,13 +191,13 @@ class HeySnipsNetworkADS(BaseModel):
 
             for batch_id, [batch, _] in enumerate(data_loader.train_set()):
 
-                filtered = onp.stack([s[0][1] for s in batch])
+                filtered = np.stack([s[0][1] for s in batch])
                 # - Get the output of the rate network for the batch, shape [batch_size, T, N_out]
-                tgt_signals = onp.stack([s[2] for s in batch])
+                tgt_signals = np.stack([s[2] for s in batch])
                 target_labels = [s[1] for s in batch]
                 batched_rate_output = self.get_data(filtered_batch=filtered)
                 tgt_signals = tgt_signals[:,:filtered.shape[1],:]
-                time_base = onp.arange(0,filtered.shape[1]*self.dt, self.dt)
+                time_base = np.arange(0,filtered.shape[1]*self.dt, self.dt)
 
                 loss_params = {'min_tau': 0.01,
                             'reg_tau': 10000.0,
@@ -463,20 +224,20 @@ class HeySnipsNetworkADS(BaseModel):
 
                 epoch_loss += fLoss[0]
                 losses.append(fLoss[0])
-                mses.append(onp.sum(fLoss[1]["mse"]))
+                mses.append(np.sum(fLoss[1]["mse"]))
                 if(self.use_lipschitzness):
-                    lip_losses.append(onp.sum(fLoss[1]["loss_lip"]))
+                    lip_losses.append(np.sum(fLoss[1]["loss_lip"]))
 
                 print("--------------------", flush=True)
                 print("Epoch", epoch, "Batch ID", batch_id , flush=True)
                 if(self.use_lipschitzness):
-                    print("Loss", fLoss[0], "MSE Loss:", onp.sum(fLoss[1]["mse"]), "Lipschitzness Loss:", onp.sum(fLoss[1]["loss_lip"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
-                    print("Lipschitzness over time", [float(e) for e in onp.array(fLoss[1]["lipschitzness_over_time"])])
-                    print("Distance theta start, theta star", [float(e) for e in onp.array(fLoss[1]["theta_start_star_distance"])])
+                    print("Loss", fLoss[0], "MSE Loss:", np.sum(fLoss[1]["mse"]), "Lipschitzness Loss:", np.sum(fLoss[1]["loss_lip"]), "Mean w_rec", np.mean(self.net.LIF_Reservoir.weights), flush=True)
+                    print("Lipschitzness over time", [float(e) for e in np.array(fLoss[1]["lipschitzness_over_time"])])
+                    print("Distance theta start, theta star", [float(e) for e in np.array(fLoss[1]["theta_start_star_distance"])])
                     print("lipschitzness_random", fLoss[1]["lipschitzness_random"])
                     print("random_distance_to_start", fLoss[1]["random_distance_to_start"])
                 else:
-                    print("Loss", fLoss[0], "MSE Loss:", onp.sum(fLoss[1]["mse"]), "Mean w_rec", onp.mean(self.net.LIF_Reservoir.weights), flush=True)
+                    print("Loss", fLoss[0], "MSE Loss:", np.sum(fLoss[1]["mse"]), "Mean w_rec", np.mean(self.net.LIF_Reservoir.weights), flush=True)
                 print("--------------------", flush=True)
 
                 # plt.clf()
@@ -535,10 +296,10 @@ class HeySnipsNetworkADS(BaseModel):
             if(batch_id*data_loader.batch_size > 1000):
                 break
             
-            filtered = onp.stack([s[0][1] for s in batch])
+            filtered = np.stack([s[0][1] for s in batch])
             target_labels = [s[1] for s in batch]
             batched_spiking_output, _, _ = vmap(self.net._evolve_functional, in_axes=(None, None, 0))(self.net._pack(), self.net._state, filtered)
-            tgt_signals = onp.stack([s[2] for s in batch])
+            tgt_signals = np.stack([s[2] for s in batch])
             tgt_signals = tgt_signals[:,:filtered.shape[1],:]
             batched_rate_output = self.get_data(filtered_batch=filtered)
             counter += batched_spiking_output.shape[0]
@@ -546,22 +307,22 @@ class HeySnipsNetworkADS(BaseModel):
             for idx in range(batched_spiking_output.shape[0]):
 
                 # - Compute the integral for the points that lie above threshold0
-                integral_final_out = onp.copy(batched_spiking_output[idx])
+                integral_final_out = np.copy(batched_spiking_output[idx])
                 integral_final_out[integral_final_out < self.threshold0] = 0.0
                 for t,val in enumerate(integral_final_out):
                     if(val > 0.0):
                         integral_final_out[t] = val + integral_final_out[t-1]
-                integral_pairs.append((onp.max(integral_final_out),target_labels[idx]))
+                integral_pairs.append((np.max(integral_final_out),target_labels[idx]))
 
                 predicted_label = 0
-                if(onp.any(batched_spiking_output[idx] > self.threshold)):
+                if(np.any(batched_spiking_output[idx] > self.threshold)):
                     predicted_label = 1
                 
                 if(predicted_label == target_labels[idx]):
                     correct += 1
 
                 predicted_rate_label = 0
-                if(onp.any(batched_rate_output[idx] > self.threshold)):
+                if(np.any(batched_rate_output[idx] > self.threshold)):
                     predicted_rate_label = 1
                 
                 if(predicted_rate_label == target_labels[idx]):
@@ -592,11 +353,11 @@ class HeySnipsNetworkADS(BaseModel):
         print("Validation accuracy is %.3f | Rate accuracy is %.3f" % (val_acc, rate_acc), flush=True)
 
         # - Find best boundaries for classification using the continuous integral
-        min_val = onp.min([x for (x,y) in integral_pairs])
-        max_val = onp.max([x for (x,y) in integral_pairs])
+        min_val = np.min([x for (x,y) in integral_pairs])
+        max_val = np.max([x for (x,y) in integral_pairs])
         best_boundary = min_val
         best_acc = 0.5
-        for boundary in onp.linspace(min_val, max_val, 1000):
+        for boundary in np.linspace(min_val, max_val, 1000):
             acc = (len([x for (x,y) in integral_pairs if y == 1 and x > boundary]) + len([x for (x,y) in integral_pairs if y == 0 and x <= boundary])) / len(integral_pairs)
             if(acc >= best_acc):
                 best_acc = acc
@@ -618,10 +379,10 @@ class HeySnipsNetworkADS(BaseModel):
             if(batch_id*data_loader.batch_size > 1000):
                 break
 
-            filtered = onp.stack([s[0][1] for s in batch])
+            filtered = np.stack([s[0][1] for s in batch])
             target_labels = [s[1] for s in batch]
             batched_spiking_output, _, _ = vmap(self.net._evolve_functional, in_axes=(None, None, 0))(self.net._pack(), self.net._state, filtered)
-            tgt_signals = onp.stack([s[2] for s in batch])
+            tgt_signals = np.stack([s[2] for s in batch])
             batched_rate_output = self.get_data(filtered_batch=filtered)
 
             counter += batched_spiking_output.shape[0]
@@ -629,21 +390,21 @@ class HeySnipsNetworkADS(BaseModel):
             for idx in range(batched_spiking_output.shape[0]):
 
                 # - Compute the integral for the points that lie above threshold0
-                integral_final_out = onp.copy(batched_spiking_output[idx])
+                integral_final_out = np.copy(batched_spiking_output[idx])
                 integral_final_out[integral_final_out < self.threshold0] = 0.0
                 for t,val in enumerate(integral_final_out):
                     if(val > 0.0):
                         integral_final_out[t] = val + integral_final_out[t-1]
 
                 predicted_label = 0
-                if(onp.max(integral_final_out) > self.best_boundary):
+                if(np.max(integral_final_out) > self.best_boundary):
                     predicted_label = 1
 
                 if(predicted_label == target_labels[idx]):
                     correct += 1
 
                 predicted_rate_label = 0
-                if(onp.any(batched_rate_output[idx] > self.threshold)):
+                if(np.any(batched_rate_output[idx] > self.threshold)):
                     predicted_rate_label = 1
                 
                 if(predicted_rate_label == target_labels[idx]):
@@ -657,9 +418,9 @@ class HeySnipsNetworkADS(BaseModel):
                 if(self.verbose > 1):
                     # - Also evolve over input and plot a little bit
                     plt.clf()
-                    plt.plot(onp.linspace(0,5,batched_spiking_output.shape[1]), batched_spiking_output[0], label="Spiking")
-                    plt.plot(onp.linspace(0,5,tgt_signals.shape[1]), tgt_signals[0], label="Target")
-                    plt.plot(onp.linspace(0,5,batched_rate_output.shape[1]), batched_rate_output[0], label="Rate")
+                    plt.plot(np.linspace(0,5,batched_spiking_output.shape[1]), batched_spiking_output[0], label="Spiking")
+                    plt.plot(np.linspace(0,5,tgt_signals.shape[1]), tgt_signals[0], label="Target")
+                    plt.plot(np.linspace(0,5,batched_rate_output.shape[1]), batched_rate_output[0], label="Rate")
                     plt.ylim([-0.3,1.0])
                     plt.legend()
                     plt.draw()
@@ -672,7 +433,7 @@ class HeySnipsNetworkADS(BaseModel):
 
 if __name__ == "__main__":
 
-    # onp.random.seed(42)
+    # np.random.seed(42)
 
     parser = argparse.ArgumentParser(description='Learn classifier using pre-trained rate network')
     
@@ -701,9 +462,9 @@ if __name__ == "__main__":
                             is_tracking=False,
                             one_hot=False)
 
-    num_train_batches = int(onp.ceil(experiment.num_train_samples / batch_size))
-    num_val_batches = int(onp.ceil(experiment.num_val_samples / batch_size))
-    num_test_batches = int(onp.ceil(experiment.num_test_samples / batch_size))
+    num_train_batches = int(np.ceil(experiment.num_train_samples / batch_size))
+    num_val_batches = int(np.ceil(experiment.num_val_samples / batch_size))
+    num_test_batches = int(np.ceil(experiment.num_test_samples / batch_size))
 
     model = HeySnipsNetworkADS(labels=experiment._data_loader.used_labels,
                                 num_neurons=num,
