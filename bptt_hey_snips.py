@@ -23,7 +23,7 @@ if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore")
 import argparse
-from loss import loss_lipschitzness, loss_mse_reg_stack
+from loss import loss_lipschitzness, loss_mse_reg_stack, loss_lipschitzness_verbose
 
 
 class HeySnipsNetworkADS(BaseModel):
@@ -183,7 +183,10 @@ class HeySnipsNetworkADS(BaseModel):
 
         loss_func = loss_mse_reg_stack
         if(self.use_lipschitzness):
-            loss_func = loss_lipschitzness
+            if(self.verbose > 0):
+                loss_func = loss_lipschitzness_verbose
+            else:
+                loss_func = loss_lipschitzness
 
         for epoch in range(self.num_epochs):
 
@@ -232,10 +235,11 @@ class HeySnipsNetworkADS(BaseModel):
                 print("Epoch", epoch, "Batch ID", batch_id , flush=True)
                 if(self.use_lipschitzness):
                     print("Loss", fLoss[0], "MSE Loss:", np.sum(fLoss[1]["mse"]), "Lipschitzness Loss:", np.sum(fLoss[1]["loss_lip"]), "Mean w_rec", np.mean(self.net.LIF_Reservoir.weights), flush=True)
-                    print("Lipschitzness over time", [float(e) for e in np.array(fLoss[1]["lipschitzness_over_time"])])
-                    print("Distance theta start, theta star", [float(e) for e in np.array(fLoss[1]["theta_start_star_distance"])])
-                    print("lipschitzness_random", fLoss[1]["lipschitzness_random"])
-                    print("random_distance_to_start", fLoss[1]["random_distance_to_start"])
+                    if(self.verbose > 0):
+                        print("Lipschitzness over time", [float(e) for e in np.array(fLoss[1]["lipschitzness_over_time"])])
+                        print("Distance theta start, theta star", [float(e) for e in np.array(fLoss[1]["theta_start_star_distance"])])
+                        print("lipschitzness_random", fLoss[1]["lipschitzness_random"])
+                        print("random_distance_to_start", fLoss[1]["random_distance_to_start"])
                 else:
                     print("Loss", fLoss[0], "MSE Loss:", np.sum(fLoss[1]["mse"]), "Mean w_rec", np.mean(self.net.LIF_Reservoir.weights), flush=True)
                 print("--------------------", flush=True)
@@ -255,7 +259,7 @@ class HeySnipsNetworkADS(BaseModel):
                 # plt.draw()
                 # plt.pause(0.1)
 
-                if(self.use_lipschitzness):
+                if(self.use_lipschitzness and self.verbose > 0):
                     plt.clf()
                     plt.plot(time_base, tgt_signals[0], label="Target")
                     plt.plot(time_base, fLoss[1]["output_batch_t"][0], label="Output")
@@ -438,7 +442,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Learn classifier using pre-trained rate network')
     
     parser.add_argument('--num', default=512, type=int, help="Number of neurons in the network, best results obtained using 512 neurons")
-    parser.add_argument('--verbose', default=1, type=int, help="Level of verbosity. Default=0. Range: 0 to 2")
+    parser.add_argument('--verbose', default=0, type=int, help="Level of verbosity. Default=0. Range: 0 to 2")
     parser.add_argument('--epochs', default=5, type=int, help="Number of training epochs")
     parser.add_argument('--percentage-data', default=1.0, type=float, help="Percentage of total training data used. Example: 0.02 is 2%.")
     parser.add_argument('--lipschitzness', default=False, action='store_true', help="Use Lipschitzness in loss")
