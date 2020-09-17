@@ -26,7 +26,7 @@ import argparse
 from loss import loss_lipschitzness, loss_mse_reg_stack, loss_lipschitzness_verbose
 
 
-class HeySnipsNetworkADS(BaseModel):
+class HeySnipsBPTT(BaseModel):
     def __init__(self,
                  labels,
                  num_neurons,
@@ -37,7 +37,7 @@ class HeySnipsNetworkADS(BaseModel):
                  name="Snips ADS",
                  version="1.0"):
         
-        super(HeySnipsNetworkADS, self).__init__(name,version)
+        super(HeySnipsBPTT, self).__init__(name,version)
 
         self.num_neurons = num_neurons
         self.num_epochs = num_epochs
@@ -470,7 +470,7 @@ if __name__ == "__main__":
     num_val_batches = int(np.ceil(experiment.num_val_samples / batch_size))
     num_test_batches = int(np.ceil(experiment.num_test_samples / batch_size))
 
-    model = HeySnipsNetworkADS(labels=experiment._data_loader.used_labels,
+    model = HeySnipsBPTT(labels=experiment._data_loader.used_labels,
                                 num_neurons=num,
                                 num_epochs=num_epochs,
                                 verbose=verbose,
