@@ -210,6 +210,10 @@ class HeySnipsBPTT(BaseModel):
                             'lambda_mse': 1000.0}
                 if(self.use_lipschitzness):
                     loss_params['net'] = self.net
+                    loss_params['step_size'] = 0.005
+                    loss_params['number_steps'] = 5
+                    loss_params['beta'] = 1.0
+                    loss_params['initial_std'] = 0.05
 
                 # - Do the training step
                 self.net.reset_all()

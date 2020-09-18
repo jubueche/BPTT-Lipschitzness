@@ -44,6 +44,10 @@ def loss_lipschitzness_verbose(
             reg_l2_rec,
             reg_act1,
             reg_act2,
+            step_size,
+            number_steps,
+            beta,
+            initial_std
     ):  
         lyrIn = params[0]
         lyrRes = params[1]
@@ -52,10 +56,6 @@ def loss_lipschitzness_verbose(
         # - Lipschitzness loss
         theta_start = {"tau_mem": lyrRes["tau_mem"], "tau_syn": lyrRes["tau_syn"], "bias": lyrRes["bias"]}
 
-        step_size = 0.005
-        number_steps = 5
-        beta = 1.0
-        initial_std = 0.05
         key = rand.PRNGKey(jnp.sum(input_batch_t).astype(int))
         _, *sks = rand.split(key, 7)
 
@@ -85,7 +85,7 @@ def loss_lipschitzness_verbose(
             # - Update theta_star
             for key in theta_star.keys():
                 # - Normalize gradient and do update
-                theta_star[key] = theta_star[key] + step_size*theta_grad[key] / jnp.linalg.norm(theta_grad[key])
+                theta_star[key] = theta_star[key] + step_size*theta_grad[key] # / jnp.linalg.norm(theta_grad[key]) # Seems to trigger NaNs in gradient when loss is really low
                 # - Compute deviation and clamp to
                 # TODO
 
@@ -142,6 +142,10 @@ def loss_lipschitzness(
             reg_l2_rec,
             reg_act1,
             reg_act2,
+            step_size,
+            number_steps,
+            beta,
+            initial_std    
     ):  
         lyrIn = params[0]
         lyrRes = params[1]
@@ -150,10 +154,10 @@ def loss_lipschitzness(
         # - Lipschitzness loss
         theta_start = {"tau_mem": lyrRes["tau_mem"], "tau_syn": lyrRes["tau_syn"], "bias": lyrRes["bias"]}
         
-        step_size = 0.005
-        number_steps = 5
-        beta = 1.0
-        initial_std = 0.05
+        # step_size = 0.005
+        # number_steps = 5
+        # beta = 1.0
+        # initial_std = 0.05
         key = rand.PRNGKey(jnp.sum(input_batch_t).astype(int))
         _, *sks = rand.split(key, 4)
 
