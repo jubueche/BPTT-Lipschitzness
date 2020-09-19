@@ -1,4 +1,5 @@
 from scipy.signal import butter, sosfilt
+from scipy.ndimage import gaussian_filter
 import numpy as np
 from typing import Optional
 
@@ -107,3 +108,10 @@ class Subsample:
 
     def __call__(self, signal):
         return signal[..., ::self.downsample]
+
+class Smooth:
+    def __init__(self, sigma=0.5):
+        self.sigma = sigma
+    
+    def __call__(self, signal):
+        return gaussian_filter(signal, sigma=self.sigma)

@@ -9,7 +9,23 @@ from scipy.signal import find_peaks
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 from typing import Dict, Callable, List, Optional
+import datetime
 
+def get_latest_model(base_path):
+    models = os.listdir(base_path)
+    dates = []
+    for idx,model in enumerate(models):
+        try:
+            date_time_obj = datetime.datetime.strptime(model, '%Y-%m-%d-%H-%M-%S.model')
+        except:
+            continue
+        else:
+            dates.append((date_time_obj,idx))
+    # - Sort in ascending order
+    dates_sorted = sorted(dates, key= lambda x : x[0])
+    if(len(dates_sorted) == 0):
+        return None
+    return models[dates_sorted[-1][1]]
 
 def gen_label_map(data_list, key_words: Optional[List[str]] = None) -> Dict:
     """

@@ -23,7 +23,7 @@ if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore")
 import argparse
-from loss import loss_lipschitzness, loss_mse_reg_stack, loss_lipschitzness_verbose
+from loss import loss_mse_reg_stack, loss_lipschitzness_verbose
 
 
 class HeySnipsBPTT(BaseModel):
@@ -186,7 +186,7 @@ class HeySnipsBPTT(BaseModel):
             if(self.verbose > 0):
                 loss_func = loss_lipschitzness_verbose
             else:
-                loss_func = loss_lipschitzness
+                loss_func = loss_lipschitzness_verbose
 
         for epoch in range(self.num_epochs):
 

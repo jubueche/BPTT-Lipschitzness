@@ -15,8 +15,9 @@ from rockpool.networks import JaxStack
 import os
 import sys
 import argparse
-from loss import loss_lipschitzness, loss_mse_reg_stack, loss_lipschitzness_verbose
+from loss import loss_mse_reg_stack, loss_lipschitzness_verbose
 from data_loader import (
+        get_latest_model,
         AudioDataset,
         get_label_distribution,
         ClassWeightedRandomSampler,
@@ -26,7 +27,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 import torch
-from preprocess import StandardizeDataLength, ButterMel, Subsample
+from preprocess import StandardizeDataLength, ButterMel, Subsample, Smooth
 from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
@@ -63,14 +64,18 @@ class TensorCommandsBPTT():
         self.use_lipschitzness = use_lipschitzness
         self.data_path = data_path
         self.cache_path = cache_path
+        self.resources_path = save_path
         self.verbose = verbose
         self.N_out = len(self.key_words)+1 # - Keywords and "nothing"
-        self.w_scale_in = 0.2
-        self.w_scale_rec = 0.1
-        self.w_scale_out = 0.001
         self.num_filters = 64
         self.dt = 0.001
         self.time_base = np.linspace(0.0,1.0,100)
+
+        self.tau_mem_rec = 0.05
+        self.tau_syn_out = 0.07
+        self.w_scale_in = self.tau_mem_rec / (self.dt*self.num_filters)
+        self.w_scale_rec = self.tau_mem_rec / (self.dt*self.num_neurons)
+        self.w_scale_out = self.tau_syn_out / (self.dt*self.num_neurons) * 0.1
 
         # - Initialize PyTorch summary writer
         str_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
@@ -91,6 +96,7 @@ class TensorCommandsBPTT():
             [
                 StandardizeDataLength(data_length=16000),
                 Subsample(downsample=160),
+                Smooth(sigma=5.0),
             ]
         )
 
@@ -109,40 +115,46 @@ class TensorCommandsBPTT():
         self.net = self.init_model()
 
     def init_model(self):
-        w_spiking_in = self.w_scale_in * np.random.randn(self.num_filters, self.num_neurons)
-        w_spiking_rec = np.zeros((self.num_neurons, self.num_neurons))
-        w_spiking_out = self.w_scale_out * np.random.randn(self.num_epochs, self.N_out)
-        spiking_bias = -0.01 * np.ones(self.num_neurons)
-        spiking_tau_mem = 0.05
 
-        lyrLIFInput = FFLIFCurrentInJax_SO(
-            w_in = w_spiking_in,
-            tau_syn = 0.1,
-            tau_mem = 0.1,
-            bias = 0.,
-            noise_std = 0.0,
-            dt = self.dt,
-            name = 'LIF_Input',    
-        )
+        # - Try to find a model
+        model_path = get_latest_model(self.resources_path)
+        if(model_path is None or True):
+            w_spiking_in = self.w_scale_in * np.random.randn(self.num_filters, self.num_neurons)
+            w_spiking_rec =  self.w_scale_rec * np.random.randn(self.num_neurons, self.num_neurons)
+            w_spiking_out = self.w_scale_out * np.random.randn(self.num_neurons, self.N_out)
+            spiking_bias = -0.01 * np.ones(self.num_neurons)
 
-        lyrLIFRecurrent = RecLIFCurrentInJax_SO(
-            w_recurrent = w_spiking_rec,
-            tau_mem = spiking_tau_mem,
-            tau_syn = 0.07,
-            bias = spiking_bias,
-            noise_std = 0.0,
-            dt = self.dt,
-            name = 'LIF_Reservoir',
-        )
+            lyrLIFInput = FFLIFCurrentInJax_SO(
+                w_in = w_spiking_in,
+                tau_syn = 0.1,
+                tau_mem = 0.1,
+                bias = 0.,
+                noise_std = 0.0,
+                dt = self.dt,
+                name = 'LIF_Input',    
+            )
 
-        lyrLIFReadout = FFExpSynCurrentInJax(
-            w_out = w_spiking_out,
-            tau = 0.07,
-            noise_std = 0.0,
-            dt = self.dt,
-            name = 'LIF_Readout',
-        )
-        net = JaxStack([lyrLIFInput, lyrLIFRecurrent, lyrLIFReadout])
+            lyrLIFRecurrent = RecLIFCurrentInJax_SO(
+                w_recurrent = w_spiking_rec,
+                tau_mem = self.tau_mem_rec,
+                tau_syn = 0.07,
+                bias = spiking_bias,
+                noise_std = 0.0,
+                dt = self.dt,
+                name = 'LIF_Reservoir',
+            )
+
+            lyrLIFReadout = FFExpSynCurrentInJax(
+                w_out = w_spiking_out,
+                tau = self.tau_syn_out,
+                noise_std = 0.0,
+                dt = self.dt,
+                name = 'LIF_Readout',
+            )
+            net = JaxStack([lyrLIFInput, lyrLIFRecurrent, lyrLIFReadout])
+        else:
+            net = self.load_net(os.path.join(self.resources_path, model_path))
+            print(f"Loaded network {os.path.join(self.resources_path, model_path)}")
         return net
 
     def save(self, fn):
@@ -172,10 +184,10 @@ class TensorCommandsBPTT():
             if(self.verbose > 0):
                 loss_func = loss_lipschitzness_verbose
             else:
-                loss_func = loss_lipschitzness
+                loss_func = loss_lipschitzness_verbose
 
         loss_params = {'min_tau': 0.01,
-                            'reg_tau': 10000.0,
+                            'reg_tau': 1000000.0,
                             'reg_l2_rec': 100000.0,
                             'reg_act1': 2.0,
                             'reg_act2': 2.0,
@@ -191,7 +203,7 @@ class TensorCommandsBPTT():
                     loss_params['net'] = self.net
                     loss_params['step_size'] = 0.005
                     loss_params['number_steps'] = 5
-                    loss_params['beta'] = 1.0
+                    loss_params['beta'] = 100.0
                     loss_params['initial_std'] = 0.05
 
                 self.net.reset_all()
@@ -203,7 +215,7 @@ class TensorCommandsBPTT():
                     loss_aux = True,
                     debug_nans = False,
                     loss_fcn = loss_func,
-                    opt_params = {"step_size": 1e-4},
+                    opt_params = {"step_size": 1e-5},
                     loss_params = loss_params)
                 is_first = False
 
@@ -231,11 +243,22 @@ class TensorCommandsBPTT():
                     ax.legend(lines, [r"Target", r"Output", r"Random"], frameon=False, loc=1, prop={'size': 7})
                     plt.draw()
                     plt.pause(0.001)
+                elif(self.verbose > 0):
+                    plt.clf()
+                    ax = plt.gca()
+                    stagger = np.zeros((target_signals[0].shape))
+                    stagger[1,:] +=1.5 ; stagger[2,:] += 3.0
+                    ax.plot(self.time_base, fLoss[1]["output_batch_t"][0]+stagger.T, color="k")
+                    ax.plot(self.time_base, (target_signals[0]+stagger).T, color="r")
+                    plt.draw()
+                    plt.pause(0.001)
 
                 n_iter = epoch_id*self.batch_size+batch_id
                 self.writer.add_scalar("Loss/MSE", float(np.mean(fLoss[1]["mse"])), n_iter)
                 self.writer.add_scalar("Loss/tau_loss", float(np.mean(fLoss[1]["tau_loss"])), n_iter)
                 self.writer.add_scalar("Loss/Loss", float(fLoss[0]), n_iter)
+                self.writer.add_scalar("Weights/Rec", np.max(self.net.LIF_Reservoir.w_recurrent), n_iter)
+                self.writer.add_scalar("min_tau_mem/Rec", np.min(self.net.LIF_Reservoir.tau_mem), n_iter)
                 if(self.use_lipschitzness):
                     self.writer.add_scalar("Loss/Lipschitzness", float(np.mean(fLoss[1]["loss_lip"])), n_iter)
 
@@ -284,11 +307,11 @@ if __name__ == "__main__":
     num_epochs = 10
     batch_size = 50
     key_words = ["yes", "no"]
-    use_lipschitzness = False
+    use_lipschitzness = True
     data_path = "/home/julian/aiCTX Dropbox/Engineering/Datasets/TensorCommands"
     cache_path = "/home/julian/Documents/BPTT-Lipschitzness/cached"
     save_path = "/home/julian/Documents/BPTT-Lipschitzness/Resources"
-    verbose = 0
+    verbose = 1
 
     model = TensorCommandsBPTT(num_neurons=num_neurons,
                                 num_epochs=num_epochs,
