@@ -308,7 +308,7 @@ if __name__ == "__main__":
     batch_size = 50
     key_words = ["yes", "no"]
     use_lipschitzness = True
-    data_path = "/home/julian/aiCTX Dropbox/Engineering/Datasets/TensorCommands"
+    data_path = "/home/julian/Datasets/TensorCommands"
     cache_path = "/home/julian/Documents/BPTT-Lipschitzness/cached"
     save_path = "/home/julian/Documents/BPTT-Lipschitzness/Resources"
     verbose = 1
