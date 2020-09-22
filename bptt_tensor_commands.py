@@ -43,7 +43,10 @@ class TensorCommandsBPTT():
                             target_signal_transform=target_transform,
                             cache=self.cache_path
                         )
-        return ds
+
+        labels = [ds.label_map[k] for k in ds.data_list[:, 1]]
+        sampler = ClassWeightedRandomSampler(labels, torch.ones(len(self.key_words) + 1))
+        return DataLoader(ds, batch_size=self.batch_size, sampler=sampler)
 
 
     def __init__(self,
@@ -101,15 +104,9 @@ class TensorCommandsBPTT():
         )
 
         # - Initialize the data loaders
-        train_dataset = self.init_data_set("train", data_transform, target_transform)
-        val_dataset = self.init_data_set("val", data_transform, target_transform)
-        test_dataset = self.init_data_set("test", data_transform, target_transform)
-
-        train_labels = [train_dataset.label_map[k] for k in train_dataset.data_list[:, 1]]
-        sampler = ClassWeightedRandomSampler(train_labels, torch.ones(len(key_words) + 1))
-        self.train_data_loader = DataLoader(train_dataset, batch_size=self.batch_size, sampler=sampler)
-        self.val_data_loader = DataLoader(val_dataset, batch_size=self.batch_size)
-        self.test_data_loader = DataLoader(test_dataset, batch_size=self.batch_size)
+        self.train_data_loader = self.init_data_set("train", data_transform, target_transform)
+        self.val_data_loader = self.init_data_set("val", data_transform, target_transform)
+        self.test_data_loader = self.init_data_set("test", data_transform, target_transform)
 
         # - Initialize model
         self.net = self.init_model()
@@ -118,7 +115,7 @@ class TensorCommandsBPTT():
 
         # - Try to find a model
         model_path = get_latest_model(self.resources_path)
-        if(model_path is None or True):
+        if(model_path is None):
             w_spiking_in = self.w_scale_in * np.random.randn(self.num_filters, self.num_neurons)
             w_spiking_rec =  self.w_scale_rec * np.random.randn(self.num_neurons, self.num_neurons)
             w_spiking_out = self.w_scale_out * np.random.randn(self.num_neurons, self.N_out)
@@ -126,8 +123,8 @@ class TensorCommandsBPTT():
 
             lyrLIFInput = FFLIFCurrentInJax_SO(
                 w_in = w_spiking_in,
-                tau_syn = 0.1,
-                tau_mem = 0.1,
+                tau_syn = 0.05,
+                tau_mem = 0.05,
                 bias = 0.,
                 noise_std = 0.0,
                 dt = self.dt,
@@ -137,7 +134,7 @@ class TensorCommandsBPTT():
             lyrLIFRecurrent = RecLIFCurrentInJax_SO(
                 w_recurrent = w_spiking_rec,
                 tau_mem = self.tau_mem_rec,
-                tau_syn = 0.07,
+                tau_syn = 0.05,
                 bias = spiking_bias,
                 noise_std = 0.0,
                 dt = self.dt,
@@ -187,11 +184,11 @@ class TensorCommandsBPTT():
                 loss_func = loss_lipschitzness_verbose
 
         loss_params = {'min_tau': 0.01,
-                            'reg_tau': 1000000.0,
-                            'reg_l2_rec': 100000.0,
-                            'reg_act1': 2.0,
-                            'reg_act2': 2.0,
-                            'lambda_mse': 1000.0}
+                            'reg_tau': 1000.0,
+                            'reg_l2_rec': 1000.0,
+                            'reg_act1': 0.0,
+                            'reg_act2': 0.0,
+                            'lambda_mse': 10000.0}
         
         pbar = tqdm(range(self.num_epochs))
         for epoch in pbar:
@@ -201,10 +198,10 @@ class TensorCommandsBPTT():
 
                 if(self.use_lipschitzness):
                     loss_params['net'] = self.net
-                    loss_params['step_size'] = 0.005
-                    loss_params['number_steps'] = 5
+                    loss_params['step_size'] = 0.0005
+                    loss_params['number_steps'] = 10
                     loss_params['beta'] = 100.0
-                    loss_params['initial_std'] = 0.05
+                    loss_params['initial_std'] = 0.2
 
                 self.net.reset_all()
                 fLoss, _, _ = self.net.train_output_target(
@@ -247,20 +244,22 @@ class TensorCommandsBPTT():
                     plt.clf()
                     ax = plt.gca()
                     stagger = np.zeros((target_signals[0].shape))
-                    stagger[1,:] +=1.5 ; stagger[2,:] += 3.0
+                    stagger[1,:] += 1.5 ; stagger[2,:] += 3.0
                     ax.plot(self.time_base, fLoss[1]["output_batch_t"][0]+stagger.T, color="k")
                     ax.plot(self.time_base, (target_signals[0]+stagger).T, color="r")
                     plt.draw()
                     plt.pause(0.001)
 
                 n_iter = epoch_id*self.batch_size+batch_id
-                self.writer.add_scalar("Loss/MSE", float(np.mean(fLoss[1]["mse"])), n_iter)
-                self.writer.add_scalar("Loss/tau_loss", float(np.mean(fLoss[1]["tau_loss"])), n_iter)
+                self.writer.add_scalar("Loss/MSE", float(np.mean(fLoss[1]["mse"])) / loss_params["lambda_mse"], n_iter)
+                self.writer.add_scalar("Loss/tau_loss", float(np.mean(fLoss[1]["tau_loss"])) / loss_params["reg_tau"], n_iter)
                 self.writer.add_scalar("Loss/Loss", float(fLoss[0]), n_iter)
                 self.writer.add_scalar("Weights/Rec", np.max(self.net.LIF_Reservoir.w_recurrent), n_iter)
                 self.writer.add_scalar("min_tau_mem/Rec", np.min(self.net.LIF_Reservoir.tau_mem), n_iter)
                 if(self.use_lipschitzness):
-                    self.writer.add_scalar("Loss/Lipschitzness", float(np.mean(fLoss[1]["loss_lip"])), n_iter)
+                    self.writer.add_scalar("Loss/Lipschitzness", float(np.mean(fLoss[1]["loss_lip"])) / loss_params["beta"], n_iter)
+                    if(self.verbose > 0):
+                        self.writer.add_scalar("Loss/DistanceTheta*-ThetaStart", float(np.mean(fLoss[1]["theta_start_star_distance"])), n_iter)
 
                 batch_id += 1
 
@@ -312,6 +311,7 @@ if __name__ == "__main__":
     cache_path ="/home/serious/Cached"
     save_path = "/home/serious/Resources"
     verbose = 1
+
 
     model = TensorCommandsBPTT(num_neurons=num_neurons,
                                 num_epochs=num_epochs,
