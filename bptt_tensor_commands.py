@@ -79,7 +79,7 @@ class TensorCommandsBPTT():
 
         # - Initialize PyTorch summary writer
         str_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        summary_dir = "/home/julian/Documents/BPTT-Lipschitzness/runs/" + str_time + "/" 
+        summary_dir = "/mnt/c/users/Serious/Documents/github/BPTT-Lipschitzness/runs/" + str_time + "/" 
         self.writer = SummaryWriter(summary_dir)
 
         self.save_path = os.path.join(save_path, str_time + ".model")
@@ -305,12 +305,12 @@ if __name__ == "__main__":
 
     num_neurons = 512
     num_epochs = 10
-    batch_size = 50
+    batch_size = 10
     key_words = ["yes", "no"]
     use_lipschitzness = True
-    data_path = "/home/julian/aiCTX Dropbox/Engineering/Datasets/TensorCommands"
-    cache_path = "/home/julian/Documents/BPTT-Lipschitzness/cached"
-    save_path = "/home/julian/Documents/BPTT-Lipschitzness/Resources"
+    data_path = "/home/serious/Datasets/TensorCommands/"
+    cache_path ="/home/serious/Cached"
+    save_path = "/home/serious/Resources"
     verbose = 1
 
     model = TensorCommandsBPTT(num_neurons=num_neurons,

@@ -68,7 +68,7 @@ def get_label_distribution(label_list, key_words: List[str]) -> (Dict, List):
 class AudioDataset(Dataset):
     def __init__(
         self,
-        path: str = "/home/aiCTX Dropbox/Engineering/Datasets/TensorCommands/",
+        path: str = "/home/serious/Datasets/TensorCommands/",
         config: str = "tensorcommands.json",
         data_partition: str = "train",
         label_map: Callable = gen_label_map,
