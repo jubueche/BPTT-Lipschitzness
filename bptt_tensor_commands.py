@@ -50,39 +50,48 @@ class TensorCommandsBPTT():
 
 
     def __init__(self,
-                    num_neurons,
-                    num_epochs,
-                    batch_size,
-                    key_words,
-                    use_lipschitzness,
                     data_path,
                     cache_path,
                     save_path,
-                    verbose):
+                    key_words,
+                    verbose,
+                    parameters_dict):
 
-        self.num_neurons = num_neurons
-        self.num_epochs = num_epochs
-        self.batch_size = batch_size
-        self.key_words = key_words
-        self.use_lipschitzness = use_lipschitzness
+        self.num_neurons = parameters_dict['num_neurons']
+        self.num_epochs = parameters_dict['epochs']
+        self.batch_size = parameters_dict['batch_size']
+        self.use_lipschitzness = parameters_dict['lipschitzness']
+        self.num_filters = parameters_dict['num_filters']
+        self.tau_mem_rec = parameters_dict['tau_mem_rec']
+        self.tau_syn_out = parameters_dict['tau_syn_out']
+        self.min_tau = parameters_dict['min_tau']
+        self.reg_tau = parameters_dict['reg_tau']
+        self.reg_l2_rec = parameters_dict['reg_l2_rec']
+        self.reg_act1 = parameters_dict['reg_act1']
+        self.reg_act2 = parameters_dict['reg_act2']
+        self.lambda_mse = parameters_dict['lambda_mse']
+        self.step_size = parameters_dict['step_size']
+        self.number_steps = parameters_dict['number_steps']
+        self.beta = parameters_dict['beta']
+        self.initial_std = parameters_dict['initial_std']
+        self.learning_rate = parameters_dict['learning_rate']
+
+        self.key_words = key_words        
         self.data_path = data_path
         self.cache_path = cache_path
         self.resources_path = save_path
-        self.verbose = verbose
+        self.verbose=verbose
         self.N_out = len(self.key_words)+1 # - Keywords and "nothing"
-        self.num_filters = 64
         self.dt = 0.001
         self.time_base = np.linspace(0.0,1.0,100)
-
-        self.tau_mem_rec = 0.05
-        self.tau_syn_out = 0.07
         self.w_scale_in = self.tau_mem_rec / (self.dt*self.num_filters)
         self.w_scale_rec = self.tau_mem_rec / (self.dt*self.num_neurons)
         self.w_scale_out = self.tau_syn_out / (self.dt*self.num_neurons) * 0.1
 
         # - Initialize PyTorch summary writer
         str_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        summary_dir = "/home/julian/Documents/BPTT-Lipschitzness/runs/" + str_time + "/" 
+        summary_dir = "../runs/" + str_time + "/"
+        summary_dir = os.path.join(save_path, summary_dir)
         self.writer = SummaryWriter(summary_dir)
 
         self.save_path = os.path.join(save_path, str_time + ".model")
@@ -183,12 +192,12 @@ class TensorCommandsBPTT():
             else:
                 loss_func = loss_lipschitzness_verbose
 
-        loss_params = {'min_tau': 0.01,
-                            'reg_tau': 1000.0,
-                            'reg_l2_rec': 1000.0,
-                            'reg_act1': 0.0,
-                            'reg_act2': 0.0,
-                            'lambda_mse': 10000.0}
+        loss_params = {'min_tau': self.min_tau,
+                            'reg_tau': self.reg_tau,
+                            'reg_l2_rec': self.reg_l2_rec,
+                            'reg_act1': self.reg_act1,
+                            'reg_act2': self.reg_act2,
+                            'lambda_mse': self.lambda_mse}
         
         pbar = tqdm(range(self.num_epochs))
         for epoch in pbar:
@@ -198,13 +207,13 @@ class TensorCommandsBPTT():
 
                 if(self.use_lipschitzness):
                     loss_params['net'] = self.net
-                    loss_params['step_size'] = 0.0005
-                    loss_params['number_steps'] = 10
-                    loss_params['beta'] = 100.0
-                    loss_params['initial_std'] = 0.2
+                    loss_params['step_size'] = self.step_size
+                    loss_params['number_steps'] = self.number_steps
+                    loss_params['beta'] = self.beta
+                    loss_params['initial_std'] = self.initial_std
 
                 self.net.reset_all()
-                fLoss, _, _ = self.net.train_output_target(
+                fLoss, gradients, _ = self.net.train_output_target(
                     torch.transpose(signals,1,2).numpy(),
                     np.transpose(target_signals, (0,2,1)),
                     is_first = is_first,
@@ -212,7 +221,7 @@ class TensorCommandsBPTT():
                     loss_aux = True,
                     debug_nans = False,
                     loss_fcn = loss_func,
-                    opt_params = {"step_size": 1e-5},
+                    opt_params = {"step_size": self.learning_rate},
                     loss_params = loss_params)
                 is_first = False
 
@@ -254,8 +263,19 @@ class TensorCommandsBPTT():
                 self.writer.add_scalar("Loss/MSE", float(np.mean(fLoss[1]["mse"])) / loss_params["lambda_mse"], n_iter)
                 self.writer.add_scalar("Loss/tau_loss", float(np.mean(fLoss[1]["tau_loss"])) / loss_params["reg_tau"], n_iter)
                 self.writer.add_scalar("Loss/Loss", float(fLoss[0]), n_iter)
-                self.writer.add_scalar("Weights/Rec", np.max(self.net.LIF_Reservoir.w_recurrent), n_iter)
+                self.writer.add_scalar("Weights/Rec", np.max(np.abs(self.net.LIF_Reservoir.w_recurrent)), n_iter)
                 self.writer.add_scalar("min_tau_mem/Rec", np.min(self.net.LIF_Reservoir.tau_mem), n_iter)
+                self.writer.add_scalar("Activation/surrogates", float(np.mean(fLoss[1]["surrogates"])), n_iter)
+                self.writer.add_scalar("Activation/vmem", float(np.mean(fLoss[1]["vmem"])), n_iter)
+                # - Gradient logger
+                for i in range(len(self.net.evol_order)):
+                    for key in gradients[i].keys():
+                        self.writer.add_scalar(f"Gradient-Layer{i}/Max_Abs_{key}", float(np.max(np.abs(gradients[i][key]))), n_iter)
+                    params = self.net.evol_order[i]._pack()
+                    for key in params.keys():
+                        self.writer.add_scalar(f"Parameters-Layer{i}/Max_{key}", float(np.max(params[key])), n_iter)
+                        self.writer.add_scalar(f"Parameters-Layer{i}/Min_{key}", float(np.min(params[key])), n_iter)
+                # - Lipschitzness logging
                 if(self.use_lipschitzness):
                     self.writer.add_scalar("Loss/Lipschitzness", float(np.mean(fLoss[1]["loss_lip"])) / loss_params["beta"], n_iter)
                     if(self.verbose > 0):
@@ -267,7 +287,7 @@ class TensorCommandsBPTT():
             if(val_acc >= best_val_acc):
                 best_val_acc = val_acc
                 self.save(self.save_path)
-            self.writer.add_scalar("Acc/Val", val_acc, epoch_id)
+            self.writer.add_scalar("Loss/Val_acc", val_acc, epoch_id)
             epoch_id += 1
         
         return best_val_acc
@@ -302,26 +322,51 @@ class TensorCommandsBPTT():
 
 if __name__ == "__main__":
 
-    num_neurons = 512
-    num_epochs = 50
-    batch_size = 100
-    key_words = ["yes", "no"]
-    use_lipschitzness = False
-    data_path = "/home/julian/aiCTX Dropbox/Engineering/Datasets/TensorCommands"
-    cache_path = "/home/julian/Documents/BPTT-Lipschitzness/cached"
-    save_path = "/home/julian/Documents/BPTT-Lipschitzness/Resources"
-    verbose = 0
+    parser = argparse.ArgumentParser(description='Train spiking NN using BPTT on tensor commands dataset')
+    
+    parser.add_argument('--num-neurons', default=512, type=int, help="Number of neurons in the network recurrent layer of the network")
+    parser.add_argument('--verbose', default=0, type=int, help="Level of verbosity. Set to > 0 to get verbose outputs")
+    parser.add_argument('--epochs', default=30, type=int, help="Number of training epochs")
+    parser.add_argument('--batch-size', default=50, type=int, help="Batch size")
+    parser.add_argument('--lipschitzness', default=False, action="store_true", help="Use lipschitzness loss")
+    parser.add_argument('--num-filters', default=64, type=int, help="Expansion factor of 1D audio signal")
+    parser.add_argument('--tau-mem-rec', default=0.05, type=float, help="Membrane TC of recurrent neurons")
+    parser.add_argument('--tau-syn-out', default=0.07, type=float, help="Filter TC of output neurons")
+    parser.add_argument('--min-tau', default=0.01, type=float, help="Minimum tau in the system")
+    parser.add_argument('--reg-tau', default=0.1, type=float, help="Regularizer tau loss")
+    parser.add_argument('--reg-l2-rec', default=0.1, type=float, help="Regularizer l2 norm of recurrent weights")
+    parser.add_argument('--reg-act1', default=0.0, type=float, help="Regularizer surrogate activity")
+    parser.add_argument('--reg-act2', default=0.0, type=float, help="Regularizer Vmem")
+    parser.add_argument('--lambda-mse', default=1.0, type=float, help="Regularizer MSE loss")
+    parser.add_argument('--step-size', default=0.0005, type=float, help="Step size for finding Theta* in Lipschitzness loss")
+    parser.add_argument('--number-steps', default=10, type=float, help="Number of steps to find Theta*")
+    parser.add_argument('--beta', default=0.1, type=float, help="Regularizer Lipschitzness loss")
+    parser.add_argument('--initial-std', default=0.2, type=float, help="Initial percentage for mismatch simulation applied to Theta in order to yield initial Theta*")
+    parser.add_argument('--learning-rate', default=1e-6, type=float, help="Learning rate")
+    parser.add_argument('--dir-path', default=os.path.join(os.path.expanduser("~"),"Documents/BPTT-Lipschitzness"), type=str, help="Path leading to the repository, i.e. /home/julian/Documents/BPTT-Lipschitzness")
+    parser.add_argument('--data-path', default=os.path.join(os.path.expanduser("~"),"aiCTX Dropbox/Engineering/Datasets/TensorCommands"), type=str, help="Path to dataset, i.e. /home/julian/Datasets/TensorCommands/ ")
 
-    model = TensorCommandsBPTT(num_neurons=num_neurons,
-                                num_epochs=num_epochs,
-                                batch_size=batch_size,
-                                key_words=key_words,
-                                use_lipschitzness=use_lipschitzness,
-                                data_path=data_path,
+    args = vars(parser.parse_args())
+
+    dir_path = args['dir_path']
+    data_path = args['data_path']
+    key_words = ["yes", "no"]
+    verbose = args['verbose']
+    cache_path = os.path.join(dir_path, "cached")
+    save_path = os.path.join(dir_path, "Resources")
+    if(not os.path.exists(save_path)):
+        os.mkdir(save_path)
+
+    parameters_dict = {}
+    for key in list(set(args.keys()) - {"dir_path","data_path","verbose"}):
+        parameters_dict[key] = args[key]
+
+    model = TensorCommandsBPTT(data_path=data_path,
                                 cache_path=cache_path,
                                 save_path=save_path,
-                                verbose=verbose
-                                )
+                                key_words=key_words,
+                                verbose=verbose,
+                                parameters_dict=parameters_dict)
 
     # - Start training
     val_acc = model.train()
