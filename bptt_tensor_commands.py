@@ -24,13 +24,15 @@ from data_loader import (
     )
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 import torch
 from preprocess import StandardizeDataLength, ButterMel, Subsample, Smooth
 from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
+
+import wandb
+
 
 class TensorCommandsBPTT():
 
@@ -80,11 +82,7 @@ class TensorCommandsBPTT():
         self.w_scale_rec = self.tau_mem_rec / (self.dt*self.num_neurons)
         self.w_scale_out = self.tau_syn_out / (self.dt*self.num_neurons) * 0.1
 
-        # - Initialize PyTorch summary writer
         str_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        summary_dir = "/mnt/c/users/Serious/Documents/github/BPTT-Lipschitzness/runs/" + str_time + "/" 
-        self.writer = SummaryWriter(summary_dir)
-
         self.save_path = os.path.join(save_path, str_time + ".model")
 
         # - Define input and target transformers (pre-processing)
@@ -182,7 +180,8 @@ class TensorCommandsBPTT():
                 loss_func = loss_lipschitzness_verbose
             else:
                 loss_func = loss_lipschitzness_verbose
-
+        
+        #TODO this should be part of the config
         loss_params = {'min_tau': 0.01,
                             'reg_tau': 1000.0,
                             'reg_l2_rec': 1000.0,
@@ -251,23 +250,39 @@ class TensorCommandsBPTT():
                     plt.pause(0.001)
 
                 n_iter = epoch_id*self.batch_size+batch_id
-                self.writer.add_scalar("Loss/MSE", float(np.mean(fLoss[1]["mse"])) / loss_params["lambda_mse"], n_iter)
-                self.writer.add_scalar("Loss/tau_loss", float(np.mean(fLoss[1]["tau_loss"])) / loss_params["reg_tau"], n_iter)
-                self.writer.add_scalar("Loss/Loss", float(fLoss[0]), n_iter)
-                self.writer.add_scalar("Weights/Rec", np.max(self.net.LIF_Reservoir.w_recurrent), n_iter)
-                self.writer.add_scalar("min_tau_mem/Rec", np.min(self.net.LIF_Reservoir.tau_mem), n_iter)
-                if(self.use_lipschitzness):
-                    self.writer.add_scalar("Loss/Lipschitzness", float(np.mean(fLoss[1]["loss_lip"])) / loss_params["beta"], n_iter)
-                    if(self.verbose > 0):
-                        self.writer.add_scalar("Loss/DistanceTheta*-ThetaStart", float(np.mean(fLoss[1]["theta_start_star_distance"])), n_iter)
+                
+                def get_train_metrics():
+                    d = {}
+                    d["Loss/MSE"]=float(np.mean(fLoss[1]["mse"])) / loss_params["lambda_mse"]
+                    d["Loss/tau_loss"]=float(np.mean(fLoss[1]["tau_loss"])) / loss_params["reg_tau"]
+                    d["Loss/Loss"]=float(fLoss[0])
+                    d["Weights/Rec"]=np.max(self.net.LIF_Reservoir.w_recurrent)
+                    d["min_tau_mem/Rec"]=np.min(self.net.LIF_Reservoir.tau_mem)
+                    if(self.use_lipschitzness):
+                        d["Loss/Lipschitzness"]= float(np.mean(fLoss[1]["loss_lip"])) / loss_params["beta"]
+                        if(self.verbose > 0):
+                            d["Loss/DistanceTheta*-ThetaStart"]=float(np.mean(fLoss[1]["theta_start_star_distance"]))
+                    return d
 
+                wandb.log(get_train_metrics(),step=n_iter)
+                
                 batch_id += 1
 
             val_acc = self.validate()
             if(val_acc >= best_val_acc):
                 best_val_acc = val_acc
                 self.save(self.save_path)
-            self.writer.add_scalar("Acc/Val", val_acc, epoch_id)
+            
+            def get_validation_metrics():
+                d = {}
+                d["Acc/Val"] = val_acc
+                return d
+            
+            wandb.log(get_validation_metrics(), step=epoch_id)
+            
+            
+            
+            
             epoch_id += 1
         
         return best_val_acc
@@ -304,14 +319,17 @@ if __name__ == "__main__":
 
     num_neurons = 512
     num_epochs = 10
-    batch_size = 10
+    batch_size = 1
     key_words = ["yes", "no"]
     use_lipschitzness = True
     data_path = "/home/serious/Datasets/TensorCommands/"
     cache_path ="/home/serious/Cached"
     save_path = "/home/serious/Resources"
     verbose = 1
-
+    
+    #TODO exchange the custom dict with something smarter that includes all the command line arguments
+    d = {"num_neurons":num_neurons,"num_epochs":num_epochs,"batch_size":batch_size,"key_words":key_words,"use_lipschitzness":use_lipschitzness,"data_path":data_path,"cache_path":cache_path,"save_path":save_path,"verbose":verbose}
+    wandb.init(project="robust-lipschitzness", config=d)
 
     model = TensorCommandsBPTT(num_neurons=num_neurons,
                                 num_epochs=num_epochs,
@@ -330,4 +348,5 @@ if __name__ == "__main__":
     # - Test
     test_acc = model.test()
 
+    #use summary metrics instead
     print(f"Done. Best val acc {val_acc}, test acc {test_acc} model saved in {model.save_path}")
