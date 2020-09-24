@@ -121,6 +121,8 @@ def loss_lipschitzness_verbose(
         loss_dict["mse"] = loss_dict_reg["mse"]
         loss_dict["tau_loss"] = loss_dict_reg["tau_loss"]
         loss_dict["w_res_norm"] = loss_dict_reg["w_res_norm"]
+        loss_dict["surrogates"] = loss_dict_reg["surrogates"]
+        loss_dict["vmem"] = loss_dict_reg["vmem"]
         loss_dict["loss_lip"] = loss_lip
         loss_dict["lipschitzness_over_time"] = lipschitzness_over_time
         loss_dict["theta_start_star_distance"] = theta_start_star_distance
@@ -180,8 +182,10 @@ def loss_mse_reg_stack(
         w_res_norm += reg_l2_rec * jnp.mean(lyrIn["w_in"] ** 2)    
         w_res_norm += reg_l2_rec * jnp.mean(lyrRes["w_recurrent"] ** 2)
 
-        act_loss += reg_act1 * jnp.mean(states_t[1]["surrogate"])
-        act_loss += reg_act2 * jnp.mean(states_t[1]["Vmem"] ** 2)
+        surrogate_activity = jnp.mean(states_t[1]["surrogate"])
+        vmem_activity = jnp.mean(states_t[1]["Vmem"] ** 2)
+        act_loss += reg_act1 * surrogate_activity
+        act_loss += reg_act2 * vmem_activity 
         
         # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
         fLoss = mse + tau_loss + w_res_norm + act_loss
@@ -192,6 +196,8 @@ def loss_mse_reg_stack(
         loss_dict["tau_loss"] = tau_loss
         loss_dict["w_res_norm"] = w_res_norm
         loss_dict["output_batch_t"] = output_batch_t
+        loss_dict["surrogates"] = surrogate_activity
+        loss_dict["vmem"] = vmem_activity
 
         # - Return loss
         return (fLoss, loss_dict)
