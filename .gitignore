@@ -1,5 +1,5 @@
 **/.vscode
 **/cached
 **/__pycache__
-**/runs
+**/wandb
 **/Resources
