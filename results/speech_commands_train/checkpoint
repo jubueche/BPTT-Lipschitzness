@@ -1,2 +1,0 @@
-model_checkpoint_path: "20200929-103308_lsnn_l1_h256_w30.0str10.0_do0.0_b2.0_lif0.0_reg0.001_.ckpt-11"
-all_model_checkpoint_paths: "20200929-103308_lsnn_l1_h256_w30.0str10.0_do0.0_b2.0_lif0.0_reg0.001_.ckpt-11"
