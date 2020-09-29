@@ -1,28 +1,8 @@
 $ conda create -n <ENV-NAME> python=3.6
 $ conda activate <ENV-NAME>
 
-- Download Google Speech Command dataset from https://drive.google.com/file/d/19Tx2XeE4Bfz3TAnNvBsKn_YWa2fg2mwP/view?usp=sharing
-
-- Make a directory for your datasets e.g.
-$ cd ~ ; mkdir Datasets ; cd Datasets
-- Copy the downloaded file into Datasets and extract using
-$ tar -xf TensorCommands.tar.xz
-After extraction, remove the .tar.xz file.
-
-- Clone rockpool (https://aictx.gitlab.io/rockpool/) and navigate inside the repository
-$ git clone https://github.com/jubueche/Rockpool rockpool ; cd rockpool
-- Install it using, NOTE: Make sure you are in /some/path/rockpool/ and not in /some/path/rockpool/rockpool
-$ pip install -e . --user
-Fetch the branches
-$ git fetch -a
-- Checkout the branch needed for our experiments
-$ git checkout --track origin/dev/jax_trainer_aux_loss
-- Clone our repository
-$ git clone https://github.com/jubueche/BPTT-Lipschitzness ; cd BPTT-Lipschitzness
-
 - Install the necessary packages:
-$ conda install ujson pytorch torchvision tqdm
-$ pip install jax jaxlib soundfile tensorboard
+$ pip install tensorflow soundfile tensorboard
 
 You should be able to run
-$ python python bptt_tensor_commands.py
+$ python train.py --batch_size=50 --model_architecture=lsnn --n_hidden=2048 --window_stride_ms=1. --avg_spikes=True
