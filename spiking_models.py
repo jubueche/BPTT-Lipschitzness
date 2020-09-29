@@ -226,10 +226,20 @@ class KerasALIF(DropoutRNNCellMixin, Layer):
     super(KerasALIF, self).__init__(**kwargs)
     self.units = units
 
-    if np.isscalar(tau): tau = tf.ones(units, dtype=dtype) * np.mean(tau)
-    if np.isscalar(thr): thr = tf.ones(units, dtype=dtype) * np.mean(thr)
-    tau = tf.cast(tau, dtype=dtype)
-    dt = tf.cast(dt, dtype=dtype)
+    # if np.isscalar(tau): tau = tf.ones(units, dtype=dtype) * np.mean(tau)
+    # if np.isscalar(thr): thr = tf.ones(units, dtype=dtype) * np.mean(thr)
+    # tau = tf.cast(tau, dtype=dtype)
+    # dt = tf.cast(dt, dtype=dtype)
+
+    # thr = tf.compat.v1.identity(thr, name="thr")
+    # tau = tf.compat.v1.identity(tau, name="tau")
+
+    if np.isscalar(tau): tau = np.ones(units) * np.mean(tau)
+    if np.isscalar(thr): thr = np.ones(units) * np.mean(thr)
+
+    # - Create variable from numpy array
+    tau = tf.compat.v1.Variable(initial_value=tau, name="tau", dtype=dtype)
+    thr = tf.compat.v1.Variable(initial_value=thr, name="thr", dtype=dtype)
 
     self.dampening_factor = dampening_factor
     self.eprop_sym = eprop_sym
