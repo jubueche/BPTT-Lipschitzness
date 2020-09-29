@@ -1,8 +1,10 @@
-$ conda create -n <ENV-NAME> python=3.6
+$ conda create -n <ENV-NAME> python=3.6 tensorflow tensorboard
 $ conda activate <ENV-NAME>
 
 - Install the necessary packages:
-$ pip install tensorflow soundfile tensorboard
+pip install --upgrade tensorflow-probability
+$ pip install soundfile wandb python_speech_features
+$ pip install --upgrade tensorflow 
 
 You should be able to run
 $ python train.py --batch_size=50 --model_architecture=lsnn --n_hidden=2048 --window_stride_ms=1. --avg_spikes=True
