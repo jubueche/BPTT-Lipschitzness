@@ -21,7 +21,7 @@ import models
 from tensorflow.python.platform import gfile
 import wandb
 from utils import get_parser
-from loss import evaluate_loss_function
+from loss import evaluate_loss_function, lipschitzness
 
 FLAGS = None
 
@@ -82,6 +82,7 @@ def main(_):
     input_placeholder = tf.compat.v1.placeholder(
     tf.float32, [None, model_settings['fingerprint_size'] * (2 * n_thr_spikes - 1) * model_settings['in_repeat']],
     name='fingerprint_input')
+
     if FLAGS.quantize:
         fingerprint_min, fingerprint_max = input_data.get_features_range(
             model_settings)
@@ -96,11 +97,19 @@ def main(_):
         FLAGS.model_architecture,
         is_training=training_placeholder)
 
+    theta_initial_placeholder = [tf.compat.v1.placeholder(dtype=e.dtype,shape=e.shape,name="placeholder") for e in tf.compat.v1.trainable_variables() if not "final" in e.name] 
+
     if FLAGS.model_architecture == 'lsnn':
         logits, spikes, dropout_prob = model_out
         av = tf.reduce_mean(spikes, axis=(0, 1))
     else:
         logits, dropout_prob = model_out
+
+    logits_initial_placeholder = tf.compat.v1.placeholder(dtype=logits.dtype, shape=logits.shape,name="logits_placeholder")
+
+    final_lipschitzness_loss_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=(),name="final_lipschitzness_placeholder")
+    beta_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=(),name="beta_placeholder")
+    step_size_lipschitzness_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=(),name="step_size_lipschitzness_placeholder")
 
     # Define loss and optimizer
     ground_truth_input = tf.compat.v1.placeholder(
@@ -115,7 +124,37 @@ def main(_):
 
     # - Create loss function node
     with tf.compat.v1.name_scope('loss'):
-        loss = evaluate_loss_function(target_output=ground_truth_input, logits=logits, data_input=fingerprint_input, output_spikes=spikes, average_fr=av, model=model_out, FLAGS=FLAGS, continuous_outputs=None)
+        loss = evaluate_loss_function(target_output=ground_truth_input, logits=logits, average_fr=av, FLAGS=FLAGS)
+        
+
+    ########################## BEGIN Lipschitzness loss ##########################
+    # - The variables that we want to attack
+    mismatch_parameters = [e for e in tf.compat.v1.global_variables() if e.name[:5] != "final"]
+    logits_initial = tf.compat.v1.identity(logits, name="initial_logits")
+    theta_initialize_random = [tf.compat.v1.assign_add(e, tf.random.normal(shape=e.shape, dtype=e.dtype, mean=0.0,stddev=0.2*e), name="x") for e in mismatch_parameters]
+
+    def loss_wrapper():
+        return -1 * lipschitzness(logits_initial_placeholder, logits, theta_initial_placeholder, FLAGS)[0]
+
+    lipschitzness_step = tf.compat.v1.train.AdamOptimizer(learning_rate=step_size_lipschitzness_placeholder).minimize(loss=loss_wrapper)
+
+
+    # - Needs to be executed after the optimization happenend and before we re-assign the original theta
+    l = lipschitzness(logits_initial_placeholder, logits, theta_initial_placeholder, FLAGS)
+    final_lipschitzness_loss = l[0]
+    kl_loss = l[1]
+    dist_theta_theta_star = l[2]
+    logits_from_loss = l[3]
+    logits_star_loss = l[4]
+
+    # - Op to assign trainable parameters back to placeholder value
+    op_assign_back = [tf.compat.v1.assign(e,a) for (e,a) in zip(mismatch_parameters,theta_initial_placeholder)]
+
+    ########################## END Lipschitzness loss ##########################
+
+    to_minimize = loss
+    if(FLAGS.lipschitzness):
+        to_minimize += beta_placeholder*final_lipschitzness_loss_placeholder
 
     if FLAGS.quantize:
         try:
@@ -131,14 +170,14 @@ def main(_):
     with tf.compat.v1.name_scope('train'), tf.control_dependencies(control_dependencies):
         learning_rate_input = tf.compat.v1.placeholder(tf.float32, [], name='learning_rate_input')
         if FLAGS.optimizer == 'gradient_descent':
-            train_step = tf.compat.v1.train.GradientDescentOptimizer(learning_rate_input).minimize(loss)
+            train_step = tf.compat.v1.train.GradientDescentOptimizer(learning_rate_input).minimize(to_minimize)
         elif FLAGS.optimizer == 'momentum':
             train_step = tf.compat.v1.train.MomentumOptimizer(
             learning_rate_input, .9,
-            use_nesterov=True).minimize(loss)
+            use_nesterov=True).minimize(to_minimize)
         elif FLAGS.optimizer == 'adam':
             train_step = tf.compat.v1.train.AdamOptimizer(
-            learning_rate_input).minimize(loss)
+            learning_rate_input).minimize(to_minimize)
         else:
             raise Exception('Invalid Optimizer')
 
@@ -190,110 +229,140 @@ def main(_):
         train_fingerprints, train_ground_truth = audio_processor.get_data(
             FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,
             FLAGS.background_volume, time_shift_samples, 'training', sess)
+        
+        # - Run the graph on logits_initial, then on theta_star and then on logits to see if logits and logits_initial are different
+        fd = {
+                fingerprint_input: train_fingerprints,
+                ground_truth_input: train_ground_truth,
+                learning_rate_input: learning_rate_value,
+                dropout_prob: FLAGS.dropout_prob,
+                training_placeholder: True,
+                step_size_lipschitzness_placeholder: FLAGS.step_size_lipschitzness
+            }
+        mismatch_parameters = sess.run([[e for e in tf.compat.v1.trainable_variables() if not "final" in e.name]])
+        for d,i in zip(theta_initial_placeholder,mismatch_parameters[0]):
+            fd[d] = i
+
+        # - Initialize the initial random perturbation of theta
+        # sess.run(tf.compat.v1.get_default_graph().get_operation_by_name("backup_identiy"))
+        logits_initial_value, theta_initialize_random_value = sess.run([logits_initial,theta_initialize_random], feed_dict=fd)
+
+        # - Use the logits_initial_value for the the placeholder
+        fd[logits_initial_placeholder] = logits_initial_value
+
+        for _ in range(5):
+            final_lipschitzness_loss_value,dist_theta_theta_star_value,logits_value, kl_loss_value, logits_from_loss_value, logits_star_loss_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star,logits,kl_loss, logits_from_loss, logits_star_loss], feed_dict=fd)
+            sess.run([lipschitzness_step], feed_dict=fd)
+
+        # - Now calculate the lipschitzness loss using the final theta_star
+        final_lipschitzness_loss_value,dist_theta_theta_star_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star], feed_dict=fd)
+
+        # - Before making the update step, re-assign the old variables
+        op_assign_back_value = sess.run([op_assign_back], feed_dict=fd)
+        
+        fd[final_lipschitzness_loss_placeholder] = final_lipschitzness_loss_value
+        fd[beta_placeholder] = FLAGS.beta_lipschitzness
+
         # Run the graph with this batch of training data.
         train_nodes = [
                 evaluation_step,
-                loss,
+                to_minimize,
                 train_step,
                 increment_global_step,
             ]
+        train_accuracy, cross_entropy_value, _, _, = sess.run(
+            train_nodes,
+            feed_dict=fd)
 
-    train_accuracy, cross_entropy_value, _, _ = sess.run(
-        train_nodes,
-        feed_dict={
-            fingerprint_input: train_fingerprints,
-            ground_truth_input: train_ground_truth,
-            learning_rate_input: learning_rate_value,
-            dropout_prob: FLAGS.dropout_prob,
-            training_placeholder: True,
-        })
 
-    # - Train logging for wandb
-    def get_train_metrics():
-        d = {}
-        d["Loss/train_accuracy"] = train_accuracy
-        d["Loss/cross_entropy"] = cross_entropy_value
-        return d
-    wandb.log(get_train_metrics(),step=training_step)
-
-    if training_step % FLAGS.print_every == 0:
-        if FLAGS.model_architecture != 'lsnn':
-            tf.compat.v1.logging.info(
-                'Step #%d: rate %f, accuracy %.1f%%, cross entropy %f' %
-                (training_step, learning_rate_value, train_accuracy * 100,
-                 cross_entropy_value))
-        else:
-
-            tf.compat.v1.logging.info(
-                'Step #%d: rate %.4f, accuracy %.1f%%, cross entropy %.3f' %
-                (training_step, learning_rate_value, train_accuracy * 100, cross_entropy_value))
-
-    is_last_step = (training_step == training_steps_max)
-    if (training_step % FLAGS.eval_step_interval) == 0 or is_last_step:
-        set_size = audio_processor.set_size('validation')
-        total_accuracy = 0
-        total_conf_matrix = None
-        for i in xrange(0, set_size, FLAGS.batch_size):
-            validation_fingerprints, validation_ground_truth = (
-                audio_processor.get_data(FLAGS.batch_size, i, model_settings, 0.0,
-                                        0.0, 0, 'validation', sess))
-            # Run a validation step and capture training summaries for TensorBoard
-            # with the `merged` op.
-            val_nodes = [evaluation_step, confusion_matrix]
-            if FLAGS.model_architecture == 'lsnn':
-                val_nodes.append(spikes)
-
-            val_nodes_results = sess.run(
-                val_nodes,
-                feed_dict={
-                    fingerprint_input: validation_fingerprints,
-                    ground_truth_input: validation_ground_truth,
-                    dropout_prob: 1.0,
-                    training_placeholder: False,
-                })
-            if FLAGS.model_architecture == 'lsnn':
-                validation_accuracy, conf_matrix, val_spikes = val_nodes_results
-            else:
-                validation_accuracy, conf_matrix = val_nodes_results
-        
-            batch_size = min(FLAGS.batch_size, set_size - i)
-            total_accuracy += (validation_accuracy * batch_size) / set_size
-            if total_conf_matrix is None:
-                total_conf_matrix = conf_matrix
-            else:
-                total_conf_matrix += conf_matrix
-            if FLAGS.model_architecture == 'lsnn':
-                neuron_rates = np.mean(val_spikes, axis=(0, 1)) * 1000
-                firing_stats = [np.mean(neuron_rates), np.min(neuron_rates), np.max(neuron_rates)]
-
-        performance_metrics['val'].append(total_accuracy)
-        tf.compat.v1.logging.info('Confusion Matrix:\n %s' % (total_conf_matrix))
-        tf.compat.v1.logging.info('Step %d: Validation accuracy = %.1f%% (N=%d)' %
-                                    (training_step, total_accuracy * 100, set_size))
-
-        if FLAGS.model_architecture == 'lsnn':
-            tf.compat.v1.logging.info('Firing rates: avg %.1f min %.1f max %.1f' %
-                                        (firing_stats[0], firing_stats[1], firing_stats[2]))
-            performance_metrics['firing_rates'].append('avg %.1f min %.1f max %.1f' %
-                                                        (firing_stats[0], firing_stats[1], firing_stats[2]))
-        with open(os.path.join(FLAGS.summaries_dir, 'performance.json'), 'w') as f:
-            json.dump({**performance_metrics, 'flags': {**vars(FLAGS)}}, f, indent=4, sort_keys=True)
-
-        # - Validation logging for wandb
-        def get_val_metrics():
+        # - Train logging for wandb
+        def get_train_metrics():
             d = {}
-            d["Loss/train_accuracy"] = total_accuracy
+            d["Loss/train_accuracy"] = train_accuracy
+            d["Loss/cross_entropy"] = cross_entropy_value
+            if(FLAGS.lipschitzness):
+                d["Loss/Lipschitzness"] = final_lipschitzness_loss_value
             return d
-        wandb.log(get_val_metrics(),step=training_step)
+        wandb.log(get_train_metrics(),step=training_step)
 
-        # Save the model checkpoint periodically.
-        if (training_step % FLAGS.save_step_interval == 0 or
-            training_step == training_steps_max):
-            checkpoint_path = os.path.join(FLAGS.train_dir,
-                                            stored_name + '.ckpt')
-            tf.compat.v1.logging.info('Saving to "%s-%d"', checkpoint_path,
-                                        training_step)
-            saver.save(sess, checkpoint_path, global_step=training_step)
+        if training_step % FLAGS.print_every == 0:
+            if FLAGS.model_architecture != 'lsnn':
+                tf.compat.v1.logging.info(
+                    'Step #%d: rate %f, accuracy %.1f%%, cross entropy %f' %
+                    (training_step, learning_rate_value, train_accuracy * 100,
+                    cross_entropy_value))
+            else:
+
+                tf.compat.v1.logging.info(
+                    'Step #%d: rate %.4f, accuracy %.1f%%, cross entropy %.3f' %
+                    (training_step, learning_rate_value, train_accuracy * 100, cross_entropy_value))
+
+        is_last_step = (training_step == training_steps_max)
+        if (training_step % FLAGS.eval_step_interval) == 0 or is_last_step:
+            set_size = audio_processor.set_size('validation')
+            total_accuracy = 0
+            total_conf_matrix = None
+            for i in xrange(0, set_size, FLAGS.batch_size):
+                validation_fingerprints, validation_ground_truth = (
+                    audio_processor.get_data(FLAGS.batch_size, i, model_settings, 0.0,
+                                            0.0, 0, 'validation', sess))
+                # Run a validation step and capture training summaries for TensorBoard
+                # with the `merged` op.
+                val_nodes = [evaluation_step, confusion_matrix]
+                if FLAGS.model_architecture == 'lsnn':
+                    val_nodes.append(spikes)
+
+                val_nodes_results = sess.run(
+                    val_nodes,
+                    feed_dict={
+                        fingerprint_input: validation_fingerprints,
+                        ground_truth_input: validation_ground_truth,
+                        dropout_prob: 1.0,
+                        training_placeholder: False,
+                    })
+                if FLAGS.model_architecture == 'lsnn':
+                    validation_accuracy, conf_matrix, val_spikes = val_nodes_results
+                else:
+                    validation_accuracy, conf_matrix = val_nodes_results
+            
+                batch_size = min(FLAGS.batch_size, set_size - i)
+                total_accuracy += (validation_accuracy * batch_size) / set_size
+                if total_conf_matrix is None:
+                    total_conf_matrix = conf_matrix
+                else:
+                    total_conf_matrix += conf_matrix
+                if FLAGS.model_architecture == 'lsnn':
+                    neuron_rates = np.mean(val_spikes, axis=(0, 1)) * 1000
+                    firing_stats = [np.mean(neuron_rates), np.min(neuron_rates), np.max(neuron_rates)]
+
+            performance_metrics['val'].append(total_accuracy)
+            tf.compat.v1.logging.info('Confusion Matrix:\n %s' % (total_conf_matrix))
+            tf.compat.v1.logging.info('Step %d: Validation accuracy = %.1f%% (N=%d)' %
+                                        (training_step, total_accuracy * 100, set_size))
+
+            if FLAGS.model_architecture == 'lsnn':
+                tf.compat.v1.logging.info('Firing rates: avg %.1f min %.1f max %.1f' %
+                                            (firing_stats[0], firing_stats[1], firing_stats[2]))
+                performance_metrics['firing_rates'].append('avg %.1f min %.1f max %.1f' %
+                                                            (firing_stats[0], firing_stats[1], firing_stats[2]))
+            with open(os.path.join(FLAGS.summaries_dir, 'performance.json'), 'w') as f:
+                json.dump({**performance_metrics, 'flags': {**vars(FLAGS)}}, f, indent=4, sort_keys=True)
+
+            # - Validation logging for wandb
+            def get_val_metrics():
+                d = {}
+                d["Loss/train_accuracy"] = total_accuracy
+                return d
+            wandb.log(get_val_metrics(),step=training_step)
+
+            # Save the model checkpoint periodically.
+            if (training_step % FLAGS.save_step_interval == 0 or
+                training_step == training_steps_max):
+                checkpoint_path = os.path.join(FLAGS.train_dir,
+                                                stored_name + '.ckpt')
+                tf.compat.v1.logging.info('Saving to "%s-%d"', checkpoint_path,
+                                            training_step)
+                saver.save(sess, checkpoint_path, global_step=training_step)
 
 
     # - Testing

@@ -245,6 +245,18 @@ def get_parser():
         type=str,
         help='Loss to use for Lipschitzness measure (mse, kl)'
     )
+    parser.add_argument(
+        '--beta_lipschitzness',
+        default=1.0,
+        type=float,
+        help='Beta used for weighting lipschitzness term'
+    )
+    parser.add_argument(
+        '--step_size_lipschitzness',
+        default=0.0001,
+        type=float,
+        help='Step size used to update Theta*'
+    )
 
     # Function used to parse --verbosity argument
     def verbosity_arg(value):
