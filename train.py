@@ -239,29 +239,31 @@ def main(_):
                 training_placeholder: True,
                 step_size_lipschitzness_placeholder: FLAGS.step_size_lipschitzness
             }
-        mismatch_parameters = sess.run([[e for e in tf.compat.v1.trainable_variables() if not "final" in e.name]])
-        for d,i in zip(theta_initial_placeholder,mismatch_parameters[0]):
-            fd[d] = i
 
-        # - Initialize the initial random perturbation of theta
-        # sess.run(tf.compat.v1.get_default_graph().get_operation_by_name("backup_identiy"))
-        logits_initial_value, theta_initialize_random_value = sess.run([logits_initial,theta_initialize_random], feed_dict=fd)
+        if(FLAGS.lipschitzness):
+            mismatch_parameters = sess.run([[e for e in tf.compat.v1.trainable_variables() if not "final" in e.name]])
+            for d,i in zip(theta_initial_placeholder,mismatch_parameters[0]):
+                fd[d] = i
 
-        # - Use the logits_initial_value for the the placeholder
-        fd[logits_initial_placeholder] = logits_initial_value
+            # - Initialize the initial random perturbation of theta
+            # sess.run(tf.compat.v1.get_default_graph().get_operation_by_name("backup_identiy"))
+            logits_initial_value, theta_initialize_random_value = sess.run([logits_initial,theta_initialize_random], feed_dict=fd)
 
-        for _ in range(5):
-            final_lipschitzness_loss_value,dist_theta_theta_star_value,logits_value, kl_loss_value, logits_from_loss_value, logits_star_loss_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star,logits,kl_loss, logits_from_loss, logits_star_loss], feed_dict=fd)
-            sess.run([lipschitzness_step], feed_dict=fd)
+            # - Use the logits_initial_value for the the placeholder
+            fd[logits_initial_placeholder] = logits_initial_value
 
-        # - Now calculate the lipschitzness loss using the final theta_star
-        final_lipschitzness_loss_value,dist_theta_theta_star_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star], feed_dict=fd)
+            for _ in range(5):
+                final_lipschitzness_loss_value,dist_theta_theta_star_value,logits_value, kl_loss_value, logits_from_loss_value, logits_star_loss_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star,logits,kl_loss, logits_from_loss, logits_star_loss], feed_dict=fd)
+                sess.run([lipschitzness_step], feed_dict=fd)
 
-        # - Before making the update step, re-assign the old variables
-        op_assign_back_value = sess.run([op_assign_back], feed_dict=fd)
-        
-        fd[final_lipschitzness_loss_placeholder] = final_lipschitzness_loss_value
-        fd[beta_placeholder] = FLAGS.beta_lipschitzness
+            # - Now calculate the lipschitzness loss using the final theta_star
+            final_lipschitzness_loss_value,dist_theta_theta_star_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star], feed_dict=fd)
+
+            # - Before making the update step, re-assign the old variables
+            op_assign_back_value = sess.run([op_assign_back], feed_dict=fd)
+            
+            fd[final_lipschitzness_loss_placeholder] = final_lipschitzness_loss_value
+            fd[beta_placeholder] = FLAGS.beta_lipschitzness
 
         # Run the graph with this batch of training data.
         train_nodes = [
