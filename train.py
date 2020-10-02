@@ -129,7 +129,7 @@ def main(_):
 
     ########################## BEGIN Lipschitzness loss ##########################
     # - The variables that we want to attack
-    mismatch_parameters = [e for e in tf.compat.v1.global_variables() if e.name[:5] != "final"]
+    mismatch_parameters = [e for e in tf.compat.v1.trainable_variables() if e.name[:5] != "final"]
     logits_initial = tf.compat.v1.identity(logits, name="initial_logits")
     theta_initialize_random = [tf.compat.v1.assign_add(e, tf.random.normal(shape=e.shape, dtype=e.dtype, mean=0.0,stddev=0.2*e), name="x") for e in mismatch_parameters]
 
