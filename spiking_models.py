@@ -118,7 +118,6 @@ def SpikeFunctionGrad(v_scaled, dampening_factor, grad):
     return [dE_dv_scaled,
             tf.zeros_like(dampening_factor)]
 
-
 @function.Defun(grad_func=SpikeFunctionGrad)
 def SpikeFunction(v_scaled, dampening_factor):
     z_ = tf.greater(v_scaled, 0.)

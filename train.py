@@ -357,14 +357,14 @@ def main(_):
                 return d
             wandb.log(get_val_metrics(),step=training_step)
 
-            # Save the model checkpoint periodically.
-            if (training_step % FLAGS.save_step_interval == 0 or
-                training_step == training_steps_max):
-                checkpoint_path = os.path.join(FLAGS.train_dir,
-                                                stored_name + '.ckpt')
-                tf.compat.v1.logging.info('Saving to "%s-%d"', checkpoint_path,
-                                            training_step)
-                saver.save(sess, checkpoint_path, global_step=training_step)
+        # Save the model checkpoint periodically.
+        if (training_step % FLAGS.save_step_interval == 0 or
+            training_step == training_steps_max):
+            checkpoint_path = os.path.join(FLAGS.train_dir,
+                                            stored_name + '.ckpt')
+            tf.compat.v1.logging.info('Saving to "%s-%d"', checkpoint_path,
+                                        training_step)
+            saver.save(sess, checkpoint_path, global_step=training_step)
 
 
     # - Testing

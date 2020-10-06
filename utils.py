@@ -1,5 +1,17 @@
 import argparse
 import tensorflow as tf
+import math
+
+def _next_power_of_two(x):
+  """Calculates the smallest enclosing power of two for an input.
+
+  Args:
+    x: Positive float or integer number.
+
+  Returns:
+    Next largest power of two integer.
+  """
+  return 1 if x == 0 else 2**(int(x) - 1).bit_length()
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -189,6 +201,11 @@ def get_parser():
         default=2.,
         help='Adaptation coefficient of ALIF neurons in LSNN.',)
     parser.add_argument(
+        '--tau_adaptation',
+        type=float,
+        default=200.,
+        help='Tau adaptation coefficient of ALIF neurons in LSNN.',)
+    parser.add_argument(
         '--comment',
         type=str,
         default='',
@@ -198,6 +215,26 @@ def get_parser():
         type=int,
         default=-1,
         help='Number of thresholds in thr-crossing analog to spike encoding.',)
+    parser.add_argument(
+        '--dampening_factor',
+        type=float,
+        default=0.3,
+        help='Dampening factor.',)
+    parser.add_argument(
+        '--dt',
+        type=float,
+        default=1.,
+        help='Simulation dt',)
+    parser.add_argument(
+        '--thr',
+        type=float,
+        default=0.01,
+        help='Neurons threshold',)
+    parser.add_argument(
+        '--thr_min',
+        type=float,
+        default=0.005,
+        help='Min. membrane threshold',)
     parser.add_argument(
         '--tau',
         type=float,
@@ -292,3 +329,60 @@ def get_parser():
         help='Optimizer (gradient_descent, momentum, adam)')
 
     return parser
+
+
+def prepare_model_settings(label_count, sample_rate, clip_duration_ms,
+                           window_size_ms, window_stride_ms, feature_bin_count,
+                           preprocess, in_repeat):
+  """Calculates common settings needed for all models.
+
+  Args:
+    label_count: How many classes are to be recognized.
+    sample_rate: Number of audio samples per second.
+    clip_duration_ms: Length of each audio clip to be analyzed.
+    window_size_ms: Duration of frequency analysis window.
+    window_stride_ms: How far to move in time between frequency windows.
+    feature_bin_count: Number of frequency bins to use for analysis.
+    preprocess: How the spectrogram is processed to produce features.
+
+  Returns:
+    Dictionary containing common settings.
+
+  Raises:
+    ValueError: If the preprocessing mode isn't recognized.
+  """
+  desired_samples = int(sample_rate * clip_duration_ms / 1000)
+  window_size_samples = int(sample_rate * window_size_ms / 1000)
+  window_stride_samples = int(sample_rate * window_stride_ms / 1000)
+  length_minus_window = (desired_samples - window_size_samples)
+  if length_minus_window < 0:
+    spectrogram_length = 0
+  else:
+    spectrogram_length = 1 + int(length_minus_window / window_stride_samples)
+  if preprocess == 'average':
+    fft_bin_count = 1 + (_next_power_of_two(window_size_samples) / 2)
+    average_window_width = int(math.floor(fft_bin_count / feature_bin_count))
+    fingerprint_width = int(math.ceil(fft_bin_count / average_window_width))
+  elif preprocess in ['mfcc', 'fbank']:
+    average_window_width = -1
+    fingerprint_width = feature_bin_count
+  elif preprocess == 'micro':
+    average_window_width = -1
+    fingerprint_width = feature_bin_count
+  else:
+    raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
+                     ' "average", or "micro")' % (preprocess))
+  fingerprint_size = fingerprint_width * spectrogram_length
+  return {
+      'desired_samples': desired_samples,
+      'window_size_samples': window_size_samples,
+      'window_stride_samples': window_stride_samples,
+      'spectrogram_length': spectrogram_length,
+      'fingerprint_width': fingerprint_width,
+      'fingerprint_size': fingerprint_size,
+      'label_count': label_count,
+      'sample_rate': sample_rate,
+      'preprocess': preprocess,
+      'average_window_width': average_window_width,
+      'in_repeat': in_repeat,
+  }
