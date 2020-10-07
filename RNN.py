@@ -10,6 +10,8 @@ import ujson as json
 import os
 from datetime import datetime
 import input_data_eager as input_data
+import tensorflow_probability as tfp
+from six.moves import xrange
 
 DEBUG = False
 
@@ -75,7 +77,7 @@ class RNN:
         input_frequency_size = self.model_settings['fingerprint_width']
         input_channels = max(1, 2*self.model_settings['n_thr_spikes'] - 1)
         input_time_size = self.model_settings['spectrogram_length'] * self.model_settings['in_repeat']
-        fingerprint_3d = tf.reshape(fingerprint_input, [-1, input_time_size, input_frequency_size * input_channels])
+        fingerprint_3d = tf.reshape(fingerprint_input, [-1, input_time_size, input_frequency_size * input_channels]) # - [BS,T,In]
         
         # - Initial state
         state0 = [tf.zeros((1,self.units)), tf.zeros((1,self.units)), tf.zeros((1,self.units)), tf.zeros((1,self.units))]
@@ -173,25 +175,78 @@ if __name__ == '__main__':
         #     cross_entropy_mean += loss_reg
         return cross_entropy_mean
 
-    n_iterations = 500
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    for i in range(n_iterations):
-        # - Get some data
-        train_fingerprints, train_ground_truth = audio_processor.get_data(
-            FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,
-            FLAGS.background_volume, time_shift_samples, 'training')
+    def kl(x, y):
+        X = tfp.distributions.Categorical(probs=x)
+        Y = tfp.distributions.Categorical(probs=y)
+        return tfp.distributions.kl_divergence(X, Y)
+    
+    def loss_lip(logits, logits_adv):
+        s_logits = tf.nn.softmax(logits) # [BS,4]
+        s_logits_adv = tf.nn.softmax(logits_adv)
+        return kl(s_logits, s_logits_adv)
+    
+    def Gaussian_noise(input, std=1):
+        noise = tf.random.normal(shape = input.get_shape(), mean = 0.0, stddev = std, dtype = tf.float32) 
+        return input + noise
 
-        with tf.GradientTape() as tape:
+    iteration = [1000,500]; lrs = [0.001, 0.0001]; current_idx = 0 ; cum_sum = 0
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    for i in range(sum(iteration)):
+        # - Get some data
+        if(i >= cum_sum + iteration[current_idx]):
+            current_idx += 1
+            cum_sum += iteration[current_idx-1]
+            optimizer.lr= lrs[current_idx]
+        # - Get training data
+        train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
+
+        with tf.GradientTape(persistent=False) as tape_normal:
+            # with tf.GradientTape(persistent=False) as tape_adv:
+            #     W_in_adv = Gaussian_noise(W_in)
+            #     W_rec_adv = Gaussian_noise(W_rec)
+            #     W_out_adv = Gaussian_noise(W_out)
+            #     b_out_adv = Gaussian_noise(b_out)
+            #     logits = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
+            #     logits_adv = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in_adv, W_rec=W_rec_adv, W_out=W_out_adv, b_out=b_out_adv)
+            #     loss_adv = loss_lip(logits, logits_adv)
+
+            # grads_adv = tape_adv.gradient(loss_adv, [W_in_adv,W_rec_adv,W_out_adv,b_out_adv])
+            # W_in_adv1 = W_in_adv * FLAGS.step_size_lipschitzness * grads_adv[0]
+            # W_rec_adv1 = W_rec_adv * FLAGS.step_size_lipschitzness * grads_adv[1]
+            # W_out_adv1 = W_out_adv * FLAGS.step_size_lipschitzness * grads_adv[2]
+            # b_out_adv1 = b_out_adv * FLAGS.step_size_lipschitzness * grads_adv[3]
+
+            # logits_adv1 = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in_adv1, W_rec=W_rec_adv1, W_out=W_out_adv1, b_out=b_out_adv1)
             logits = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
-            loss = loss_normal(train_ground_truth, logits)
+            loss = loss_normal(train_ground_truth, logits) # + loss_lip(logits, logits_adv1)
         # - Get the gradients
-        gradients = tape.gradient(loss, [W_in,W_rec,W_out,b_out])
+        gradients = tape_normal.gradient(loss, [W_in,W_rec,W_out,b_out])
         optimizer.apply_gradients(zip(gradients,[W_in,W_rec,W_out,b_out]))
 
         if(i % 10 == 0):
             logits = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
             loss = loss_normal(train_ground_truth, logits)
-            print(f"Loss is {loss.numpy()}")
+            predicted_indices = tf.cast(tf.argmax(input=logits, axis=1), dtype=tf.int32)
+            correct_prediction = tf.cast(tf.equal(predicted_indices, train_ground_truth), dtype=tf.float32)
+            accuracy = tf.reduce_mean(correct_prediction)
+            print(f"Loss is {loss.numpy()} Accuracy is {accuracy.numpy()}")
+
+        if((i) % 399 == 0):
+            set_size = audio_processor.set_size('validation')
+            total_accuracy = 0
+            for i in xrange(0, set_size, FLAGS.batch_size):
+                validation_fingerprints, validation_ground_truth = (
+                    audio_processor.get_data(FLAGS.batch_size, i, model_settings, 0.0,
+                                            0.0, 0.0, 'validation'))
+                logits = rnn.call(fingerprint_input=validation_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
+                predicted_indices = tf.cast(tf.argmax(input=logits, axis=1), dtype=tf.int32)
+                correct_prediction = tf.cast(tf.equal(predicted_indices, validation_ground_truth), dtype=tf.float32)
+                validation_accuracy = tf.reduce_mean(correct_prediction)
+                total_accuracy += (validation_accuracy * FLAGS.batch_size) / set_size
+
+            print(f"Validation accuracy is {total_accuracy}")
+                
+
 
 
     # - Call the RNN

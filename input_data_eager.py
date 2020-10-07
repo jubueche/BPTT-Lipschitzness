@@ -325,7 +325,7 @@ class AudioProcessor(object):
         sliced_foreground = tf.slice(padded_foreground,time_shift_offset,[desired_samples, -1])
         # Mix in background noise.
         
-        background_mul = tf.multiply(background_data,background_volume)
+        background_mul = tf.cast(tf.multiply(background_data,background_volume), dtype=tf.float32)
         background_add = tf.add(background_mul, sliced_foreground)
         background_clamp = tf.clip_by_value(background_add, -1.0, 1.0)
         # Run the spectrogram and MFCC ops to get a 2D 'fingerprint' of the audio.
