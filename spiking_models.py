@@ -238,14 +238,14 @@ class KerasALIF(DropoutRNNCellMixin, Layer):
 
     # - Create variable from numpy array
     tau = tf.compat.v1.Variable(initial_value=tau, name="tau", dtype=dtype, trainable=False)
-    thr = tf.compat.v1.Variable(initial_value=thr, name="thr", dtype=dtype, trainable=False)
+    thr = tf.compat.v1.Variable(initial_value=thr, name="thr", dtype=dtype, trainable=False) # 0.01
 
-    self.dampening_factor = dampening_factor
-    self.eprop_sym = eprop_sym
+    self.dampening_factor = dampening_factor # 0.3
+    self.eprop_sym = eprop_sym  # False
 
     # Parameters
-    self.n_delay = n_delay
-    self.n_refractory = n_refractory
+    self.n_delay = n_delay # 1
+    self.n_refractory = n_refractory # 2
 
     self.dt = dt
     self.n_in = n_in
@@ -333,7 +333,7 @@ class KerasALIF(DropoutRNNCellMixin, Layer):
     else:
         state = FastALIFStateTuple(v=states[0], z=states[1], b=states[2], r=states[3])
 
-    new_b = self.decay_b * state.b + (np.ones(self.units) - self.decay_b) * state.z
+    new_b = self.decay_b * state.b + (tf.ones(shape=(self.units,), dtype=tf.float32) - self.decay_b) * state.z
     thr = self.thr + new_b * self.beta
 
     if self.eprop_sym:
@@ -351,7 +351,7 @@ class KerasALIF(DropoutRNNCellMixin, Layer):
 
     # Spike generation
     is_refractory = tf.greater(state.r, .1)
-    zeros_like_spikes = tf.zeros_like(z)
+    zeros_like_spikes = tf.zeros_like(z, dtype=self.data_type)
     new_z = tf.where(is_refractory, zeros_like_spikes, self.compute_z(new_v, thr))
     new_r = tf.clip_by_value(state.r + self.n_refractory * new_z - 1,
                              0., float(self.n_refractory))

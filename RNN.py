@@ -6,14 +6,14 @@ from collections import namedtuple
 import numpy as np
 from utils import get_parser, prepare_model_settings
 import sys
-import ujson as json
 import os
 from datetime import datetime
 import input_data_eager as input_data
 import tensorflow_probability as tfp
 from six.moves import xrange
+import tensorflow.keras.backend as K
 
-DEBUG = False
+DEBUG = True
 
 # - Helper functions
 @function.Defun()
@@ -58,12 +58,13 @@ class RNN:
         self.n_in = params['fingerprint_width']
         self.data_type = tf.float32
         self._decay = tf.exp(-1*self.dt / self.tau)
-        self.tau_adaptation = params["tau_adaptation"]
-        self.beta = params["beta"]
+        self.tau_adaptation = params['spectrogram_length'] * params['in_repeat']
+        self.beta = tf.ones(shape=(self.units,)) * params["beta"]
         self.min_beta = np.min(params["beta"])
         self.decay_b = tf.exp(-1*self.dt / params["tau_adaptation"])
         self.thr_min = params["thr_min"]
         self.model_settings = params
+        self.d_out = params["label_count"]
 
     def compute_z(self, v, adaptive_thr):
         v_scaled = (v - adaptive_thr) / adaptive_thr
@@ -103,6 +104,35 @@ class RNN:
                                     0., float(self.n_refractory))
             return [new_v, new_z, new_b, new_r]
 
+
+        @tf.function(autograph=not DEBUG)
+        def keras_step(input_b, prev_state):
+            state = FastALIFStateTuple(v=prev_state[0], z=prev_state[1], b=prev_state[2], r=prev_state[3])
+            new_b = self.decay_b * state.b + (tf.ones(shape=[self.units],dtype=tf.float32) - self.decay_b) * state.z
+            thr = self.thr + new_b * self.beta
+            z = state.z
+            i_in = tf.matmul(input_b, W_in)
+            i_rec = tf.matmul(z, W_rec)
+            i_t = i_in + i_rec
+            I_reset = z * thr * self.dt
+            new_v = self._decay * state.v + (1 - self._decay) * i_t - I_reset
+            # Spike generation
+            is_refractory = tf.greater(state.r, .1)
+            zeros_like_spikes = tf.zeros_like(z)
+            new_z = tf.where(is_refractory, zeros_like_spikes, self.compute_z(new_v, thr))
+            new_r = tf.clip_by_value(state.r + self.n_refractory * new_z - 1,
+                                    0., float(self.n_refractory))
+            return new_z, [new_v, new_z, new_b, new_r]
+
+        @tf.function(autograph=not DEBUG)
+        def keras_evolve_single(inputs):
+            inputs = tf.reshape(inputs, shape=[1,inputs.shape[0],inputs.shape[1]])
+            Z = tf.squeeze(K.rnn(step_function=keras_step, inputs=inputs, initial_states=state0)[1])
+            if self.model_settings['avg_spikes']:
+                Z = tf.reshape(tf.reduce_mean(Z, axis=0), shape=(1,-1))
+            out = tf.matmul(Z, W_out) + b_out
+            return out # - [BS,Num_labels]
+
         @tf.function(autograph=not DEBUG)
         def evolve_single(inputs):
             accumulated_state = tf.scan(step, inputs, initializer=state0)
@@ -112,7 +142,11 @@ class RNN:
             out = tf.matmul(Z, W_out) + b_out
             return out # - [BS,Num_labels]
 
-        final_out = tf.squeeze(tf.map_fn(evolve_single, fingerprint_3d)) # -> [BS,T,self.units]
+        # - Use Keras .rnn()
+        final_out = tf.squeeze(tf.map_fn(keras_evolve_single, fingerprint_3d))
+        # - Use tf.scan()
+        # final_out = tf.squeeze(tf.map_fn(evolve_single, fingerprint_3d))
+        
         return final_out
 
 
@@ -157,9 +191,9 @@ if __name__ == '__main__':
     # - Define trainable variables
     d_In = model_settings['fingerprint_width']
     d_Out = model_settings["label_count"]
-    W_in = tf.Variable(initial_value=tf.random.normal(shape=(d_In,FLAGS.n_hidden), mean=0.0, stddev= tf.sqrt(2/(d_In + FLAGS.n_hidden))), trainable=True)
-    W_rec = tf.Variable(initial_value=tf.linalg.set_diag(tf.random.normal(shape=(FLAGS.n_hidden,FLAGS.n_hidden), mean=0., stddev= tf.sqrt(1/FLAGS.n_hidden)), tf.zeros([FLAGS.n_hidden])), trainable=True)
-    W_out = tf.Variable(initial_value=tf.random.normal(shape=(FLAGS.n_hidden,d_Out), mean=0.0, stddev=0.01), trainable=True)
+    W_in = tf.Variable(initial_value=tf.random.truncated_normal(shape=(d_In,FLAGS.n_hidden), mean=0.0, stddev= tf.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978), trainable=True)
+    W_rec = tf.Variable(initial_value=tf.linalg.set_diag(tf.random.truncated_normal(shape=(FLAGS.n_hidden,FLAGS.n_hidden), mean=0., stddev= tf.sqrt(1/FLAGS.n_hidden) / .87962566103423978), tf.zeros([FLAGS.n_hidden])), trainable=True)
+    W_out = tf.Variable(initial_value=tf.random.truncated_normal(shape=(FLAGS.n_hidden,d_Out), mean=0.0, stddev=0.01), trainable=True)
     b_out = tf.Variable(initial_value=tf.zeros(shape=(d_Out,)), trainable=True)
 
     # - Create the model
@@ -231,7 +265,7 @@ if __name__ == '__main__':
             accuracy = tf.reduce_mean(correct_prediction)
             print(f"Loss is {loss.numpy()} Accuracy is {accuracy.numpy()}")
 
-        if((i) % 399 == 0):
+        if((i+1) % 399 == 0):
             set_size = audio_processor.set_size('validation')
             total_accuracy = 0
             for i in xrange(0, set_size, FLAGS.batch_size):
