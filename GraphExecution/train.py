@@ -15,13 +15,17 @@ from datetime import datetime
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
+import sys
+import os.path as path
+sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+sys.path.append(path.dirname( path.dirname( path.abspath(__file__) ) ) + "/GraphExecution")
 
 import input_data
 import models
 from tensorflow.python.platform import gfile
 import wandb
 from utils import get_parser
-from loss import evaluate_loss_function, lipschitzness
+from loss import evaluate_loss_function
 
 FLAGS = None
 
@@ -97,19 +101,11 @@ def main(_):
         FLAGS.model_architecture,
         is_training=training_placeholder)
 
-    theta_initial_placeholder = [tf.compat.v1.placeholder(dtype=e.dtype,shape=e.shape,name="placeholder") for e in tf.compat.v1.trainable_variables() if not "final" in e.name] 
-
     if FLAGS.model_architecture == 'lsnn':
         logits, spikes, dropout_prob = model_out
         av = tf.reduce_mean(spikes, axis=(0, 1))
     else:
         logits, dropout_prob = model_out
-
-    logits_initial_placeholder = tf.compat.v1.placeholder(dtype=logits.dtype, shape=logits.shape,name="logits_placeholder")
-
-    final_lipschitzness_loss_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=(),name="final_lipschitzness_placeholder")
-    beta_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=(),name="beta_placeholder")
-    step_size_lipschitzness_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=(),name="step_size_lipschitzness_placeholder")
 
     # Define loss and optimizer
     ground_truth_input = tf.compat.v1.placeholder(
@@ -125,36 +121,8 @@ def main(_):
     # - Create loss function node
     with tf.compat.v1.name_scope('loss'):
         loss = evaluate_loss_function(target_output=ground_truth_input, logits=logits, average_fr=av, FLAGS=FLAGS)
-        
-
-    ########################## BEGIN Lipschitzness loss ##########################
-    # - The variables that we want to attack
-    mismatch_parameters = [e for e in tf.compat.v1.trainable_variables() if e.name[:5] != "final"]
-    logits_initial = tf.compat.v1.identity(logits, name="initial_logits")
-    theta_initialize_random = [tf.compat.v1.assign_add(e, tf.random.normal(shape=e.shape, dtype=e.dtype, mean=0.0,stddev=0.2*e), name="x") for e in mismatch_parameters]
-
-    def loss_wrapper():
-        return -1 * lipschitzness(logits_initial_placeholder, logits, theta_initial_placeholder, FLAGS)[0]
-
-    lipschitzness_step = tf.compat.v1.train.AdamOptimizer(learning_rate=step_size_lipschitzness_placeholder).minimize(loss=loss_wrapper)
-
-
-    # - Needs to be executed after the optimization happenend and before we re-assign the original theta
-    l = lipschitzness(logits_initial_placeholder, logits, theta_initial_placeholder, FLAGS)
-    final_lipschitzness_loss = l[0]
-    kl_loss = l[1]
-    dist_theta_theta_star = l[2]
-    logits_from_loss = l[3]
-    logits_star_loss = l[4]
-
-    # - Op to assign trainable parameters back to placeholder value
-    op_assign_back = [tf.compat.v1.assign(e,a) for (e,a) in zip(mismatch_parameters,theta_initial_placeholder)]
-
-    ########################## END Lipschitzness loss ##########################
 
     to_minimize = loss
-    if(FLAGS.lipschitzness):
-        to_minimize += beta_placeholder*final_lipschitzness_loss_placeholder
 
     if FLAGS.quantize:
         try:
@@ -236,34 +204,8 @@ def main(_):
                 ground_truth_input: train_ground_truth,
                 learning_rate_input: learning_rate_value,
                 dropout_prob: FLAGS.dropout_prob,
-                training_placeholder: True,
-                step_size_lipschitzness_placeholder: FLAGS.step_size_lipschitzness
+                training_placeholder: True
             }
-
-        if(FLAGS.lipschitzness):
-            mismatch_parameters = sess.run([[e for e in tf.compat.v1.trainable_variables() if not "final" in e.name]])
-            for d,i in zip(theta_initial_placeholder,mismatch_parameters[0]):
-                fd[d] = i
-
-            # - Initialize the initial random perturbation of theta
-            # sess.run(tf.compat.v1.get_default_graph().get_operation_by_name("backup_identiy"))
-            logits_initial_value, theta_initialize_random_value = sess.run([logits_initial,theta_initialize_random], feed_dict=fd)
-
-            # - Use the logits_initial_value for the the placeholder
-            fd[logits_initial_placeholder] = logits_initial_value
-
-            for _ in range(5):
-                final_lipschitzness_loss_value,dist_theta_theta_star_value,logits_value, kl_loss_value, logits_from_loss_value, logits_star_loss_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star,logits,kl_loss, logits_from_loss, logits_star_loss], feed_dict=fd)
-                sess.run([lipschitzness_step], feed_dict=fd)
-
-            # - Now calculate the lipschitzness loss using the final theta_star
-            final_lipschitzness_loss_value,dist_theta_theta_star_value = sess.run([final_lipschitzness_loss,dist_theta_theta_star], feed_dict=fd)
-
-            # - Before making the update step, re-assign the old variables
-            op_assign_back_value = sess.run([op_assign_back], feed_dict=fd)
-            
-            fd[final_lipschitzness_loss_placeholder] = final_lipschitzness_loss_value
-            fd[beta_placeholder] = FLAGS.beta_lipschitzness
 
         # Run the graph with this batch of training data.
         train_nodes = [
@@ -282,8 +224,6 @@ def main(_):
             d = {}
             d["Loss/train_accuracy"] = train_accuracy
             d["Loss/cross_entropy"] = cross_entropy_value
-            if(FLAGS.lipschitzness):
-                d["Loss/Lipschitzness"] = final_lipschitzness_loss_value
             return d
         wandb.log(get_train_metrics(),step=training_step)
 

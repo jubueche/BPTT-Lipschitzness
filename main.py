@@ -15,6 +15,7 @@ import tensorflow.keras.backend as K
 from RNN import RNN
 from GraphExecution import loss as loss_class
 
+DEBUG = False
 
 if __name__ == '__main__':
 
@@ -69,12 +70,12 @@ if __name__ == '__main__':
     iteration = [1000,500]; lrs = [0.001, 0.0001]; current_idx = 0 ; cum_sum = 0
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
-    @tf.function
-    def compute_and_apply_gradients(train_fingerprints, W_in, W_rec, W_out, b_out):
+    @tf.function(autograph=not DEBUG)
+    def compute_and_apply_gradients(train_fingerprints, train_ground_truth, W_in, W_rec, W_out, b_out):
         with tf.GradientTape(persistent=False) as tape_normal:
             logits, spikes = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
-            average_fr = tf.reduce_mean(spikes, axis=1)
-            loss = loss_class.normal_loss(train_ground_truth, logits, average_fr, FLAGS) # + loss_lip(logits, logits_adv1)
+            average_fr = tf.reduce_mean(spikes, axis=(1,2))
+            loss = loss_class.normal_loss(train_ground_truth, logits, average_fr, FLAGS)
         # - Get the gradients
         gradients = tape_normal.gradient(loss, [W_in,W_rec,W_out,b_out])
         optimizer.apply_gradients(zip(gradients,[W_in,W_rec,W_out,b_out]))
@@ -88,11 +89,11 @@ if __name__ == '__main__':
         # - Get training data
         train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
         
-        compute_and_apply_gradients(train_fingerprints, W_in, W_rec, W_out, b_out)
+        compute_and_apply_gradients(train_fingerprints, train_ground_truth, W_in, W_rec, W_out, b_out)
         
         if(i % 10 == 0):
             logits, spikes = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
-            average_fr = tf.reduce_mean(spikes, axis=1)
+            average_fr = tf.reduce_mean(spikes, axis=(1,2))
             loss = loss_class.normal_loss(train_ground_truth, logits, average_fr, FLAGS)
             predicted_indices = tf.cast(tf.argmax(input=logits, axis=1), dtype=tf.int32)
             correct_prediction = tf.cast(tf.equal(predicted_indices, train_ground_truth), dtype=tf.float32)
