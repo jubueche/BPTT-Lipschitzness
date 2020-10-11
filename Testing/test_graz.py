@@ -101,5 +101,6 @@ if __name__ == '__main__':
     graz_values["model_settings"] = model_settings
 
     fn = os.path.join(os.path.dirname(__file__), "tests/graz_output.json")
+    print(fn)
     with open(fn, "w") as f:
         json.dump(graz_values, f)

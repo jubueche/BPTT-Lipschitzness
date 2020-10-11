@@ -16,6 +16,8 @@ from RNN import RNN
 from GraphExecution import loss as loss_class
 
 
+import json
+
 if __name__ == '__main__':
 
     print(f"Tensorflow version {tf.__version__} Using eager evalation {tf.executing_eagerly()} should be True")
@@ -70,7 +72,7 @@ if __name__ == '__main__':
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
     @tf.function
-    def compute_and_apply_gradients(train_fingerprints, W_in, W_rec, W_out, b_out):
+    def compute_and_apply_gradients(train_fingerprints, train_ground_truth, W_in, W_rec, W_out, b_out):
         with tf.GradientTape(persistent=False) as tape_normal:
             logits, spikes = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
             average_fr = tf.reduce_mean(spikes, axis=1)
@@ -88,7 +90,7 @@ if __name__ == '__main__':
         # - Get training data
         train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
         
-        compute_and_apply_gradients(train_fingerprints, W_in, W_rec, W_out, b_out)
+        compute_and_apply_gradients(train_fingerprints, train_ground_truth, W_in, W_rec, W_out, b_out)
         
         if(i % 10 == 0):
             logits, spikes = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)

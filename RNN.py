@@ -12,6 +12,8 @@ import tensorflow_probability as tfp
 from six.moves import xrange
 import tensorflow.keras.backend as K
 
+import json
+
 print(f"Tensorflow version {tf.__version__}")
 
 DEBUG = False
@@ -69,7 +71,7 @@ class RNN:
         return z
 
     @tf.function(autograph=not DEBUG)
-    def call(self, fingerprint_input, W_in, W_rec, W_out, b_out):
+    def call(self, fingerprint_input, W_in, W_rec, W_out, b_out, batch_sized=True):
         input_frequency_size = self.model_settings['fingerprint_width']
         input_channels = max(1, 2*self.model_settings['n_thr_spikes'] - 1)
         input_time_size = self.model_settings['spectrogram_length'] * self.model_settings['in_repeat']
@@ -80,7 +82,8 @@ class RNN:
 
         # - Initial state
         state0 = [tf.zeros((1,self.units)), tf.zeros((1,self.units)), tf.zeros((1,self.units)), tf.zeros((1,self.units))]
-
+        #state0 = [tf.zeros((fingerprint_3d.shape[0], 1,self.units)), tf.zeros((fingerprint_3d.shape[0], 1,self.units)), tf.zeros((fingerprint_3d.shape[0], 1,self.units)), tf.zeros((fingerprint_3d.shape[0], 1,self.units))]
+        state0_b = [tf.zeros((fingerprint_3d.shape[0], self.units)), tf.zeros((fingerprint_3d.shape[0], self.units)), tf.zeros((fingerprint_3d.shape[0], self.units)), tf.zeros((fingerprint_3d.shape[0],self.units))]
         # - Define step function
         @tf.function(autograph=not DEBUG)
         def step(prev_state, input_b):
@@ -141,12 +144,23 @@ class RNN:
             return out # - [BS,Num_labels]
 
         # - Use Keras .rnn()
-        spikes = tf.map_fn(keras_evolve_single, fingerprint_3d)
-        if(len(spikes.shape) > 1):
-            spikes = tf.squeeze(spikes)
-        if(fingerprint_3d.shape[0]==1):
-            spikes = tf.reshape(spikes, shape=[1,spikes.shape[0],spikes.shape[1]])
-        out = tf.matmul(tf.reduce_mean(spikes, axis=1), W_out) + b_out
+        if not(batch_sized):
+            spikes = tf.map_fn(keras_evolve_single, fingerprint_3d)
+            if(len(spikes.shape) > 1):
+                spikes = tf.squeeze(spikes)
+            if(fingerprint_3d.shape[0]==1):
+                spikes = tf.reshape(spikes, shape=[1,spikes.shape[0],spikes.shape[1]])
+            out = tf.matmul(tf.reduce_mean(spikes, axis=1), W_out) + b_out
+
+        # - Keras .rnn() ONLY 
+        if batch_sized:
+            spikes = K.rnn(step_function=keras_step, inputs=fingerprint_3d, initial_states=state0_b)[1]
+            if(len(spikes.shape) > 1):
+                spikes = tf.squeeze(spikes)
+            if(fingerprint_3d.shape[0]==1):
+                spikes = tf.reshape(spikes, shape=[1,spikes.shape[0],spikes.shape[1]])
+            out = tf.matmul(tf.reduce_mean(spikes, axis=1), W_out) + b_out
+
         # - Use tf.scan()
         # final_out = tf.squeeze(tf.map_fn(evolve_single, fingerprint_3d))
         
