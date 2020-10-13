@@ -163,6 +163,7 @@ class RNN:
 
         # - Use tf.scan()
         # final_out = tf.squeeze(tf.map_fn(evolve_single, fingerprint_3d))
+        # return final_out, 0
         
         return out, spikes
 

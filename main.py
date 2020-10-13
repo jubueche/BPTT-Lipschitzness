@@ -73,13 +73,47 @@ if __name__ == '__main__':
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
     @tf.function(autograph=not DEBUG)
+    def apply_gaussian(M):
+        return M + tf.random.normal(shape=M.shape, mean=0.0, stddev=0.001, dtype=M.dtype)
+
+    @tf.function(autograph=not DEBUG)
     def compute_and_apply_gradients(train_fingerprints, train_ground_truth, W_in, W_rec, W_out, b_out):
-        with tf.GradientTape(persistent=False) as tape_normal:
-            logits, spikes = rnn.call(fingerprint_input=train_fingerprints, W_in=W_in, W_rec=W_rec, W_out=W_out, b_out=b_out)
+        with tf.GradientTape(persistent=True) as tape_normal:            
+            with tf.GradientTape(persistent=True) as tape_adv:
+                theta = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
+                logits, spikes = rnn.call(fingerprint_input=train_fingerprints, **theta) # - Call f(x,Theta)
+                # - Initialize Theta* with a small Gaussian perturbation of Theta
+                theta_star = {k: apply_gaussian(v) for k,v in theta.items()}
+
+                # - Call f(x,Theta*)
+                logits_adv, _ = rnn.call(train_fingerprints, **theta_star)
+                # - Evaluate the loss L( f(x,Theta) , f(x,Theta*)  )
+                loss_adv = loss_class.loss_lip(logits, logits_adv)
+                tf.print(loss_adv)
+                # - Retrieve d L / d Theta*
+                # d_loss_adv_d_theta_star = tape_adv.gradient(loss_adv, theta_star)
+                # tf.print(theta_star.keys())
+                # # - Update Theta* in the positive direction of the gradient
+                # for k in theta_star.keys():
+                #     theta_star[k] = theta_star[k] + 0.001*d_loss_adv_d_theta_star[k]
+
+                # # - Now, do the same again with the updated Theta*
+                # logits_adv, _ = rnn.call(train_fingerprints, **theta_star)
+                # # - Evaluate the loss L( f(x,Theta) , f(x,Theta*)  )
+                # loss_adv = loss_class.loss_lip(logits, logits_adv)
+
+                # # - Calculate the gradient of the adversarial loss w.r.t. Theta
+                # d_loss_adv_d_theta = tape_adv.gradient(loss_adv, theta)
+                # tf.print(d_loss_adv_d_theta)
+                 
+            # tf.print(d_loss_adv_d_theta_star)
             average_fr = tf.reduce_mean(spikes, axis=(1,2))
+            # - First part of the loss. Can be easily differentiated w.r.t. theta
             loss = loss_class.normal_loss(train_ground_truth, logits, average_fr, FLAGS)
+            loss_general = loss + loss_adv
+
         # - Get the gradients
-        gradients = tape_normal.gradient(loss, [W_in,W_rec,W_out,b_out])
+        gradients = tape_normal.gradient(loss_general, [W_in,W_rec,W_out,b_out])
         optimizer.apply_gradients(zip(gradients,[W_in,W_rec,W_out,b_out]))
 
     for i in range(sum(iteration)):

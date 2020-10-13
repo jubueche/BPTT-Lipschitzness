@@ -33,7 +33,7 @@ def execute_graz_rnn(model_settings, FLAGS):
     av = tf.reduce_mean(spikes, axis=(0, 1))
     ground_truth_input = tf.compat.v1.placeholder(tf.int64, [None], name='groundtruth_input')
     with tf.compat.v1.name_scope('loss'):
-        loss = loss_class.evaluate_loss_function(target_output=ground_truth_input, logits=logits, average_fr=0, FLAGS=FLAGS) # - FIXME Introduce av instead of 0
+        loss = loss_class.evaluate_loss_function(target_output=ground_truth_input, logits=logits, average_fr=0, FLAGS=FLAGS)
 
     # - Would define optimizers here
     gradients = tf.compat.v1.train.AdamOptimizer().compute_gradients(loss)

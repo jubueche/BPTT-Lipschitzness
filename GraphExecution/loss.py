@@ -10,7 +10,7 @@ def kl(x, y):
 def loss_lip(logits, logits_adv):
     s_logits = tf.nn.softmax(logits) # [BS,4]
     s_logits_adv = tf.nn.softmax(logits_adv)
-    return kl(s_logits, s_logits_adv)
+    return -1*kl(s_logits, s_logits_adv)
 
 def normal_loss(target_output, logits, average_fr, FLAGS):
     cross_entropy_mean = tf.compat.v1.losses.sparse_softmax_cross_entropy(labels=target_output, logits=logits)
