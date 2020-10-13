@@ -7,9 +7,9 @@ import input_data_eager as input_data
 from six.moves import xrange
 from RNN_Jax import RNN
 from GraphExecution import utils
-from jax import jit, grad, partial
+from jax import jit, grad, partial, random
 import jax.numpy as jnp
-from loss_jax import loss_normal
+from loss_jax import loss_normal, loss_kl
 from jax.experimental import optimizers
 
 
@@ -68,11 +68,39 @@ if __name__ == '__main__':
 
         def training_loss(X, y, params, l2_reg):
             logits, spikes = rnn.call(X, **params)
-            avg_firing = jnp.mean(spikes, axis=1)
+            avg_firing = jnp.mean(spikes, axis=1) 
             return loss_normal(y, logits, avg_firing, l2_reg)
 
+        def lip_loss(X, y, theta_star, logits):
+            logits_theta_star, _ = rnn.call(X, **theta_star)
+            return loss_kl(logits, logits_theta_star)
+
+        def robust_loss(X, y, params):
+            key = rnn._rng_key
+            _, *sks = random.split(key, len(params.keys())+2)
+            rnn._rng_key = sks[0]
+            initial_std = 0.2
+            theta_star = {}
+            # - Initialize theta_star randomly
+            for i,key in enumerate(params.keys()):
+                theta_star[key] = params[key] * (1 + initial_std*random.normal(key = sks[i+1]))
+
+            logits, _ = rnn.call(X, **params)
+            for i in range(3):
+                grads_theta_star = grad(lip_loss, argnums=2)(X, y, theta_star, logits)
+                for key in theta_star.keys():
+                    theta_star[key] = theta_star[key] + 0.001 * grads_theta_star[key]
+            loss_kl = lip_loss(X, y, theta_star, logits)
+            return loss_kl
+
+        def loss_general(X, y, params, l2_reg, beta):
+            loss_n = training_loss(X, y, params, l2_reg)
+            loss_r = robust_loss(X, y, params)
+            return loss_n + loss_r
+
         # - Differentiate w.r.t element at argnums (deault 0, so first element)
-        grads = grad(training_loss, argnums=2)(X, y, params, l2_reg)
+        beta = 0.1
+        grads = grad(loss_general, argnums=2)(X, y, params, l2_reg, beta)
         diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
         # - Remove the diagonal of W_rec from the gradient
         grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0)

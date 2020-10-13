@@ -19,3 +19,12 @@ def loss_normal(y, logits, average_fr, regularizer):
     loss_reg = jnp.sum(jnp.square(average_fr - regularization_f0) * regularizer)
     cce += loss_reg
     return cce
+
+@jit
+def loss_kl(logits, logits_theta_star):
+    # - Apply softmax
+    logits_s = softmax(logits)
+    logits_theta_star_s = softmax(logits_theta_star)
+    # - Assumes [BatchSize,Output] shape
+    kl = jnp.mean(jnp.sum(logits_s * jnp.log(logits_s / logits_theta_star_s), axis=1))
+    return kl
