@@ -3,6 +3,7 @@ from jax.lax import scan
 import numpy as onp
 import jax.numpy as jnp
 from jax import random as rand
+import ujson as json
 
 class RNN:
 
@@ -48,6 +49,27 @@ class RNN:
         state0_b = {"_v":jnp.zeros((bs, self.units)), "_z":jnp.zeros((bs, self.units)), "_b":jnp.zeros((bs, self.units)), "_r":jnp.zeros((bs,self.units))}
         rnn_out, spikes = _evolve_RNN(state0_b, W_in, W_rec, W_out, b_out, self.tau, self.thr, self.dampening_factor, self.n_refractory, self.decay, self.tau_adaptation, self.beta, self.decay_b, self.dt, self.noise_std, fingerprint_3d, self._rng_key)
         return rnn_out, spikes
+
+    def save(self,fn,theta):
+        save_dict = {}
+        save_dict["params"] = self.model_settings
+        save_dict["rng_key"] = onp.array(list(self._rng_key),onp.int64).tolist()
+        for key in theta.keys():
+            theta[key] = theta[key].tolist()
+        save_dict["theta"] = theta
+        with open(fn, "w") as f:
+            json.dump(save_dict, f)
+
+    @classmethod
+    def load(self,fn):
+        with open(fn, "r") as f:
+            load_dict = json.load(f)
+        rnn = RNN(load_dict["params"])
+        rnn._rng_key = jnp.array(load_dict["rng_key"], jnp.uint32)
+        theta = load_dict["theta"]
+        for key in theta.keys():
+            theta[key] = jnp.array(theta[key], jnp.float32)
+        return rnn, load_dict["theta"] 
 
 @jit
 def _evolve_RNN(state0,

@@ -1,6 +1,5 @@
 from jax.config import config
 #config.update('jax_disable_jit', True)
-
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
