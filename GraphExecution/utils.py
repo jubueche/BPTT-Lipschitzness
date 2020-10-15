@@ -296,13 +296,13 @@ def get_parser():
     )
     parser.add_argument(
         '--beta_lipschitzness',
-        default=1.0,
+        default=10.0,
         type=float,
         help='Beta used for weighting lipschitzness term'
     )
     parser.add_argument(
         '--step_size_lipschitzness',
-        default=0.0001,
+        default=0.1,
         type=float,
         help='Step size used to update Theta*'
     )

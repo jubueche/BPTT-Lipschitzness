@@ -7,11 +7,17 @@ import input_data_eager as input_data
 from six.moves import xrange
 from RNN_Jax import RNN
 from GraphExecution import utils
-from jax import jit, grad, partial, random
+from jax import random
 import jax.numpy as jnp
-from loss_jax import loss_normal, loss_kl
+from loss_jax import loss_normal, compute_gradient_and_update, attack_network
 from jax.experimental import optimizers
+import ujson as json
 
+def get_batched_accuracy(y, logits):
+    predicted_labels = jnp.argmax(logits, axis=1)
+    correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
+    batch_acc = jnp.mean(correct_prediction)
+    return batch_acc
 
 if __name__ == '__main__':
 
@@ -62,86 +68,60 @@ if __name__ == '__main__':
     # - Create the model
     rnn = RNN(model_settings)
 
-    @partial(jit, static_argnums=(4,5))
-    def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_params, l2_reg):
-        params = get_params(opt_state)
-
-        def training_loss(X, y, params, l2_reg):
-            logits, spikes = rnn.call(X, **params)
-            avg_firing = jnp.mean(spikes, axis=1) 
-            return loss_normal(y, logits, avg_firing, l2_reg)
-
-        def lip_loss(X, y, theta_star, logits):
-            logits_theta_star, _ = rnn.call(X, **theta_star)
-            return loss_kl(logits, logits_theta_star)
-
-        def robust_loss(X, y, params):
-            key = rnn._rng_key
-            _, *sks = random.split(key, len(params.keys())+2)
-            rnn._rng_key = sks[0]
-            initial_std = 0.2
-            theta_star = {}
-            # - Initialize theta_star randomly
-            for i,key in enumerate(params.keys()):
-                theta_star[key] = params[key] * (1 + initial_std*random.normal(key = sks[i+1]))
-
-            logits, _ = rnn.call(X, **params)
-            for i in range(3):
-                grads_theta_star = grad(lip_loss, argnums=2)(X, y, theta_star, logits)
-                for key in theta_star.keys():
-                    theta_star[key] = theta_star[key] + 0.001 * grads_theta_star[key]
-            loss_kl = lip_loss(X, y, theta_star, logits)
-            return loss_kl
-
-        def loss_general(X, y, params, l2_reg, beta):
-            loss_n = training_loss(X, y, params, l2_reg)
-            loss_r = robust_loss(X, y, params)
-            return loss_n + loss_r
-
-        # - Differentiate w.r.t element at argnums (deault 0, so first element)
-        beta = 0.1
-        grads = grad(loss_general, argnums=2)(X, y, params, l2_reg, beta)
-        diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
-        # - Remove the diagonal of W_rec from the gradient
-        grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0)
-        # clipped_grads = optimizers.clip_grads(grads, max_grad_norm)
-        return opt_update(i, grads, opt_state)
-
     init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
-    iteration = [1000,500]; lrs = [0.001, 0.0001]; current_idx = 0 ; cum_sum = 0
+    iteration = [500,250]; lrs = [0.001, 0.0001]; current_idx = 0 ; cum_sum = 0
     opt_init, opt_update, get_params = optimizers.adam(lrs[0], 0.9, 0.999, 1e-08)
     opt_state = opt_init(init_params)
+
+    track_dict = {"training_accuracies": [], "attacked_training_accuracies": [], "kl_over_time": []}
 
     for i in range(sum(iteration)):
         # - Get some data
         if(i >= cum_sum + iteration[current_idx]):
             current_idx += 1
             cum_sum += iteration[current_idx-1]
-            # set optimizer lr to lrs[current_idx]
+            # TODO set optimizer lr to lrs[current_idx]
         # - Get training data
         train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
-        
-        opt_state = compute_gradient_and_update(i, train_fingerprints.numpy(), train_ground_truth.numpy(), opt_state, opt_update, get_params, FLAGS.reg)
+        X = train_fingerprints.numpy()
+        y = train_ground_truth.numpy()
+
+        opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS)
         
         if(i % 10 == 0):
             params = get_params(opt_state)
-            logits, spikes = rnn.call(train_fingerprints.numpy(), **params)
+            logits, spikes = rnn.call(X, **params)
             avg_firing = jnp.mean(spikes, axis=1)
-            loss = loss_normal(train_ground_truth.numpy(), logits, avg_firing, FLAGS.reg)
-            print(f"Loss is {loss}")
-            
+            loss = loss_normal(y, logits, avg_firing, FLAGS.reg)
+            lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS)
+            lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
+            training_accuracy = get_batched_accuracy(y, logits)
+            attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
+            print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}")
+            track_dict["training_accuracies"].append(onp.float64(training_accuracy))
+            track_dict["attacked_training_accuracies"].append(onp.float64(attacked_accuracy))
+            track_dict["kl_over_time"].append(lip_loss_over_time)
 
-        if((i+1) % 399 == 0):
+        if((i+1) % 199 == 0):
+            params = get_params(opt_state)
             set_size = audio_processor.set_size('validation')
             total_accuracy = 0
             for i in xrange(0, set_size, FLAGS.batch_size):
                 validation_fingerprints, validation_ground_truth = (
-                    audio_processor.get_data(FLAGS.batch_size, i, model_settings, 0.0,
-                                            0.0, 0.0, 'validation'))
-                # Get logits here
-                # Get predicted indices
-                # Get correct prediction
-                # Compute validation accuracy
-                # Add to total accuracy using total_accuracy += (validation_accuracy * FLAGS.batch_size) / set_size
+                    audio_processor.get_data(FLAGS.batch_size, i, model_settings, 0.0, 0.0, 0.0, 'validation'))
+                logits, _ = rnn.call(validation_fingerprints.numpy(), **params)
+                predicted_labels = jnp.argmax(logits, axis=1)
+                correct_prediction = jnp.array(predicted_labels == validation_ground_truth.numpy(), dtype=jnp.float32)
+                batched_validation_acc = jnp.mean(correct_prediction)
+                total_accuracy += (batched_validation_acc * FLAGS.batch_size) / set_size
 
             print(f"Validation accuracy is {total_accuracy}")
+
+    postfix = ""
+    if(FLAGS.lipschitzness):
+        postfix += "lipschitzness"
+    fn = path.join(path.dirname(path.abspath(__file__)), f"Resources/Plotting/track_dict_{postfix}.json")
+    with open(fn, "w") as f:
+        json.dump(track_dict, f)
+
+        
