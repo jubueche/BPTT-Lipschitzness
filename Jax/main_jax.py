@@ -67,7 +67,7 @@ if __name__ == '__main__':
         FLAGS.silence_percentage, FLAGS.unknown_percentage,
         FLAGS.wanted_words.split(','), FLAGS.validation_percentage,
         FLAGS.testing_percentage, model_settings, FLAGS.summaries_dir,
-        FLAGS.n_thr_spikes, FLAGS.in_repeat
+        FLAGS.n_thr_spikes, FLAGS.in_repeat, FLAGS.seed
     )
     time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
     training_steps_list = list(map(int, FLAGS.how_many_training_steps.split(',')))
@@ -82,10 +82,12 @@ if __name__ == '__main__':
     # - Define trainable variables
     d_In = model_settings['fingerprint_width']
     d_Out = model_settings["label_count"]
-    W_in = onp.array(random.truncated_normal(random.PRNGKey(0),-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
-    W_rec = onp.array(random.truncated_normal(random.PRNGKey(1),-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
+    rng_key = random.PRNGKey(FLAGS.seed)
+    _, *sks = random.split(rng_key, 5)
+    W_in = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    W_rec = onp.array(random.truncated_normal(sks[2],-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
     onp.fill_diagonal(W_rec, 0.)
-    W_out = onp.array(random.truncated_normal(random.PRNGKey(2),-2,2,(FLAGS.n_hidden, d_Out))*0.01)
+    W_out = onp.array(random.truncated_normal(sks[3],-2,2,(FLAGS.n_hidden, d_Out))*0.01)
     b_out = onp.zeros((d_Out,))
 
     # - Create the model
@@ -159,7 +161,8 @@ if __name__ == '__main__':
             track_dict["validation_accuracy"].append(onp.float64(total_accuracy))
             track_dict["attacked_validation_accuracy"].append(onp.float64(attacked_total_accuracy))
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
-            track_dict["validation_kl_over_time"].append(mean_llot)
+            track_dict["validation_kl_over_time"].append(list(onp.array(mean_llot, dtype=onp.float64)))
+
             if(USE_WANBD):
                 plt.subplot(121)
                 plt.plot(track_dict["validation_accuracy"], color="g", label="Val. acc.")
