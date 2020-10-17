@@ -12,6 +12,7 @@ import jax.numpy as jnp
 from loss_jax import loss_normal, compute_gradient_and_update, attack_network
 from jax.experimental import optimizers
 import ujson as json
+import jax.nn.initializers as jini
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -59,10 +60,12 @@ if __name__ == '__main__':
     # - Define trainable variables
     d_In = model_settings['fingerprint_width']
     d_Out = model_settings["label_count"]
-    W_in = onp.random.randn(d_In, FLAGS.n_hidden)*(onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978)
-    W_rec = onp.random.randn(FLAGS.n_hidden,FLAGS.n_hidden) * (onp.sqrt(1/FLAGS.n_hidden) / .87962566103423978)
+    #W_in = onp.random.randn(d_In, FLAGS.n_hidden)*(onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978)
+    W_in = onp.array(random.truncated_normal(random.PRNGKey(0),-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    W_rec = onp.array(random.truncated_normal(random.PRNGKey(1),-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
+    #W_rec = onp.random.randn(FLAGS.n_hidden,FLAGS.n_hidden) * (onp.sqrt(1/FLAGS.n_hidden) / .87962566103423978)
     onp.fill_diagonal(W_rec, 0.)
-    W_out = onp.random.randn(FLAGS.n_hidden,d_Out)*0.01
+    W_out = onp.array(random.truncated_normal(random.PRNGKey(2),-2,2,(FLAGS.n_hidden, d_Out))*0.01)
     b_out = onp.zeros((d_Out,))
 
     # - Create the model
