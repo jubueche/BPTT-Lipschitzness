@@ -25,8 +25,8 @@ if __name__ == '__main__':
     parser = utils.get_parser()
     FLAGS, unparsed = parser.parse_known_args()
     if(len(unparsed)>0):
-        print("Received argument that cannot be passed. Exiting...")
-        print(unparsed)
+        print("Received argument that cannot be passed. Exiting...",flush=True)
+        print(unparsed,flush=True)
         sys.exit(0)
 
     model_settings = utils.prepare_model_settings(
@@ -100,7 +100,7 @@ if __name__ == '__main__':
             lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
-            print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}")
+            print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
             track_dict["training_accuracies"].append(onp.float64(training_accuracy))
             track_dict["attacked_training_accuracies"].append(onp.float64(attacked_accuracy))
             track_dict["kl_over_time"].append(lip_loss_over_time)
@@ -118,7 +118,7 @@ if __name__ == '__main__':
                 batched_validation_acc = jnp.mean(correct_prediction)
                 total_accuracy += (batched_validation_acc * FLAGS.batch_size) / set_size
 
-            print(f"Validation accuracy is {total_accuracy}")
+            print(f"Validation accuracy is {total_accuracy}",flush=True)
 
     postfix = ""
     if(FLAGS.lipschitzness):
