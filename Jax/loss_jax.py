@@ -46,17 +46,23 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         key = rnn._rng_key
         _, *sks = random.split(key, len(params.keys())+2)
         rnn._rng_key = sks[0]
-        initial_std = 0.2
+        if(FLAGS.use_epsilon_ball):
+            initial_std = 0.001
+        else:
+            initial_std = 0.2
         theta_star = {}
         # - Initialize theta_star randomly
         for i,key in enumerate(params.keys()):
             theta_star[key] = params[key] * (1 + initial_std*random.normal(key = sks[i+1]))
 
         logits, _ = rnn.call(X, **params)
-        for i in range(3):
+        for i in range(FLAGS.num_steps_lipschitzness):
             grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, params, logits)
             for key in theta_star.keys():
-                theta_star[key] = theta_star[key] + FLAGS.step_size_lipschitzness * grads_theta_star[key]
+                if(FLAGS.use_epsilon_ball):
+                    theta_star[key] = theta_star[key] + FLAGS.epsilon_lipschitzness/FLAGS.num_steps_lipschitzness * jnp.sign(grads_theta_star[key])
+                else:
+                    theta_star[key] = theta_star[key] + FLAGS.step_size_lipschitzness * grads_theta_star[key]
         loss_kl = lip_loss(X, theta_star, params, logits)
         return loss_kl
 
@@ -86,18 +92,24 @@ def attack_network(X, theta, logits, rnn, FLAGS):
     key = rnn._rng_key
     _, *sks = random.split(key, len(theta.keys())+2)
     rnn._rng_key = sks[0]
-    initial_std = 0.2
+    if(FLAGS.use_epsilon_ball):
+        initial_std = 0.001
+    else:
+        initial_std = 0.2
     theta_star = {}
     # - Initialize theta_star randomly
     for i,key in enumerate(theta.keys()):
         theta_star[key] = theta[key] * (1 + initial_std*random.normal(key = sks[i+1]))
 
     loss_over_time = []
-    for i in range(10):
+    for i in range(FLAGS.num_steps_lipschitzness):
         value, grads_theta_star = value_and_grad(lip_loss, argnums=1)(X, theta_star, logits)
         loss_over_time.append(value)
         for key in theta_star.keys():
-            theta_star[key] = theta_star[key] + FLAGS.step_size_lipschitzness * grads_theta_star[key]
+            if(FLAGS.use_epsilon_ball):
+                theta_star[key] = theta_star[key] + FLAGS.epsilon_lipschitzness/FLAGS.num_steps_lipschitzness * jnp.sign(grads_theta_star[key])
+            else:
+                theta_star[key] = theta_star[key] + FLAGS.step_size_lipschitzness * grads_theta_star[key]
     loss_over_time.append(lip_loss(X, theta_star, logits))
     logits_theta_star , _ = rnn.call(X, **theta_star)
     return loss_over_time, logits_theta_star

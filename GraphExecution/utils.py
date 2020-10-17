@@ -306,6 +306,24 @@ def get_parser():
         type=float,
         help='Step size used to update Theta*'
     )
+    parser.add_argument(
+        '--num_steps_lipschitzness',
+        default=5,
+        type=int,
+        help='Number of steps used to find Theta*'
+    )
+    parser.add_argument(
+        '--epsilon_lipschitzness',
+        default=0.05,
+        type=float,
+        help='Maximum elementwise distance from initial random theta to final theta*'
+    )
+    parser.add_argument(
+        '--use_epsilon_ball',
+        default=False,
+        action="store_true",
+        help='Use epsilon ball for attack'
+    )
 
     # Function used to parse --verbosity argument
     def verbosity_arg(value):
