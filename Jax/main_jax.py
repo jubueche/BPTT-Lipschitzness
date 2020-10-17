@@ -12,6 +12,9 @@ import jax.numpy as jnp
 from loss_jax import loss_normal, compute_gradient_and_update, attack_network
 from jax.experimental import optimizers
 import ujson as json
+import wandb
+import matplotlib.pyplot as plt 
+from datetime import datetime
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -27,6 +30,22 @@ if __name__ == '__main__':
         print("Received argument that cannot be passed. Exiting...")
         print(unparsed)
         sys.exit(0)
+
+    # - Paths
+    base_path = path.dirname(path.abspath(__file__))
+    postfix = ""
+    if(FLAGS.lipschitzness):
+        postfix += "_lipschitzness"
+    stored_name = '{}_{}_l{}_h{}_w{}str{}_do{}{}'.format(
+        datetime.now().strftime("%Y%m%d-%H%M%S"),
+        FLAGS.model_architecture, FLAGS.n_layer, FLAGS.n_hidden, FLAGS.window_size_ms, FLAGS.window_stride_ms,
+        FLAGS.dropout_prob,postfix)
+    model_name = f"{stored_name}_model.json"
+    track_name = f"{stored_name}_track.json"
+    model_save_path = path.join(base_path, f"Resources/{model_name}")
+    track_save_path = path.join(base_path, f"Resources/Plotting/{track_name}")
+
+    wandb.init(project="robust-lipschitzness", config=vars(FLAGS))
 
     model_settings = utils.prepare_model_settings(
         len(input_data.prepare_words_list(FLAGS.wanted_words.split(','))),
@@ -69,18 +88,16 @@ if __name__ == '__main__':
     rnn = RNN(model_settings)
 
     init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
-    iteration = [1000,500]; lrs = [0.001, 0.0001]; current_idx = 0 ; cum_sum = 0
-    opt_init, opt_update, get_params = optimizers.adam(lrs[0], 0.9, 0.999, 1e-08)
+    iteration = onp.array(FLAGS.how_many_training_steps.split(","), int)
+    lrs = onp.array(FLAGS.learning_rate.split(","),float)
+    color_range = onp.linspace(0,1,onp.sum(iteration))
+    
+    opt_init, opt_update, get_params = optimizers.adam(utils.get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
     opt_state = opt_init(init_params)
 
-    track_dict = {"training_accuracies": [], "attacked_training_accuracies": [], "kl_over_time": []}
-
+    track_dict = {"training_accuracies": [], "attacked_training_accuracies": [], "kl_over_time": [], "validation_accuracy": [], "attacked_validation_accuracy": [], "validation_kl_over_time": []}
+    best_val_acc = 0.0
     for i in range(sum(iteration)):
-        # - Get some data
-        if(i >= cum_sum + iteration[current_idx]):
-            current_idx += 1
-            cum_sum += iteration[current_idx-1]
-            # TODO set optimizer lr to lrs[current_idx]
         # - Get training data
         train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
         X = train_fingerprints.numpy()
@@ -98,30 +115,67 @@ if __name__ == '__main__':
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
             print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}")
+            
+            # - Logging for wandb
             track_dict["training_accuracies"].append(onp.float64(training_accuracy))
             track_dict["attacked_training_accuracies"].append(onp.float64(attacked_accuracy))
             track_dict["kl_over_time"].append(lip_loss_over_time)
+            
+            plt.subplot(121)
+            plt.plot(track_dict["training_accuracies"], color="g", label="Training acc.")
+            plt.plot(track_dict["attacked_training_accuracies"], color="r", label="Attacked training acc.")
+            plt.legend()
+            plt.subplot(122)
+            for idx,l in enumerate(track_dict["kl_over_time"]):
+                plt.plot(l, color=(1.0,1.0,color_range[idx]))
+            wandb.log({"train": plt})
 
-        if((i+1) % 199 == 0):
+
+        if((i) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
             set_size = audio_processor.set_size('validation')
-            total_accuracy = 0
+            llot = []
+            total_accuracy = attacked_total_accuracy = 0
             for i in xrange(0, set_size, FLAGS.batch_size):
                 validation_fingerprints, validation_ground_truth = (
                     audio_processor.get_data(FLAGS.batch_size, i, model_settings, 0.0, 0.0, 0.0, 'validation'))
-                logits, _ = rnn.call(validation_fingerprints.numpy(), **params)
+                X = validation_fingerprints.numpy()
+                y = validation_ground_truth.numpy()
+                logits, _ = rnn.call(X, **params)
+                lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS)
+                llot.append(lip_loss_over_time)
                 predicted_labels = jnp.argmax(logits, axis=1)
-                correct_prediction = jnp.array(predicted_labels == validation_ground_truth.numpy(), dtype=jnp.float32)
-                batched_validation_acc = jnp.mean(correct_prediction)
+                correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
+                batched_validation_acc = get_batched_accuracy(y, logits)
+                attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
                 total_accuracy += (batched_validation_acc * FLAGS.batch_size) / set_size
+                attacked_total_accuracy += (attacked_batched_validation_acc * FLAGS.batch_size) / set_size
 
-            print(f"Validation accuracy is {total_accuracy}")
+            # - Logging
+            color_range_val = onp.linspace(0,1,int(sum(iteration)/FLAGS.eval_step_interval))
+            track_dict["validation_accuracy"].append(onp.float64(total_accuracy))
+            track_dict["attacked_validation_accuracy"].append(onp.float64(attacked_total_accuracy))
+            mean_llot = onp.mean(onp.asarray(llot), axis=0)
+            track_dict["validation_kl_over_time"].append(mean_llot)
+            plt.subplot(121)
+            plt.plot(track_dict["validation_accuracy"], color="g", label="Val. acc.")
+            plt.plot(track_dict["attacked_validation_accuracy"], color="r", label="Attacked val. acc.")
+            plt.legend()
+            plt.subplot(122)
+            for idx,l in enumerate(track_dict["validation_kl_over_time"]):
+                plt.plot(l, color=(1.0,1.0,color_range_val[idx]))
+            wandb.log({"val": plt})
 
-    postfix = ""
-    if(FLAGS.lipschitzness):
-        postfix += "lipschitzness"
-    fn = path.join(path.dirname(path.abspath(__file__)), f"Resources/Plotting/track_dict_{postfix}.json")
-    with open(fn, "w") as f:
+            # - Save the model
+            if(total_accuracy > best_val_acc):
+                best_val_acc = total_accuracy
+                rnn.save(model_save_path, params)
+                print(f"Saved model under {model_save_path}")
+
+
+            print(f"Validation accuracy {total_accuracy} Attacked val. accuracy {attacked_total_accuracy}")
+
+    with open(track_save_path, "w") as f:
         json.dump(track_dict, f)
 
         

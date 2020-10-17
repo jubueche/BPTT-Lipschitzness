@@ -1,6 +1,8 @@
 import argparse
 import tensorflow as tf
 import math
+import numpy as onp
+import jax.numpy as jnp
 
 def _next_power_of_two(x):
   """Calculates the smallest enclosing power of two for an input.
@@ -416,3 +418,24 @@ def prepare_model_settings(label_count, sample_rate, clip_duration_ms,
       'average_window_width': average_window_width,
       'in_repeat': in_repeat,
   }
+
+def get_lr_schedule(iteration, lrs):
+
+    ts = onp.arange(1,sum(iteration),1)
+    lr_sched = onp.zeros((len(ts),))
+    for i in range(1,len(iteration)):
+        iteration[i] += iteration[i-1]
+    def get_lr(t):
+        if(t < iteration[0]):
+            return lrs[0]
+        for i in range(1,len(iteration)):
+            if(t < iteration[i] and t >= iteration[i-1]):
+                return lrs[i]
+
+    for idx,t in enumerate(ts):
+        lr_sched[idx] = get_lr(t)
+    lr_sched = jnp.array(lr_sched)
+    def lr_schedule(t):
+        return lr_sched[t]
+    
+    return lr_schedule
