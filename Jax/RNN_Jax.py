@@ -4,6 +4,7 @@ import numpy as onp
 import jax.numpy as jnp
 from jax import random as rand
 import ujson as json
+import jax
 
 class RNN:
 
@@ -41,6 +42,7 @@ class RNN:
         _, self._rng_key = rand.split(self._rng_key)
         input_frequency_size = self.model_settings['fingerprint_width']
         input_channels = jnp.max(jnp.array([1, 2*self.model_settings['n_thr_spikes'] - 1]))
+        #input_channels = max(1,2*self.model_settings['n_thr_spikes'] - 1)
         input_time_size = self.model_settings['spectrogram_length'] * self.model_settings['in_repeat']
         fingerprint_3d = jnp.reshape(fingerprint_input, (-1, input_time_size, input_frequency_size * input_channels)) # - [T,BS,In]
         fingerprint_3d = jnp.transpose(fingerprint_3d, axes=(1,0,2))
