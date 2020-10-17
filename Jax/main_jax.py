@@ -69,7 +69,7 @@ if __name__ == '__main__':
     rnn = RNN(model_settings)
 
     init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
-    iteration = [500,250]; lrs = [0.001, 0.0001]; current_idx = 0 ; cum_sum = 0
+    iteration = [1000,500]; lrs = [0.001, 0.0001]; current_idx = 0 ; cum_sum = 0
     opt_init, opt_update, get_params = optimizers.adam(lrs[0], 0.9, 0.999, 1e-08)
     opt_state = opt_init(init_params)
 
