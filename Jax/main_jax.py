@@ -136,7 +136,7 @@ if __name__ == '__main__':
                 wandb.log({"train": plt})
 
 
-        if((i+1) % FLAGS.eval_step_interval == 0):
+        if((i) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
             set_size = audio_processor.set_size('validation')
             llot = []
@@ -178,6 +178,9 @@ if __name__ == '__main__':
                 best_val_acc = total_accuracy
                 rnn.save(model_save_path, params)
                 print(f"Saved model under {model_save_path}")
+                with open(track_save_path, "w") as f:
+                    json.dump(track_dict, f)
+                print(f"Saved track dict under {track_save_path}")
 
 
             print(f"Validation accuracy {total_accuracy} Attacked val. accuracy {attacked_total_accuracy}")
