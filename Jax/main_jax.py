@@ -134,7 +134,7 @@ if __name__ == '__main__':
             wandb.log({"train": plt})
 
 
-        if((i) % FLAGS.eval_step_interval == 0):
+        if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
             set_size = audio_processor.set_size('validation')
             llot = []

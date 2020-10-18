@@ -160,7 +160,7 @@ def get_parser():
     parser.add_argument(
         '--model_architecture',
         type=str,
-        default='conv',
+        default='lsnn',
         help='What model architecture to use')
     parser.add_argument(
         '--check_nans',
