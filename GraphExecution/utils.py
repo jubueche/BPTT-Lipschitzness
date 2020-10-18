@@ -77,6 +77,13 @@ def get_parser():
         Range to randomly shift the training audio by in time.
         """)
     parser.add_argument(
+        '--seed',
+        type=int,
+        default=42,
+        help="""\
+        Seed used to initialize data loader and initial matrices
+        """)
+    parser.add_argument(
         '--testing_percentage',
         type=int,
         default=10,

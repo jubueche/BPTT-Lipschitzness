@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import jax.nn.initializers as jini
 
+USE_WANBD = False
+
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
     correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
@@ -28,8 +30,8 @@ if __name__ == '__main__':
     parser = utils.get_parser()
     FLAGS, unparsed = parser.parse_known_args()
     if(len(unparsed)>0):
-        print("Received argument that cannot be passed. Exiting...")
-        print(unparsed)
+        print("Received argument that cannot be passed. Exiting...",flush=True)
+        print(unparsed,flush=True)
         sys.exit(0)
 
     # - Paths
@@ -46,7 +48,8 @@ if __name__ == '__main__':
     model_save_path = path.join(base_path, f"Resources/{model_name}")
     track_save_path = path.join(base_path, f"Resources/Plotting/{track_name}")
 
-    wandb.init(project="robust-lipschitzness", config=vars(FLAGS))
+    if(USE_WANBD):
+        wandb.init(project="robust-lipschitzness", config=vars(FLAGS))
 
     model_settings = utils.prepare_model_settings(
         len(input_data.prepare_words_list(FLAGS.wanted_words.split(','))),
@@ -64,7 +67,7 @@ if __name__ == '__main__':
         FLAGS.silence_percentage, FLAGS.unknown_percentage,
         FLAGS.wanted_words.split(','), FLAGS.validation_percentage,
         FLAGS.testing_percentage, model_settings, FLAGS.summaries_dir,
-        FLAGS.n_thr_spikes, FLAGS.in_repeat
+        FLAGS.n_thr_spikes, FLAGS.in_repeat, FLAGS.seed
     )
     time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
     training_steps_list = list(map(int, FLAGS.how_many_training_steps.split(',')))
@@ -79,12 +82,12 @@ if __name__ == '__main__':
     # - Define trainable variables
     d_In = model_settings['fingerprint_width']
     d_Out = model_settings["label_count"]
-    #W_in = onp.random.randn(d_In, FLAGS.n_hidden)*(onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978)
-    W_in = onp.array(random.truncated_normal(random.PRNGKey(0),-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
-    W_rec = onp.array(random.truncated_normal(random.PRNGKey(1),-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
-    #W_rec = onp.random.randn(FLAGS.n_hidden,FLAGS.n_hidden) * (onp.sqrt(1/FLAGS.n_hidden) / .87962566103423978)
+    rng_key = random.PRNGKey(FLAGS.seed)
+    _, *sks = random.split(rng_key, 5)
+    W_in = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    W_rec = onp.array(random.truncated_normal(sks[2],-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
     onp.fill_diagonal(W_rec, 0.)
-    W_out = onp.array(random.truncated_normal(random.PRNGKey(2),-2,2,(FLAGS.n_hidden, d_Out))*0.01)
+    W_out = onp.array(random.truncated_normal(sks[3],-2,2,(FLAGS.n_hidden, d_Out))*0.01)
     b_out = onp.zeros((d_Out,))
 
     # - Create the model
@@ -117,21 +120,20 @@ if __name__ == '__main__':
             lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
-            print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}")
-            
-            # - Logging for wandb
+            print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
             track_dict["training_accuracies"].append(onp.float64(training_accuracy))
             track_dict["attacked_training_accuracies"].append(onp.float64(attacked_accuracy))
             track_dict["kl_over_time"].append(lip_loss_over_time)
             
-            plt.subplot(121)
-            plt.plot(track_dict["training_accuracies"], color="g", label="Training acc.")
-            plt.plot(track_dict["attacked_training_accuracies"], color="r", label="Attacked training acc.")
-            plt.legend()
-            plt.subplot(122)
-            for idx,l in enumerate(track_dict["kl_over_time"]):
-                plt.plot(l, color=(1.0,1.0,color_range[idx]))
-            wandb.log({"train": plt})
+            if(USE_WANBD):
+                plt.subplot(121)
+                plt.plot(track_dict["training_accuracies"], color="g", label="Training acc.")
+                plt.plot(track_dict["attacked_training_accuracies"], color="r", label="Attacked training acc.")
+                plt.legend()
+                plt.subplot(122)
+                for idx,l in enumerate(track_dict["kl_over_time"]):
+                    plt.plot(l, color=(1.0,1.0,color_range[idx]))
+                wandb.log({"train": plt})
 
 
         if((i+1) % FLAGS.eval_step_interval == 0):
@@ -159,15 +161,17 @@ if __name__ == '__main__':
             track_dict["validation_accuracy"].append(onp.float64(total_accuracy))
             track_dict["attacked_validation_accuracy"].append(onp.float64(attacked_total_accuracy))
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
-            track_dict["validation_kl_over_time"].append(mean_llot)
-            plt.subplot(121)
-            plt.plot(track_dict["validation_accuracy"], color="g", label="Val. acc.")
-            plt.plot(track_dict["attacked_validation_accuracy"], color="r", label="Attacked val. acc.")
-            plt.legend()
-            plt.subplot(122)
-            for idx,l in enumerate(track_dict["validation_kl_over_time"]):
-                plt.plot(l, color=(1.0,1.0,color_range_val[idx]))
-            wandb.log({"val": plt})
+            track_dict["validation_kl_over_time"].append(list(onp.array(mean_llot, dtype=onp.float64)))
+
+            if(USE_WANBD):
+                plt.subplot(121)
+                plt.plot(track_dict["validation_accuracy"], color="g", label="Val. acc.")
+                plt.plot(track_dict["attacked_validation_accuracy"], color="r", label="Attacked val. acc.")
+                plt.legend()
+                plt.subplot(122)
+                for idx,l in enumerate(track_dict["validation_kl_over_time"]):
+                    plt.plot(l, color=(1.0,1.0,color_range_val[idx]))
+                wandb.log({"val": plt})
 
             # - Save the model
             if(total_accuracy > best_val_acc):

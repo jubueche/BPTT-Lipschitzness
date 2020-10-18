@@ -23,7 +23,6 @@ SILENCE_INDEX = 0
 UNKNOWN_WORD_LABEL = '_unknown_'
 UNKNOWN_WORD_INDEX = 1
 BACKGROUND_NOISE_DIR_NAME = '_background_noise_'
-RANDOM_SEED = 59185
 
 def prepare_words_list(wanted_words):
     return [SILENCE_LABEL, UNKNOWN_WORD_LABEL] + wanted_words
@@ -71,7 +70,9 @@ def get_features_range(model_settings):
 class AudioProcessor(object):
     def __init__(self, data_url, data_dir, silence_percentage, unknown_percentage,
                    wanted_words, validation_percentage, testing_percentage,
-                   model_settings, summaries_dir, n_thr_spikes=-1, n_repeat=1):
+                   model_settings, summaries_dir, n_thr_spikes=-1, n_repeat=1, seed=59185):
+        self.RANDOM_SEED = seed
+        np.random.seed(seed)
         if data_dir:
             self.data_dir = data_dir
             self.maybe_download_and_extract_dataset(data_url, data_dir)
@@ -116,7 +117,7 @@ class AudioProcessor(object):
                          wanted_words, validation_percentage,
                          testing_percentage):
         # Make sure the shuffling and picking of unknowns is deterministic.
-        random.seed(RANDOM_SEED)
+        random.seed(self.RANDOM_SEED)
         wanted_words_index = {}
         for index, wanted_word in enumerate(wanted_words):
             wanted_words_index[wanted_word] = index + 2
