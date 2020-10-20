@@ -30,7 +30,7 @@ class RNN:
         self.model_settings = params
         self.d_out = params["label_count"]
         self.noise_std = 0.0
-        self._rng_key = rand.PRNGKey(1)
+        self._rng_key = rand.PRNGKey(params["seed"])
 
     def call(self,
                 fingerprint_input,
