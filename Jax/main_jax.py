@@ -138,6 +138,11 @@ if __name__ == '__main__':
                 for idx,l in enumerate(track_dict["kl_over_time"]):
                     plt.plot(l, color=(1.0,1.0,color_range[idx]))
                 wandb.log({"train": plt})
+                wandb.log(
+                    {
+                        "training_accuracy":track_dict["training_accuracies"][-1],
+                        "attacked_training_accuracy":track_dict["attacked_training_accuracies"][-1]
+                    })
 
 
         if((i+1) % FLAGS.eval_step_interval == 0):
@@ -176,6 +181,11 @@ if __name__ == '__main__':
                 for idx,l in enumerate(track_dict["validation_kl_over_time"]):
                     plt.plot(l, color=(1.0,1.0,color_range_val[idx]))
                 wandb.log({"val": plt})
+                wandb.log(
+                    {
+                        "validation_accuracy":track_dict["validation_accuracy"][-1],
+                        "attacked_validation_accuracy":track_dict["attacked_validation_accuracy"][-1]
+                    })
 
             # - Save the model
             if(total_accuracy > best_val_acc):
