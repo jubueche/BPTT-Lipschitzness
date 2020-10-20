@@ -103,20 +103,24 @@ if __name__ == '__main__':
 
     track_dict = {"training_accuracies": [], "attacked_training_accuracies": [], "kl_over_time": [], "validation_accuracy": [], "attacked_validation_accuracy": [], "validation_kl_over_time": []}
     best_val_acc = 0.0
+    key = random.PRNGKey(seed=FLAGS.seed)
+
     for i in range(sum(iteration)):
         # - Get training data
         train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
         X = train_fingerprints.numpy()
         y = train_ground_truth.numpy()
 
-        opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS)
+        rnn._rng_key = key 
+        opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, key)
+        _, key = random.split(key)
         
         if(i % 10 == 0):
             params = get_params(opt_state)
             logits, spikes = rnn.call(X, **params)
             avg_firing = jnp.mean(spikes, axis=1)
             loss = loss_normal(y, logits, avg_firing, FLAGS.reg)
-            lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS)
+            lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, key)
             lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
@@ -136,7 +140,7 @@ if __name__ == '__main__':
                 wandb.log({"train": plt})
 
 
-        if((i) % FLAGS.eval_step_interval == 0):
+        if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
             set_size = audio_processor.set_size('validation')
             llot = []
@@ -147,7 +151,7 @@ if __name__ == '__main__':
                 X = validation_fingerprints.numpy()
                 y = validation_ground_truth.numpy()
                 logits, _ = rnn.call(X, **params)
-                lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS)
+                lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, key)
                 llot.append(lip_loss_over_time)
                 predicted_labels = jnp.argmax(logits, axis=1)
                 correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)

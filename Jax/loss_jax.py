@@ -29,8 +29,8 @@ def loss_kl(logits, logits_theta_star):
     kl = jnp.mean(jnp.sum(logits_s * jnp.log(logits_s / logits_theta_star_s), axis=1))
     return kl
 
-@partial(jit, static_argnums=(4,5,6,7))
-def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_params, rnn, FLAGS):
+@partial(jit, static_argnums=(4,5,6,7,8))
+def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_params, rnn, FLAGS, key):
     params = get_params(opt_state)
 
     def training_loss(X, y, params, l2_reg):
@@ -42,10 +42,8 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         logits_theta_star, _ = rnn.call(X, **theta_star)
         return loss_kl(logits, logits_theta_star)
 
-    def robust_loss(X, y, params, FLAGS):
-        key = rnn._rng_key
-        _, *sks = random.split(key, len(params.keys())+2)
-        rnn._rng_key = sks[0]
+    def robust_loss(X, y, params, FLAGS, rand_key):
+        _, *sks = random.split(rand_key, len(params.keys())+2)
         if(FLAGS.use_epsilon_ball):
             initial_std = 0.001
         else:
@@ -53,7 +51,7 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         theta_star = {}
         # - Initialize theta_star randomly
         for i,key in enumerate(params.keys()):
-            theta_star[key] = params[key] * (1 + initial_std*random.normal(key = sks[i+1]))
+            theta_star[key] = params[key] * (1 + initial_std*random.normal(key = sks[i+1], shape=theta_star[key].shape))
 
         logits, _ = rnn.call(X, **params)
         for i in range(FLAGS.num_steps_lipschitzness):
@@ -68,7 +66,7 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
 
     def loss_general(X, y, params, FLAGS):
         loss_n = training_loss(X, y, params, FLAGS.reg)
-        loss_r = robust_loss(X, y, params, FLAGS)
+        loss_r = robust_loss(X, y, params, FLAGS, key)
         return loss_n + FLAGS.beta_lipschitzness*loss_r
 
     # - Differentiate w.r.t element at argnums (deault 0, so first element)
@@ -82,14 +80,13 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
     # clipped_grads = optimizers.clip_grads(grads, max_grad_norm)
     return opt_update(batch_id, grads, opt_state)
 
-@partial(jit, static_argnums=(3,4))
-def attack_network(X, theta, logits, rnn, FLAGS):
+@partial(jit, static_argnums=(3,4,5))
+def attack_network(X, theta, logits, rnn, FLAGS, key):
 
     def lip_loss(X, theta_star, logits):
         logits_theta_star, _ = rnn.call(X, **theta_star)
         return loss_kl(logits, logits_theta_star)
 
-    key = rnn._rng_key
     _, *sks = random.split(key, len(theta.keys())+2)
     rnn._rng_key = sks[0]
     if(FLAGS.use_epsilon_ball):
@@ -99,7 +96,7 @@ def attack_network(X, theta, logits, rnn, FLAGS):
     theta_star = {}
     # - Initialize theta_star randomly
     for i,key in enumerate(theta.keys()):
-        theta_star[key] = theta[key] * (1 + initial_std*random.normal(key = sks[i+1]))
+        theta_star[key] = theta[key] * (1 + initial_std*random.normal(key = sks[i+1], shape=theta[key].shape))
 
     loss_over_time = []
     for i in range(FLAGS.num_steps_lipschitzness):
