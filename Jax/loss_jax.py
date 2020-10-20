@@ -51,7 +51,7 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         theta_star = {}
         # - Initialize theta_star randomly
         for i,key in enumerate(params.keys()):
-            theta_star[key] = params[key] * (1 + initial_std*random.normal(key = sks[i+1], shape=theta_star[key].shape))
+            theta_star[key] = params[key] * (1 + initial_std*random.normal(key = sks[i+1], shape=params[key].shape))
 
         logits, _ = rnn.call(X, **params)
         for i in range(FLAGS.num_steps_lipschitzness):
