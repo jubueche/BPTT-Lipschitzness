@@ -36,12 +36,7 @@ if __name__ == '__main__':
         print("Received argument that cannot be passed. Exiting...",flush=True)
         print(unparsed,flush=True)
         sys.exit(0)
-
     
-    if FLAGS.beta_lipschitzness==0:
-        FLAGS.lipschitzness=False
-    else:
-        FLAGS.lipschitzness=True
 
     # - Paths
     base_path = path.dirname(path.abspath(__file__))

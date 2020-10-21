@@ -78,7 +78,7 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         return loss_n + FLAGS.beta_lipschitzness*loss_r
 
     # - Differentiate w.r.t element at argnums (deault 0, so first element)
-    if(FLAGS.lipschitzness):
+    if(FLAGS.beta_lipschitzness!=0):
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg)
