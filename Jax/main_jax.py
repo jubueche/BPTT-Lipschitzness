@@ -45,15 +45,15 @@ if __name__ == '__main__':
 
     # - Paths
     base_path = path.dirname(path.abspath(__file__))
-    stored_name = '{}_{}_h{}_b{}'.format(
-        datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),FLAGS.model_architecture, FLAGS.n_hidden,FLAGS.beta_lipschitzness)
+    stored_name = '{}_{}_h{}_b{}_s{}'.format(
+        datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),FLAGS.model_architecture, FLAGS.n_hidden,FLAGS.beta_lipschitzness,FLAGS.seed)
     model_name = f"{stored_name}_model.json"
     track_name = f"{stored_name}_track.json"
     model_save_path = path.join(base_path, f"Resources/{model_name}")
     track_save_path = path.join(base_path, f"Resources/Plotting/{track_name}")
 
     if(USE_WANBD):
-        wandb.init(project="robust-lipschitzness", config=vars(FLAGS))
+        wandb.init(project="robust-lipschitzness", config=vars(FLAGS),name=model_name)
 
     model_settings = utils.prepare_model_settings(
         len(input_data.prepare_words_list(FLAGS.wanted_words.split(','))),
