@@ -291,12 +291,12 @@ def get_parser():
         const=True,
         default=True,
         help='Average spikes over time for readout')
-    parser.add_argument(
-        '--lipschitzness',
-        default=False,
-        action='store_true',
-        help='Use lipschitzness loss or not. Default: False'
-    )
+    # parser.add_argument(
+    #     '--lipschitzness',
+    #     default=True,
+    #     action='store_true',
+    #     help='Use lipschitzness loss or not. Default: True'
+    # )
     parser.add_argument(
         '--lipschitzness_loss',
         default="kl",

@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import jax.nn.initializers as jini
 
-USE_WANBD = False
+USE_WANBD = True
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -37,15 +37,16 @@ if __name__ == '__main__':
         print(unparsed,flush=True)
         sys.exit(0)
 
+    
+    if FLAGS.beta_lipschitzness==0:
+        FLAGS.lipschitzness=False
+    else:
+        FLAGS.lipschitzness=True
+
     # - Paths
     base_path = path.dirname(path.abspath(__file__))
-    postfix = ""
-    if(FLAGS.lipschitzness):
-        postfix += "_lipschitzness"
-    stored_name = '{}_{}_l{}_h{}_w{}str{}_do{}{}'.format(
-        datetime.now().strftime("%Y%m%d-%H%M%S"),
-        FLAGS.model_architecture, FLAGS.n_layer, FLAGS.n_hidden, FLAGS.window_size_ms, FLAGS.window_stride_ms,
-        FLAGS.dropout_prob,postfix)
+    stored_name = '{}_{}_h{}_b{}'.format(
+        datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),FLAGS.model_architecture, FLAGS.n_hidden,FLAGS.beta_lipschitzness)
     model_name = f"{stored_name}_model.json"
     track_name = f"{stored_name}_track.json"
     model_save_path = path.join(base_path, f"Resources/{model_name}")
