@@ -2,6 +2,7 @@ from GraphExecution import utils
 import copy
 from threading import Thread
 import os
+from itertools import zip_longest
 
 defaultparams = {}
 defaultparams["batch_size"] = 1
@@ -14,8 +15,6 @@ defaultparams["epsilon_lipschitzness"] = 0.01
 defaultparams["num_steps_lipschitzness"] = 10
 defaultparams["beta_lipschitzness"] = 1.0
 defaultparams["how_many_training_steps"] = "5,5"
-        
-
 
 
 def grid(params):
@@ -64,18 +63,19 @@ def run_model(params, force=False):
                 command += "--" + key + "=" + str(params[key]) + " "
         os.system(command)
     
-def run_models(pparams, force = False, multithread=True):
-    if multithread:
-        threads = []
-        for params in grid(pparams):
-            t = Thread(target=run_model, args=(params, force))
+def run_models(pparams, force = False, parallelness = 10):
+    def grouper(iterable, n, fillvalue=None):
+        args = [iter(iterable)] * n
+        return zip_longest(*args, fillvalue=fillvalue)
+    threads = []
+    for params in grid(pparams):
+        t = Thread(target=run_model, args=(params, force))
+        threads.append(t)
+    for ts in grouper(threads,parallelness):
+        for t in ts:
             t.start()
-            threads.append(t)
-        for t in threads:
+        for t in ts:
             t.join()
-    else:
-        for params in grid(pparams):
-            run_model(params, force)
 
 def get_model(params):
     pass
@@ -119,11 +119,7 @@ def experiment_e(force=False):
     run_models(pparams, force)
     #TODO run experiment
 
-
-#os.system("python Jax/main_jax.py " + " ".join(["--batch_size=100","--eval_step_interval=20","--model_architecture=lsnn","--n_hidden=10", "--wanted_words=yes,no", "--use_epsilon_ball", "--epsilon_lipschitzness=0.01", "--num_steps_lipschitzness=10","--beta_lipschitzness=10.0"]))
-
-
-experiment_a(True)
+experiment_a()
 experiment_b()
 experiment_c()
 experiment_d()
