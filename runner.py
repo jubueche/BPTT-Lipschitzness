@@ -1,21 +1,43 @@
 from GraphExecution import utils
 import copy
-import thread
-DEFAULT_N_HIDDEN = 200 #???
-DEFAULT_BETA_LIPSCHITZNESS = 10 #???
-BATCH_SIZE = 100 #???
-
-default = ["--batch_size=100","--model_architecture=lsnn","--n_hidden=200", "--wanted_words=yes,no", "--use_epsilon_ball", "--epsilon_lipschitzness=0.01", "--num_steps_lipschitzness=10","--beta_lipschitzness=10.0"]
-parser = utils.get_parser()
-defaultparams = vars(parser.parse_args(default))
-
+from threading import Thread
 import os
 
+defaultparams = {}
+defaultparams["batch_size"] = 1
+defaultparams["eval_step_interval"] = 5
+defaultparams["model_architecture"] = "lsnn"
+defaultparams["n_hidden"] = 10
+defaultparams["wanted_words"] = 'yes,no'
+defaultparams["use_epsilon_ball"] = True
+defaultparams["epsilon_lipschitzness"] = 0.01
+defaultparams["num_steps_lipschitzness"] = 10
+defaultparams["beta_lipschitzness"] = 1.0
+defaultparams["how_many_training_steps"] = "5,5"
+        
+
+
+
 def grid(params):
-    for key in params:
-        if type(params[key])==list:
-            return [grid(copy.copy(params).update({key:value})) for value in params[key]]
-    return [params]
+    def flatten_lists(ll):
+        flatten = lambda t: [item for sublist in t for item in sublist]
+        
+        if type(ll)==list and len(ll)>0 and type(ll[0])==list:
+            return flatten(ll)
+        return ll
+    if type(params)==dict:
+        for key in params:
+            if type(params[key])==list:
+                ret = []
+                for value in params[key]:
+                    p =  copy.copy(params)
+                    p[key] = value
+                    ret += [grid(p)]
+                return flatten_lists(ret)
+        return params
+    if type(params)==list:
+        return [grid(p) for p in params]
+
 
 def find_model(params):
     base_path = os.path.dirname(os.path.abspath(__file__))
@@ -35,15 +57,25 @@ def run_model(params, force=False):
         print("Training model {}".format(params))
         command = "python Jax/main_jax.py "
         for key in params:
-            command += "--" + key + "=" + params[key]
+            if type(params[key]) == bool:
+                if params[key]==True:
+                    command+= "--" + key + " "
+            else:
+                command += "--" + key + "=" + str(params[key]) + " "
         os.system(command)
     
-def run_models(pparams, force = False):
-    try:
+def run_models(pparams, force = False, multithread=True):
+    if multithread:
+        threads = []
         for params in grid(pparams):
-            thread.start_new_thread(run_model, (params, force))
-    except:
-        print("unable to run models")
+            t = Thread(target=run_model, args=(params, force))
+            t.start()
+            threads.append(t)
+        for t in threads:
+            t.join()
+    else:
+        for params in grid(pparams):
+            run_model(params, force)
 
 def get_model(params):
     pass
@@ -54,14 +86,15 @@ def get_models(pparams):
 def experiment_a(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] += [0]
+    pparams["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"],0]
     run_models(pparams, force)
     #TODO run experiment
 
 def experiment_b(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] += [0]
+    pparams["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"],0]
+    run_models(pparams, force)
     #TODO run experiment
 
 def experiment_c(force=False):
@@ -75,7 +108,7 @@ def experiment_d(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
     pparams["beta_lipschitzness"] = [0,0.001,0.01,0.1,1]
-    pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in range [0,1,2,3,4]]
+    pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
     run_models(pparams, force)
     #TODO run experiment
 
@@ -86,9 +119,12 @@ def experiment_e(force=False):
     run_models(pparams, force)
     #TODO run experiment
 
-if __name__ == "main":
-    experiment_a()
-    experiment_b()
-    experiment_c()
-    experiment_d()
-    experiment_e()
+
+#os.system("python Jax/main_jax.py " + " ".join(["--batch_size=100","--eval_step_interval=20","--model_architecture=lsnn","--n_hidden=10", "--wanted_words=yes,no", "--use_epsilon_ball", "--epsilon_lipschitzness=0.01", "--num_steps_lipschitzness=10","--beta_lipschitzness=10.0"]))
+
+
+experiment_a(True)
+experiment_b()
+experiment_c()
+experiment_d()
+experiment_e()

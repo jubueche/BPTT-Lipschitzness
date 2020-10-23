@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import jax.nn.initializers as jini
 
-USE_WANBD = True
+USE_WANBD = False
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -36,7 +36,7 @@ if __name__ == '__main__':
         print("Received argument that cannot be passed. Exiting...",flush=True)
         print(unparsed,flush=True)
         sys.exit(0)
-    
+
 
     # - Paths
     base_path = path.dirname(path.abspath(__file__))
