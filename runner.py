@@ -100,14 +100,14 @@ def experiment_b(force=False):
 def experiment_c(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0,0.001,0.01,0.1,1]
+    pparams["beta_lipschitzness"] = [0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1*defaultparams["beta_lipschitzness"],10*defaultparams["beta_lipschitzness"]]
     run_models(pparams, force)
     #TODO run experiment
 
 def experiment_d(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0,0.001,0.01,0.1,1]
+    pparams["beta_lipschitzness"] = [0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1*defaultparams["beta_lipschitzness"],10*defaultparams["beta_lipschitzness"]]
     pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
     run_models(pparams, force)
     #TODO run experiment
@@ -115,7 +115,7 @@ def experiment_d(force=False):
 def experiment_e(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0,0.001,0.01,0.1,1]
+    pparams["beta_lipschitzness"] = [0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1*defaultparams["beta_lipschitzness"],10*defaultparams["beta_lipschitzness"]]
     run_models(pparams, force)
     #TODO run experiment
 
