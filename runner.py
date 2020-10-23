@@ -41,7 +41,7 @@ def grid(params):
 def find_model(params):
     base_path = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(base_path, "Jax/Resources/")
-    name_end = '_{}_h{}_b{}_s{}'.format(params["model_architecture"], params["n_hidden"], params["beta_lipschitzness"], params["seed"])
+    name_end = '_{}_h{}_b{}_s{}'.format(params["model_architecture"], params["n_hidden"], float(params["beta_lipschitzness"]), params["seed"])
     for file in os.listdir(model_path):
         if name_end in file:
             return os.path.join(name_end, file)
@@ -100,14 +100,14 @@ def experiment_b(force=False):
 def experiment_c(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1*defaultparams["beta_lipschitzness"],10*defaultparams["beta_lipschitzness"]]
+    pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
     run_models(pparams, force)
     #TODO run experiment
 
 def experiment_d(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1*defaultparams["beta_lipschitzness"],10*defaultparams["beta_lipschitzness"]]
+    pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
     pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
     run_models(pparams, force)
     #TODO run experiment
@@ -115,7 +115,7 @@ def experiment_d(force=False):
 def experiment_e(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1*defaultparams["beta_lipschitzness"],10*defaultparams["beta_lipschitzness"]]
+    pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
     run_models(pparams, force)
     #TODO run experiment
 
