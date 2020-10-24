@@ -3,20 +3,31 @@ import copy
 from threading import Thread
 import os
 from itertools import zip_longest
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--seeds', nargs='+', type=int, default=[0,1,2,3,4,5,6,7,8,9])
+parser.add_argument(
+    '--force',
+    action='store_true',
+    default=False,
+    help='Retrains all models even if their files are present.')
+ARGS = parser.parse_args()
 
 LEONHARD = True
 
 defaultparams = {}
-defaultparams["batch_size"] = 1
-defaultparams["eval_step_interval"] = 2
+defaultparams["batch_size"] = 100
+defaultparams["eval_step_interval"] = 100
 defaultparams["model_architecture"] = "lsnn"
-defaultparams["n_hidden"] = 10
+defaultparams["n_hidden"] = 256
 defaultparams["wanted_words"] = 'yes,no'
 defaultparams["use_epsilon_ball"] = True
 defaultparams["epsilon_lipschitzness"] = 0.01
 defaultparams["num_steps_lipschitzness"] = 10
 defaultparams["beta_lipschitzness"] = 1.0
-defaultparams["how_many_training_steps"] = "2,2"
+defaultparams["how_many_training_steps"] = "15000,3000"
 if LEONHARD:
     defaultparams["data_dir"]="$SCRATCH/speech_dataset"
 
@@ -95,41 +106,31 @@ def get_model(params):
 def get_models(pparams):
     pass
 
-def experiment_a(force=False):
-    pparams = copy.copy(defaultparams)
-    pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"],0]
-    run_models(pparams, force)
+def experiment_a():
+    pass
     #TODO run experiment
 
-def experiment_b(force=False):
-    pparams = copy.copy(defaultparams)
-    pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"],0]
-    run_models(pparams, force)
+def experiment_b():
+    pass
     #TODO run experiment
 
-def experiment_c(force=False):
-    pparams = copy.copy(defaultparams)
-    pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
-    run_models(pparams, force)
+def experiment_c():
+    pass
     #TODO run experiment
 
-def experiment_d(force=False):
-    pparams = copy.copy(defaultparams)
-    pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
-    pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
-    run_models(pparams, force)
+def experiment_d():
+    pass
     #TODO run experiment
 
-def experiment_e(force=False):
-    pparams = copy.copy(defaultparams)
-    pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
-    pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
-    run_models(pparams, force)
+def experiment_e():
+    pass
     #TODO run experiment
+
+pparams = copy.copy(defaultparams)
+pparams["seed"] = ARGS.seeds
+pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
+pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
+run_models(pparams, ARGS.force)
 
 experiment_a()
 experiment_b()
