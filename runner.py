@@ -69,8 +69,7 @@ def run_model(params, force=False):
                 command += "--" + key + "=" + str(params[key]) + " "
         if LEONHARD:
             command += '\"'
-        print(command)
-        #os.system(command)
+        os.system(command)
     
 def run_models(pparams, force = False, parallelness = 10):
     if LEONHARD:
