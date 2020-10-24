@@ -4,9 +4,11 @@ from threading import Thread
 import os
 from itertools import zip_longest
 
+LEONHARD = True
+
 defaultparams = {}
 defaultparams["batch_size"] = 1
-defaultparams["eval_step_interval"] = 5
+defaultparams["eval_step_interval"] = 2
 defaultparams["model_architecture"] = "lsnn"
 defaultparams["n_hidden"] = 10
 defaultparams["wanted_words"] = 'yes,no'
@@ -14,8 +16,9 @@ defaultparams["use_epsilon_ball"] = True
 defaultparams["epsilon_lipschitzness"] = 0.01
 defaultparams["num_steps_lipschitzness"] = 10
 defaultparams["beta_lipschitzness"] = 1.0
-defaultparams["how_many_training_steps"] = "5,5"
-
+defaultparams["how_many_training_steps"] = "2,2"
+if LEONHARD:
+    defaultparams["data_dir"]="$SCRATCH/speech_dataset"
 
 def grid(params):
     def flatten_lists(ll):
@@ -54,16 +57,26 @@ def run_model(params, force=False):
         return
     else:
         print("Training model {}".format(params))
-        command = "python Jax/main_jax.py "
+        if LEONHARD:
+            command = """bsub -o ../logs/blabla.log -W 24:00 -n 16 -R "rusage[mem=4096]" "python3 Jax/main_jax.py """
+        else:
+            command = "python Jax/main_jax.py "
         for key in params:
             if type(params[key]) == bool:
                 if params[key]==True:
                     command+= "--" + key + " "
             else:
                 command += "--" + key + "=" + str(params[key]) + " "
-        os.system(command)
+        if LEONHARD:
+            command += '\"'
+        print(command)
+        #os.system(command)
     
 def run_models(pparams, force = False, parallelness = 10):
+    if LEONHARD:
+        for params in grid(pparams):
+            run_model(params,force)
+        return
     def grouper(iterable, n, fillvalue=None):
         args = [iter(iterable)] * n
         return zip_longest(*args, fillvalue=fillvalue)
@@ -82,7 +95,7 @@ def get_model(params):
 
 def get_models(pparams):
     pass
-    
+
 def experiment_a(force=False):
     pparams = copy.copy(defaultparams)
     pparams["seed"] = [0,1,2,3,4,5,6,7,8,9]
