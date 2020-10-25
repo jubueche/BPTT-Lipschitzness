@@ -87,9 +87,9 @@ def run_model(params, force=False):
     else:
         print("Training model {}".format(params))
         if LEONHARD:
-            logfilename = '{}_{}_h{}_b{}_s{}'.format(
+            logfilename = '{}_{}_h{}_b{}_s{}.log'.format(
                 datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), params["model_architecture"], params["n_hidden"], float(params["beta_lipschitzness"]), params["seed"])
-            command = "bsub -o ../logs/blabla.log -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 Jax/main_jax.py "
+            command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 Jax/main_jax.py "
         else:
             command = "python Jax/main_jax.py "
         for key in params:
