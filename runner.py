@@ -201,7 +201,7 @@ def get_test_acc(audio_processor, rnn, theta_star):
     return onp.float64(total_accuracy)
     
 def experiment_a(pparams):
-    mismatch_levels = [0.4, 0.5, 0.6, 0.7]
+    mismatch_levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
     num_iter = 10
     # - Get all the models that we need
     models = get_models(pparams)
@@ -215,7 +215,7 @@ def experiment_a(pparams):
     for mismatch_level in mismatch_levels:
         mm_dict[str(mismatch_level)] = []
     # - For each level of mismatch, except for 0.0, and each model, we have to re-draw from the Gaussian. We do that 10 times and record the testing accuracy.
-    experiment_dict = {"normal": copy.copy(mm_dict), "robust": copy.copy(mm_dict)}
+    experiment_dict = {"normal": copy.deepcopy(mm_dict), "robust": copy.deepcopy(mm_dict)}
     for model in models:
         # - Unpack the model
         rnn, theta, track_dict = model
