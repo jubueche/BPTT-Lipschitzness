@@ -68,6 +68,8 @@ def find_model(params):
     return None
 
 def estimate_memory(params):
+    if params["n_hidden"] >= 128:
+        return 4096
     return 1024
     #return 4096
 
