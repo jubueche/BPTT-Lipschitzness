@@ -57,7 +57,8 @@ class RNN:
         save_dict["params"] = self.model_settings
         save_dict["rng_key"] = onp.array(list(self._rng_key),onp.int64).tolist()
         for key in theta.keys():
-            theta[key] = theta[key].tolist()
+            if(not type(theta[key]) is list):
+                theta[key] = theta[key].tolist()
         save_dict["theta"] = theta
         with open(fn, "w") as f:
             json.dump(save_dict, f)
