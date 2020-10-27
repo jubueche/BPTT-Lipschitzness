@@ -4,7 +4,6 @@
 **/tmp
 **/results
 **/tests
-**/results
 **/runs
-**/Resources
-**/Plotting
+# **/Resources
+# **/Plotting
