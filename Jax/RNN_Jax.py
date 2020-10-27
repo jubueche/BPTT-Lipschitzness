@@ -31,15 +31,16 @@ class RNN:
         self.d_out = params["label_count"]
         self.noise_std = 0.0
         self._rng_key = rand.PRNGKey(params["seed"])
+        self.dropout_prob = params["dropout_prob"]
 
     def call(self,
                 fingerprint_input,
+                dropout_mask,
                 W_in,
                 W_rec,
                 W_out,
                 b_out):
 
-        _, self._rng_key = rand.split(self._rng_key)
         input_frequency_size = self.model_settings['fingerprint_width']
         input_channels = jnp.max(jnp.array([1, 2*self.model_settings['n_thr_spikes'] - 1]))
         #input_channels = max(1,2*self.model_settings['n_thr_spikes'] - 1)
@@ -49,7 +50,7 @@ class RNN:
         bs = fingerprint_3d.shape[1]
         # - Initial state
         state0_b = {"_v":jnp.zeros((bs, self.units)), "_z":jnp.zeros((bs, self.units)), "_b":jnp.zeros((bs, self.units)), "_r":jnp.zeros((bs,self.units))}
-        rnn_out, spikes = _evolve_RNN(state0_b, W_in, W_rec, W_out, b_out, self.tau, self.thr, self.dampening_factor, self.n_refractory, self.decay, self.tau_adaptation, self.beta, self.decay_b, self.dt, self.noise_std, fingerprint_3d, self._rng_key)
+        rnn_out, spikes = _evolve_RNN(state0_b, W_in, W_rec, W_out, b_out, self.tau, self.thr, self.dampening_factor, self.n_refractory, self.decay, self.tau_adaptation, self.beta, self.decay_b, self.dt, self.noise_std, fingerprint_3d, dropout_mask)
         return rnn_out, spikes
 
     def save(self,fn,theta):
@@ -91,14 +92,11 @@ def _evolve_RNN(state0,
                 dt,
                 noise_std,
                 I_input,
-                key):
+                dropout_mask):
 
     batch_size = I_input.shape[1]
     T = I_input.shape[0]
     N = W_rec.shape[0]
-
-    _, subkey = rand.split(key)
-    noise_ts = noise_std * rand.normal(subkey, shape=(T, batch_size, N))
 
     static_params = {}
     static_params["W_in"] = W_in
@@ -112,6 +110,7 @@ def _evolve_RNN(state0,
     static_params["_beta"] = beta
     static_params["decay_b"] = decay_b
     static_params["dt"] = dt
+    static_params["dropout_mask"] = dropout_mask
 
     @custom_gradient # z = f(V,DF) is computed here. Given dE/dz, we can compute dE/dV using the chain rule: dE/dz * dz/dV 
     def SpikeFunction(v_scaled):
@@ -131,23 +130,22 @@ def _evolve_RNN(state0,
         return z
 
     @jit
-    def forward(evolve_state, I_input_noise_tuple):
-        (I_input, I_noise) = I_input_noise_tuple
+    def forward(evolve_state, I_input):
         (state, static_params) = evolve_state
         new_b = static_params["decay_b"] * state["_b"] + (jnp.ones(shape=(1,static_params["W_rec"].shape[0])) - static_params["decay_b"]) * state["_z"]
         thr = static_params["thr"] + new_b * static_params["_beta"]
         I_in = I_input @ static_params["W_in"]
         I_rec = state["_z"] @ static_params["W_rec"]
-        I_t = I_in + I_rec + I_noise
+        I_t = I_in + I_rec
         I_reset = state["_z"] * thr * static_params["dt"]
         new_v = static_params["_decay"] * state["_v"] + (1. - static_params["_decay"]) * I_t - I_reset
         not_refractory = (state["_r"] <= .1).astype(jnp.float32)
-        new_z = not_refractory * compute_z(new_v, thr, static_params["dt"])
+        new_z = static_params["dropout_mask"] * not_refractory * compute_z(new_v, thr, static_params["dt"])
         new_r = jnp.clip(state["_r"] + static_params["n_refractory"] * new_z - 1., 0., static_params["n_refractory"])
         state["_v"] = new_v ; state["_z"] = new_z ; state["_b"] = new_b ; state["_r"] = new_r
         return (state, static_params), (state["_z"])
 
-    (_,_), (Z) = scan(forward,(state0, static_params),(I_input,noise_ts))
+    (_,_), (Z) = scan(forward,(state0, static_params),I_input)
     Z = jnp.transpose(Z, axes=(1,0,2))
     rnn_out = jnp.mean(Z, axis=1)
     rnn_out = rnn_out @ W_out + b_out

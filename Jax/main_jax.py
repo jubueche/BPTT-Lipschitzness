@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
         if((i+1) % 10 == 0):
             params = get_params(opt_state)
-            logits, spikes = rnn.call(X, **params)
+            logits, spikes = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
             avg_firing = jnp.mean(spikes, axis=1)
             loss = loss_normal(y, logits, avg_firing, FLAGS.reg)
             lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
@@ -153,7 +153,7 @@ if __name__ == '__main__':
                     audio_processor.get_data(FLAGS.batch_size, i, model_settings, 0.0, 0.0, 0.0, 'validation'))
                 X = validation_fingerprints.numpy()
                 y = validation_ground_truth.numpy()
-                logits, _ = rnn.call(X, **params)
+                logits, _ = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
                 lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
                 rnn._rng_key, _ = random.split(rnn._rng_key)
                 llot.append(lip_loss_over_time)

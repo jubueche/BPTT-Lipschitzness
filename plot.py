@@ -82,7 +82,7 @@ def plot_experiment_a():
             ax.set_xlim([-1, 1])
             fig.add_subplot(ax)
     custom_lines = [Line2D([0], [0], color=colors_mismatch[i], lw=4) for i in range(len(mismatch_labels))]
-    legend_labels = [(f'{str(mismatch_label)}\%') for mismatch_label in mismatch_labels]
+    legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels]
     ax.legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize = 7)
     # show only the outside spines
     for ax in fig.get_axes():
@@ -106,24 +106,24 @@ def plot_experiment_b():
     gaussian_attack_eps = experiment_b_data["experiment_params"]["gaussian_attack_eps"]
     x_labels = []
 
-    print(f"N,$\\beta$ \t Test acc \t Mismatch @ {mismatch_level} \t Gaussian @ {gaussian_eps} \t Gaussian Attack @ {gaussian_attack_eps}")
+    print(f"N,$\\beta$ \t Test acc \t Gaussian @ {gaussian_attack_eps} \t Gaussian @ {gaussian_eps} \t Gaussian Attack @ {gaussian_attack_eps}")
     for i in range(num_models):
         beta = experiment_b_data[str(i)]["model_params"]["beta_lipschitzness"]
         n_hidden = experiment_b_data[str(i)]["model_params"]["n_hidden"]
         normal_test_acc = np.median(experiment_b_data[str(i)]["normal_test_acc"])
-        median_test_acc_mismatch = np.median(experiment_b_data[str(i)]["mismatch"])
-        std_test_acc_mismatch = np.std(experiment_b_data[str(i)]["mismatch"])
+        median_test_acc_gaussian_with_eps_attack = np.median(experiment_b_data[str(i)]["gaussian_with_eps_attack"])
+        std_test_acc_gaussian_with_eps_attack = np.std(experiment_b_data[str(i)]["gaussian_with_eps_attack"])
         median_test_acc_gaussian = np.median(experiment_b_data[str(i)]["gaussian"])
         std_test_acc_gaussian = np.std(experiment_b_data[str(i)]["gaussian"])
         median_test_acc_gaussian_attack = np.median(experiment_b_data[str(i)]["gaussian_attack"])
         std_test_acc_gaussian_attack = np.std(experiment_b_data[str(i)]["gaussian_attack"])
-        print("%d/%.2f \t %.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f" % (n_hidden,beta,normal_test_acc,median_test_acc_mismatch,std_test_acc_mismatch,median_test_acc_gaussian,std_test_acc_gaussian,median_test_acc_gaussian_attack,std_test_acc_gaussian_attack))
+        print("%d/%.2f \t %.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f" % (n_hidden,beta,normal_test_acc,median_test_acc_gaussian_with_eps_attack,std_test_acc_gaussian_with_eps_attack,median_test_acc_gaussian,std_test_acc_gaussian,median_test_acc_gaussian_attack,std_test_acc_gaussian_attack))
         x_labels.append(r"$\beta$" + f" {beta}")
 
     plt.figure(figsize=(5,3))
     x = np.linspace(0,num_models-1, num_models)
-    y_median_mismatch = [np.median(experiment_b_data[str(i)]["mismatch"]) for i in range(num_models)]
-    y_std_mismatch = [np.std(experiment_b_data[str(i)]["mismatch"]) for i in range(num_models)]
+    y_median_gaussian_with_eps_attack = [np.median(experiment_b_data[str(i)]["gaussian_with_eps_attack"]) for i in range(num_models)]
+    y_std_gaussian_with_eps_attack = [np.std(experiment_b_data[str(i)]["gaussian_with_eps_attack"]) for i in range(num_models)]
 
     y_median_gaussian = [np.median(experiment_b_data[str(i)]["gaussian"]) for i in range(num_models)]
     y_std_gaussian = [np.std(experiment_b_data[str(i)]["gaussian"]) for i in range(num_models)]
@@ -131,10 +131,10 @@ def plot_experiment_b():
     y_median_gaussian_attack = [np.median(experiment_b_data[str(i)]["gaussian_attack"]) for i in range(num_models)]
     y_std_gaussian_attack = [np.std(experiment_b_data[str(i)]["gaussian_attack"]) for i in range(num_models)]
 
-    label_mismatch = "Mismatch" # r"$\Theta^*=\Theta (1+\epsilon X),X \sim \mathcal{N}(0,1)$"
-    label_gaussian = "Gaussian" # r"$\Theta^* \sim \mathcal{N}(\Theta,\epsilon)$"
-    label_gaussian_attack = "Gaussian attack" # r"$\Theta^*= \max_{\Theta^* \in \mathcal{B}(\Theta,\epsilon)} \mathcal{L}(f_{\Theta}(x),f_{\Theta^*}(x))$"
-    plt.errorbar(x, y_median_mismatch, y_std_mismatch, label=label_mismatch, color="C2", linestyle="dashed", marker="o", markevery=list(np.array(x,int)), capsize=3)
+    label_gaussian_with_eps_attack = f"Gaussian {gaussian_attack_eps}" # r"$\Theta^*=\Theta (1+\epsilon X),X \sim \mathcal{N}(0,1)$"
+    label_gaussian = f"Gaussian {gaussian_eps}" # r"$\Theta^* \sim \mathcal{N}(\Theta,\epsilon)$"
+    label_gaussian_attack = f"Gaussian attack {gaussian_attack_eps}" # r"$\Theta^*= \max_{\Theta^* \in \mathcal{B}(\Theta,\epsilon)} \mathcal{L}(f_{\Theta}(x),f_{\Theta^*}(x))$"
+    plt.errorbar(x, y_median_gaussian_with_eps_attack, y_std_gaussian_with_eps_attack, label=label_gaussian_with_eps_attack, color="C2", linestyle="dashed", marker="o", markevery=list(np.array(x,int)), capsize=3)
     plt.errorbar(x, y_median_gaussian, y_std_gaussian, label=label_gaussian, color="C3", marker="^", linestyle="dotted", markevery=list(np.array(x,int)), capsize=3)
     plt.errorbar(x,y_median_gaussian_attack, y_std_gaussian_attack, label=label_gaussian_attack, color="C4", marker="s", linestyle="solid", markevery=list(np.array(x,int)), capsize=3)
     plt.legend(frameon=False, loc=4, fontsize = 7)
@@ -280,7 +280,7 @@ def plot_experiment_e():
     plt.savefig("Figures/experiment_e.png", dpi=1200)
     plt.show(block=True)
 
-# plot_experiment_a()
+plot_experiment_a()
 plot_experiment_b()
-# plot_experiment_c()
+plot_experiment_c()
 plot_experiment_e()

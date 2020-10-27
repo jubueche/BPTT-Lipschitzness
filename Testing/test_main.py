@@ -92,7 +92,7 @@ if __name__ == '__main__':
     def jax_compute_gradient(batch_id, X, y, opt_state, opt_update, get_params):
         params = get_params(opt_state)
         def training_loss(X, y, params):
-            logits, spikes = rnn_jax.call(X, **params)
+            logits, spikes = rnn_jax.call(X, jnp.ones(shape=(1,rnn_jax.units)), **params)
             return loss_jax.loss_normal(y, logits, 0.0, 0.0)
         # - Differentiate w.r.t element at argnums (deault 0, so first element)
         grads = grad(training_loss, argnums=2)(X, y, params)
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     jax_gradients[1] = jax_gradients[2]
     jax_gradients[2] = tmp
 
-    logits_jax, spikes_jax = rnn_jax.call(np.array(graz_dict["train_input"]), W_in=W_in.numpy(), W_rec=W_rec.numpy(), W_out=W_out.numpy(), b_out=b_out.numpy())
+    logits_jax, spikes_jax = rnn_jax.call(np.array(graz_dict["train_input"]), jnp.ones(shape=(1,rnn_jax.units)), W_in=W_in.numpy(), W_rec=W_rec.numpy(), W_out=W_out.numpy(), b_out=b_out.numpy())
     loss_jax = loss_class_jax.loss_normal(np.array(graz_dict["train_groundtruth"], dtype=int), logits_jax, 0.0, 0.0)
 
     print("Checking gradients...")
@@ -121,7 +121,7 @@ if __name__ == '__main__':
         assert(gradients[i].shape == graz_gradients[i].shape == jax_gradients[i].shape)
         if (not (np.isclose(gradients[i],graz_gradients[i])).all()):
             pass_grad = False
-        if (not (np.mean(np.abs(gradients[i]-jax_gradients[i])) < 1e-8)):
+        if (not (np.mean(np.abs(gradients[i]-jax_gradients[i])) < 1e-7)):
             pass_grad = False
 
     loss_graz = loss_normal(tf.cast(graz_dict["train_groundtruth"],dtype=tf.int32), logits_graz)

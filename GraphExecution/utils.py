@@ -291,12 +291,6 @@ def get_parser():
         const=True,
         default=True,
         help='Average spikes over time for readout')
-    # parser.add_argument(
-    #     '--lipschitzness',
-    #     default=True,
-    #     action='store_true',
-    #     help='Use lipschitzness loss or not. Default: True'
-    # )
     parser.add_argument(
         '--lipschitzness_loss',
         default="kl",
@@ -305,7 +299,7 @@ def get_parser():
     )
     parser.add_argument(
         '--beta_lipschitzness',
-        default=10.0,
+        default=1.0,
         type=float,
         help='Beta used for weighting lipschitzness term'
     )
@@ -317,7 +311,7 @@ def get_parser():
     )
     parser.add_argument(
         '--num_steps_lipschitzness',
-        default=5,
+        default=10,
         type=int,
         help='Number of steps used to find Theta*'
     )
