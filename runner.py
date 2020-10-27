@@ -1,17 +1,20 @@
+from jax import config
+config.FLAGS.jax_log_compiles=False
 from GraphExecution import utils
-import copy
 from threading import Thread
+from Jax.RNN_Jax import RNN
+import input_data_eager as input_data
+import jax.numpy as jnp
+from Jax.loss_jax import attack_network
+import jax.random as jax_random
+import copy
 import os
 from itertools import zip_longest
 import argparse
 from datetime import datetime
 import numpy as onp
-from Jax.RNN_Jax import RNN
-import input_data_eager as input_data
 import ujson as json
 from six.moves import xrange
-import jax.numpy as jnp
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seeds', nargs='+', type=int, default=[0,1,2,3,4,5,6,7,8,9])
@@ -136,7 +139,7 @@ def gaussian_noise(theta, eps):
     """Apply Gaussian noise to theta with zero mean and eps standard deviation"""
     theta_star = {}
     for key in theta.keys():
-        theta_star[key] = onp.random.randn(theta[key].shape[0],theta[key].shape[1]) * eps
+        theta_star[key] = theta[key] + onp.random.normal(loc=0.0,scale=eps, size=theta[key].shape)
     return theta_star
 
 def apply_mismatch(theta, mm_std):
@@ -187,28 +190,48 @@ def get_audio_processor(model_params):
     )
     return audio_processor
 
-def get_test_acc(audio_processor, rnn, theta_star):
+class MyFLAGS(object):
+  def __init__(self, adict):
+    self.__dict__.update(adict)
+
+
+def get_test_acc(audio_processor, rnn, theta_star, ATTACK):
     set_size = audio_processor.set_size('testing')
-    total_accuracy = 0
-    for i in xrange(0, set_size, rnn.model_settings["batch_size"]):
+    total_accuracy = 0.0
+    FLAGS = MyFLAGS(rnn.model_settings)
+    if(ATTACK):
+        attacked_total_accuracy = 0.0
+    for i in xrange(0, set_size, FLAGS.batch_size):
         validation_fingerprints, validation_ground_truth = (
-            audio_processor.get_data(rnn.model_settings["batch_size"], i, rnn.model_settings ,0.0, 0.0, 0.0, 'testing'))
+            audio_processor.get_data(FLAGS.batch_size, i, rnn.model_settings ,0.0, 0.0, 0.0, 'testing'))
         X = validation_fingerprints.numpy()
         y = validation_ground_truth.numpy()
         logits, _ = rnn.call(X, **theta_star)
+        if(ATTACK):
+            _, logits_theta_star = attack_network(X, theta_star, logits, rnn, FLAGS, rnn._rng_key)
+            rnn._rng_key, _ = jax_random.split(rnn._rng_key)
+            attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
+            attacked_total_accuracy += (attacked_batched_validation_acc * FLAGS.batch_size) / set_size
         batched_test_acc = get_batched_accuracy(y, logits)
-        total_accuracy += (batched_test_acc * rnn.model_settings["batch_size"]) / set_size
-    return onp.float64(total_accuracy)
+        total_accuracy += (batched_test_acc * FLAGS.batch_size) / set_size
+    if(ATTACK):
+        return onp.float64(attacked_total_accuracy)
+    else:
+        return onp.float64(total_accuracy)
+
+def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
+    audio_processor_settings = model.model_settings
+    audio_processor_settings["data_dir"] = data_dir
+    audio_processor = get_audio_processor(audio_processor_settings)
+    return audio_processor
     
 def experiment_a(pparams):
-    mismatch_levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
-    num_iter = 10
+    mismatch_levels = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+    num_iter = 50
     # - Get all the models that we need
     models = get_models(pparams)
     # - Get the audio processor
-    audio_processor_settings = models[0][0].model_settings
-    audio_processor_settings["data_dir"] = "tmp/speech_dataset"
-    audio_processor = get_audio_processor(audio_processor_settings)
+    audio_processor = load_audio_processor(models[0][0])
     # - We expect 2 * number of seeds many models
     assert len(models) == len(pparams["seed"]*2), "Number of models does not match expected"
     mm_dict = {'0.0': []}
@@ -218,12 +241,12 @@ def experiment_a(pparams):
     experiment_dict = {"normal": copy.deepcopy(mm_dict), "robust": copy.deepcopy(mm_dict)}
     for model in models:
         # - Unpack the model
-        rnn, theta, track_dict = model
+        rnn, theta, _ = model
         network_type = "normal"
         if(rnn.model_settings["beta_lipschitzness"] > 0.0):
             network_type = "robust"
         # - Get the test accuracy for 0.0 mismatch (and we don't need to repeat this)
-        test_acc = get_test_acc(audio_processor, rnn, theta)
+        test_acc = get_test_acc(audio_processor, rnn, theta, False)
         experiment_dict[network_type]['0.0'].append(test_acc)
         print(f"Mismatch level 0.0 Network type {network_type} testing accuracy {test_acc}")
         for mismatch_level in mismatch_levels:
@@ -231,7 +254,7 @@ def experiment_a(pparams):
             for _ in range(num_iter):
                 theta_star = apply_mismatch(theta, mm_std=mismatch_level)
                 # - Get the testing accuracy
-                test_acc = get_test_acc(audio_processor, rnn, theta_star)
+                test_acc = get_test_acc(audio_processor, rnn, theta_star, False)
                 print(f"Mismatch level {mismatch_level} Network type {network_type} testing accuracy {test_acc}")
                 # - Append to the correct list in the track
                 experiment_dict[network_type][str(mismatch_level)].append(test_acc)
@@ -239,21 +262,98 @@ def experiment_a(pparams):
     # - We are done. Return the experiment dict
     return experiment_dict
 
-def experiment_b():
-    pass
-    #TODO run experiment
+# TODO There is some sort of memory leak in attack network
+def experiment_b(pparams):
+    """For the models given in pparams, get the testing accuracies for mismatched weights, gaussian weights and attacked gaussian weights"""
+    mismatch_level = 0.5
+    gaussian_eps = 0.1
+    gaussian_attack_eps = 0.01
+    n_iter = 10
+    # - Get the models
+    models = get_models(pparams)
+    # - Get the audio processor
+    audio_processor = load_audio_processor(models[0][0])
+    # - Initialize the dictionary to hold the information
+    model_grid = grid(pparams)
+    experiment_dict = {"experiment_params": {"mismatch_level": mismatch_level, "gaussian_eps": gaussian_eps, "gaussian_attack_eps": gaussian_attack_eps}}
+    for i,model_params in enumerate(model_grid):
+        experiment_dict[str(i)] = {"normal_test_acc" : [], "mismatch": [], "gaussian": [], "gaussian_attack": [], "model_params": model_params}
+    # - Iterate over each model
+    for model_idx,model in enumerate(models):
+        # - Unpack
+        rnn, theta, _ = model
+        # - Get the normal test accuracy
+        test_acc_normal = get_test_acc(audio_processor, rnn, theta, False)
+        # - Assign to the dictionary
+        experiment_dict[str(model_idx)]["normal_test_acc"].append(test_acc_normal)
+        curr_beta = rnn.model_settings["beta_lipschitzness"]
+        print(f"beta {curr_beta} and normal test acc is {test_acc_normal}")
+        # - For n_iter times, draw new variables and get the test accuracy under attack
+        for _ in range(n_iter):
+            theta_gaussian = gaussian_noise(theta, eps = gaussian_eps)
+            theta_mismatch = apply_mismatch(theta, mm_std = mismatch_level)
+            test_acc_gaussian = get_test_acc(audio_processor, rnn, theta_gaussian, False)
+            test_acc_mismatch = get_test_acc(audio_processor, rnn, theta_mismatch, False)
+            test_acc_attack = get_test_acc(audio_processor, rnn, theta, True)
+            print(f"beta {curr_beta} mismatch acc {test_acc_mismatch} gaussian acc {test_acc_gaussian} attack acc {test_acc_attack}")
+            # - Save
+            experiment_dict[str(model_idx)]["mismatch"].append(test_acc_mismatch)
+            experiment_dict[str(model_idx)]["gaussian"].append(test_acc_gaussian)
+            experiment_dict[str(model_idx)]["gaussian_attack"].append(test_acc_attack)
+    return experiment_dict
 
-def experiment_c():
-    pass
-    #TODO run experiment
+def experiment_c(pparams):
+    gaussian_attack_eps = 0.01
+    n_iter = 10
+    # - Get the models
+    models = get_models(pparams)
+    # - Get the audio processor
+    audio_processor = load_audio_processor(models[0][0])
+    # - Initialize the dictionary to hold the information
+    model_grid = grid(pparams)
+    experiment_dict = {"experiment_params": {"gaussian_attack_eps": gaussian_attack_eps}}
+    for i,model_params in enumerate(model_grid):
+        experiment_dict[str(i)] = {"normal_test_acc" : [], "gaussian_attack": [], "model_params": model_params}
+    # - Iterate over each model
+    for model_idx,model in enumerate(models):
+        # - Unpack
+        rnn, theta, tracking_dict = model
+        # - Save the tracking dict
+        experiment_dict[str(model_idx)]["tracking_dict"] =  tracking_dict 
+        # - Get the normal test accuracy
+        test_acc_normal = get_test_acc(audio_processor, rnn, theta, False)
+        # - Assign to the dictionary
+        experiment_dict[str(model_idx)]["normal_test_acc"].append(test_acc_normal)
+        curr_beta = rnn.model_settings["beta_lipschitzness"]
+        print(f"beta {curr_beta} and normal test acc is {test_acc_normal}")
+        # - For n_iter times, draw new variables and get the test accuracy under attack
+        for _ in range(n_iter):
+            test_acc_attack = get_test_acc(audio_processor, rnn, theta, True)
+            print(f"beta {curr_beta} attack acc {test_acc_attack}")
+            # - Save
+            experiment_dict[str(model_idx)]["gaussian_attack"].append(test_acc_attack)
+    return experiment_dict
 
 def experiment_d():
     pass
     #TODO run experiment
 
-def experiment_e():
-    pass
-    #TODO run experiment
+def experiment_e(pparams):
+    # - Get the models
+    models = get_models(pparams)
+    model_grid = grid(pparams)
+    experiment_dict = {"betas":[]}
+    for i,model_params in enumerate(model_grid):
+        experiment_dict[str(i)] = {"model_params": model_params}
+    # - Iterate over each model
+    for model_idx,model in enumerate(models):
+        # - Unpack
+        rnn, _, tracking_dict = model
+        # - Save the tracking dict
+        experiment_dict[str(model_idx)]["tracking_dict"] =  tracking_dict 
+        curr_beta = rnn.model_settings["beta_lipschitzness"]
+        experiment_dict["betas"].append(curr_beta)
+    return experiment_dict
 
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
@@ -265,9 +365,20 @@ pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
 if(not os.path.exists("Experiments/")):
     os.mkdir("Experiments/")
 
-# - Use the default parameters (best parameters) for the mismatch experiment
 experiment_a_params = copy.copy(defaultparams)
+experiment_b_params = copy.copy(defaultparams)
+experiment_c_params = copy.copy(defaultparams)
+experiment_d_params = copy.copy(defaultparams)
+experiment_e_params = copy.copy(defaultparams)
 experiment_a_params["seed"] = ARGS.seeds
+experiment_b_params["seed"] = ARGS.seeds
+experiment_c_params["seed"] = ARGS.seeds
+experiment_d_params["seed"] = ARGS.seeds
+experiment_e_params["seed"] = ARGS.seeds
+
+####################### A #######################
+
+# - Use the default parameters (best parameters) for the mismatch experiment
 experiment_a_params["beta_lipschitzness"] = [0.0,defaultparams["beta_lipschitzness"]]
 experiment_a_path = "Experiments/experiment_a.json"
 # - Check if the path exists
@@ -280,7 +391,44 @@ else:
         json.dump(experiment_a_return_dict, f)
     print("Successfully completed Experiment A.")
 
-experiment_b()
-experiment_c()
-experiment_d()
-experiment_e()
+####################### B ####################### 
+
+
+experiment_b_params["beta_lipschitzness"] = [0.0,0.1,1.0,2.5,5.0]
+experiment_b_path = "Experiments/experiment_b.json"
+# - Check if the path exists
+if(True or os.path.exists(experiment_b_path)):
+    print("File for experiment B already exists. Skipping...")
+else:
+    experiment_b_return_dict = experiment_b(experiment_b_params)
+    with open(experiment_b_path, "w") as f:
+        json.dump(experiment_b_return_dict, f)
+    print("Successfully completed Experiment B.")
+
+####################### C ####################### 
+
+experiment_c_params["beta_lipschitzness"] = [0.0,0.1,1.0,10.0]
+experiment_c_path = "Experiments/experiment_c.json"
+# - Check if the path exists
+if(os.path.exists(experiment_c_path)):
+    print("File for experiment C already exists. Skipping...")
+else:
+    experiment_c_return_dict = experiment_c(experiment_c_params)
+    with open(experiment_c_path, "w") as f:
+        json.dump(experiment_c_return_dict, f)
+    print("Successfully completed Experiment C.")
+
+####################### D #######################
+
+####################### E #######################
+
+experiment_e_params["beta_lipschitzness"] = [0.0,0.1,1.0,10.0]
+experiment_e_path = "Experiments/experiment_e.json"
+# - Check if the path exists
+if(os.path.exists(experiment_e_path)):
+    print("File for experiment E already exists. Skipping...")
+else:
+    experiment_e_return_dict = experiment_e(experiment_e_params)
+    with open(experiment_e_path, "w") as f:
+        json.dump(experiment_e_return_dict, f)
+    print("Successfully completed Experiment E.")
