@@ -9,6 +9,7 @@ from Jax.loss_jax import attack_network
 import jax.random as jax_random
 import copy
 import os
+import sys
 from itertools import zip_longest
 import argparse
 from datetime import datetime
@@ -359,12 +360,12 @@ def experiment_e(pparams):
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
-pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
+pparams["n_hidden"] = [64*(2**i) for i in [0,1,2,3,4]]
 run_models(pparams, ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node
-    os.system.exit(0)
+    sys.exit(0)
 
 # - Check if the folder "Experiments" exists. If not, create
 if(not os.path.exists("Experiments/")):
