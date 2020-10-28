@@ -30,8 +30,8 @@ LEONHARD = True
 defaultparams = {}
 defaultparams["batch_size"] = 100
 # defaultparams["batch_size"] = 5
-# defaultparams["eval_step_interval"] = 100
-defaultparams["eval_step_interval"] = 2
+defaultparams["eval_step_interval"] = 100
+# defaultparams["eval_step_interval"] = 2
 defaultparams["model_architecture"] = "lsnn"
 defaultparams["n_hidden"] = 256
 # defaultparams["n_hidden"] = 16
@@ -41,7 +41,7 @@ defaultparams["epsilon_lipschitzness"] = 0.01
 defaultparams["num_steps_lipschitzness"] = 10
 defaultparams["beta_lipschitzness"] = 1.0
 # defaultparams["how_many_training_steps"] = "15000,3000"
-defaultparams["how_many_training_steps"] = "2,2"
+defaultparams["how_many_training_steps"] = "8000,2000"
 
 if LEONHARD:
     defaultparams["data_dir"]="$SCRATCH/speech_dataset"
@@ -84,15 +84,12 @@ def estimate_memory(params):
     if params["n_hidden"] >= 128:
         return 4096
     return 1024
-    #return 4096
 
 def estimate_time(params):
-    return "00:30"
-    # return "24:00"
+    return "24:00"
 
 def estimate_cores(params):
-    return 1
-    # return 16
+    return 16
 
 def run_model(params, force=False):
     model_file = find_model(params)
@@ -102,6 +99,7 @@ def run_model(params, force=False):
     else:
         print("Training model {}".format(params))
         if LEONHARD:
+            os.system("module load python_cpu/3.7.1")
             logfilename = '{}_{}_h{}_b{}_s{}.log'.format(
                 datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), params["model_architecture"], params["n_hidden"], float(params["beta_lipschitzness"]), params["seed"])
             command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 Jax/main_jax.py "
@@ -362,7 +360,11 @@ pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
 pparams["n_hidden"] = [defaultparams["n_hidden"]*(2**i) for i in [0,1,2,3,4]]
-# run_models(pparams, ARGS.force)
+run_models(pparams, ARGS.force)
+
+if(LEONHARD):
+    # - Exit here before we run experiments on Leonhard login node
+    os.system.exit(0)
 
 # - Check if the folder "Experiments" exists. If not, create
 if(not os.path.exists("Experiments/")):
