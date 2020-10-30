@@ -12,13 +12,14 @@ from RNN_Jax import RNN
 from GraphExecution import utils
 from jax import random
 import jax.numpy as jnp
-from loss_jax import loss_normal, compute_gradient_and_update, attack_network
+from loss_jax import loss_normal, loss_normal2, compute_gradient_and_update, compute_gradient_and_update2, attack_network, attack_network2
 from jax.experimental import optimizers
 import ujson as json
 import wandb
 import matplotlib.pyplot as plt 
 from datetime import datetime
 import jax.nn.initializers as jini
+from import_data import extract
 
 USE_WANBD = False
 
@@ -83,14 +84,16 @@ if __name__ == '__main__':
     d_Out = model_settings["label_count"]
     rng_key = random.PRNGKey(FLAGS.seed)
     _, *sks = random.split(rng_key, 5)
-    W_in = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
-    W_rec = onp.array(random.truncated_normal(sks[2],-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
-    onp.fill_diagonal(W_rec, 0.)
-    W_out = onp.array(random.truncated_normal(sks[3],-2,2,(FLAGS.n_hidden, d_Out))*0.01)
-    b_out = onp.zeros((d_Out,))
+    # W_in = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    # W_rec = onp.array(random.truncated_normal(sks[2],-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
+    # onp.fill_diagonal(W_rec, 0.)
+    # W_out = onp.array(random.truncated_normal(sks[3],-2,2,(FLAGS.n_hidden, d_Out))*0.01)
+    # b_out = onp.zeros((d_Out,))
+    K1 = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
 
     # - Create the model
-    rnn = RNN(model_settings)
+    #rnn = RNN(model_settings)
+    rnn = CNN(model_settings)
 
     init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
     iteration = onp.array(FLAGS.how_many_training_steps.split(","), int)
@@ -109,15 +112,17 @@ if __name__ == '__main__':
         X = train_fingerprints.numpy()
         y = train_ground_truth.numpy()
 
-        opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
+        opt_state = compute_gradient_and_update2(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
         rnn._rng_key, _ = random.split(rnn._rng_key)
 
         if((i+1) % 10 == 0):
             params = get_params(opt_state)
-            logits, spikes = rnn.call(X, **params)
-            avg_firing = jnp.mean(spikes, axis=1)
-            loss = loss_normal(y, logits, avg_firing, FLAGS.reg)
-            lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
+            logits = rnn.call(X, **params)
+            #logits, spikes = rnn.call(X, **params)
+            #avg_firing = jnp.mean(spikes, axis=1)
+            #loss = loss_normal(y, logits, avg_firing, FLAGS.reg)
+            loss = loss_normal2(y, logits)
+            lip_loss_over_time, logits_theta_star = attack_network2(X, params, logits, rnn, FLAGS, rnn._rng_key)
             rnn._rng_key, _ = random.split(rnn._rng_key)
             lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
             training_accuracy = get_batched_accuracy(y, logits)
@@ -154,7 +159,7 @@ if __name__ == '__main__':
                 X = validation_fingerprints.numpy()
                 y = validation_ground_truth.numpy()
                 logits, _ = rnn.call(X, **params)
-                lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
+                lip_loss_over_time, logits_theta_star = attack_network2(X, params, logits, rnn, FLAGS, rnn._rng_key)
                 rnn._rng_key, _ = random.split(rnn._rng_key)
                 llot.append(lip_loss_over_time)
                 predicted_labels = jnp.argmax(logits, axis=1)
