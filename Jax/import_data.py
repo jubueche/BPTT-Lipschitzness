@@ -57,6 +57,13 @@ def image_augmentation(image, nb_of_augmentation):
     nb_augmentation: number of augmentations
     images: array with new images
     '''
+    # Defines the options for augmentation
+    datagen = ImageDataGenerator(
+    rotation_range=10,
+    horizontal_flip=True,
+    fill_mode='nearest'
+    )
+
     images = []
     image = image.reshape(1, img_height, img_width, channels)
     i = 0
@@ -98,12 +105,7 @@ def preprocess_data(images, targets, use_augmentation=False, nb_of_augmentation=
 
 def extract():
 
-    # Defines the options for augmentation
-    datagen = ImageDataGenerator(
-    rotation_range=10,
-    horizontal_flip=True,
-    fill_mode='nearest'
-    )
+
 
     mnist_classes       = [i for i in range(10)]
     num_classes         = 10

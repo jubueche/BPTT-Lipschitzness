@@ -11,6 +11,7 @@ from import_data import extract
 import jax.experimental.stax as stax
 from jax.nn import relu, normalize, softmax
 
+
 class CNN:
 
     def __init__(self,params):
@@ -31,8 +32,8 @@ class CNN:
 
         _, self._rng_key = rand.split(self._rng_key)
         # - Initial state
-        rnn_out, spikes = _evolve_RNN(K1, K2, W1, W2, W3, input, self._rng_key)
-        return rnn_out, spikes
+        cnn_out = _evolve_RNN(K1, K2, W1, W2, W3, input, self._rng_key)
+        return cnn_out
 
     def save(self,fn,theta):
         save_dict = {}
@@ -57,8 +58,7 @@ class CNN:
         return rnn, load_dict["theta"] 
 
 @jit
-def _evolve_RNN(state0,
-                K1,
+def _evolve_RNN(K1,
                 K2,
                 W1,
                 W2,
@@ -164,7 +164,7 @@ def _evolve_RNN(state0,
 
 
 
-    return rnn_out, Z
+    return x
 
 
 if __name__ == '__main__':

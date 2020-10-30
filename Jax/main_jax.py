@@ -9,6 +9,7 @@ sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) + "/Grap
 import input_data_eager as input_data
 from six.moves import xrange
 from RNN_Jax import RNN
+from CNN_Jax import CNN
 from GraphExecution import utils
 from jax import random
 import jax.numpy as jnp
@@ -62,13 +63,13 @@ if __name__ == '__main__':
     for key in flags_dict.keys():
         model_settings[key] = flags_dict[key]
     model_settings["tau_adaptation"] = model_settings['spectrogram_length'] * model_settings['in_repeat']
-    audio_processor = input_data.AudioProcessor(
-        FLAGS.data_url, FLAGS.data_dir,
-        FLAGS.silence_percentage, FLAGS.unknown_percentage,
-        FLAGS.wanted_words.split(','), FLAGS.validation_percentage,
-        FLAGS.testing_percentage, model_settings, FLAGS.summaries_dir,
-        FLAGS.n_thr_spikes, FLAGS.in_repeat, FLAGS.seed
-    )
+    # audio_processor = input_data.AudioProcessor(
+    #     FLAGS.data_url, FLAGS.data_dir,
+    #     FLAGS.silence_percentage, FLAGS.unknown_percentage,
+    #     FLAGS.wanted_words.split(','), FLAGS.validation_percentage,
+    #     FLAGS.testing_percentage, model_settings, FLAGS.summaries_dir,
+    #     FLAGS.n_thr_spikes, FLAGS.in_repeat, FLAGS.seed
+    # )
     time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
     training_steps_list = list(map(int, FLAGS.how_many_training_steps.split(',')))
     learning_rates_list = list(map(float, FLAGS.learning_rate.split(',')))
@@ -79,23 +80,31 @@ if __name__ == '__main__':
                                                         len(learning_rates_list)))
     n_thr_spikes = max(1, FLAGS.n_thr_spikes)
 
+    train_frames, train_ground_truth, test_frames, test_ground_truth = extract()
+
     # - Define trainable variables
-    d_In = model_settings['fingerprint_width']
+    #d_In = model_settings['fingerprint_width']
+    d_In = train_frames.shape[2]
     d_Out = model_settings["label_count"]
     rng_key = random.PRNGKey(FLAGS.seed)
-    _, *sks = random.split(rng_key, 5)
+    _, *sks = random.split(rng_key, 10)
     # W_in = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
     # W_rec = onp.array(random.truncated_normal(sks[2],-2,2,(FLAGS.n_hidden, FLAGS.n_hidden))* (onp.sqrt(1/(FLAGS.n_hidden)) / .87962566103423978))
     # onp.fill_diagonal(W_rec, 0.)
     # W_out = onp.array(random.truncated_normal(sks[3],-2,2,(FLAGS.n_hidden, d_Out))*0.01)
     # b_out = onp.zeros((d_Out,))
-    K1 = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    K1 = onp.array(random.truncated_normal(sks[1],-2,2,(64, 1, 4,4))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    K2 = onp.array(random.truncated_normal(sks[2],-2,2,(64, 64, 4,4))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    W1 = onp.array(random.truncated_normal(sks[3],-2,2,(1600, 256))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    W2 = onp.array(random.truncated_normal(sks[4],-2,2,(256, 64))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    W3 = onp.array(random.truncated_normal(sks[4],-2,2,(64, 10))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
 
     # - Create the model
     #rnn = RNN(model_settings)
     rnn = CNN(model_settings)
 
-    init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
+    init_params = {"K1": K1, "K2": K2, "W1": W1, "W2": W2, "W3": W3}
+    #init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
     iteration = onp.array(FLAGS.how_many_training_steps.split(","), int)
     lrs = onp.array(FLAGS.learning_rate.split(","),float)
     color_range = onp.linspace(0,1,onp.sum(iteration))
@@ -106,11 +115,15 @@ if __name__ == '__main__':
     track_dict = {"training_accuracies": [], "attacked_training_accuracies": [], "kl_over_time": [], "validation_accuracy": [], "attacked_validation_accuracy": [], "validation_kl_over_time": [], "model_parameters": model_settings}
     best_val_acc = 0.0
 
+    # B, 28, 28, 1 --> B, 1, 28, 28
+
     for i in range(sum(iteration)):
         # - Get training data
-        train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
-        X = train_fingerprints.numpy()
-        y = train_ground_truth.numpy()
+        #train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
+        X = train_frames[i*250,(i+1)*250, :,:,:].numpy()
+        y = train_ground_truth[i*250,(i+1)*250, :,:,:].numpy()
+        # X = train_fingerprints.numpy()
+        # y = train_ground_truth.numpy()
 
         opt_state = compute_gradient_and_update2(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
         rnn._rng_key, _ = random.split(rnn._rng_key)
