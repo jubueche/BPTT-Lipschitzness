@@ -48,6 +48,7 @@ defaultparams["mean_attack_epsilon"] = 0.01
 defaultparams["relative_initial_std"] = False
 defaultparams["relative_epsilon"] = False
 defaultparams["num_attack_steps"] = 10
+defaultparams["db"] = ARGS.db
 
 # LEONHARD = False
 # defaultparams["n_hidden"] = 16
@@ -94,7 +95,7 @@ def find_model(params, get_track = False):
     try:
         conn = sqlite3.connect("sessions" + ARGS.db +".db")
         command = "SELECT session_id FROM sessions WHERE {0} ORDER BY start_time DESC LIMIT 1;".format(" AND ".join(map("=".join,zip(params.keys(),map(format_value,params.values())))))
-        print(command)
+        
         cur = conn.cursor()
         cur.execute(command)
         result = cur.fetchall()
