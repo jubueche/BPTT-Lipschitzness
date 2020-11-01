@@ -41,12 +41,12 @@ defaultparams["how_many_training_steps"] = "8000,2000"
 defaultparams["minimum_attack_epsilon"] = 0.01
 defaultparams["mean_attack_epsilon"] = 0.01
 
-LEONHARD = False
-defaultparams["n_hidden"] = 16
-defaultparams["batch_size"] = 5
-defaultparams["eval_step_interval"] = 1
-defaultparams["how_many_training_steps"] = "2"
-defaultparams["learning_rate"] = 0.001
+# LEONHARD = False
+# defaultparams["n_hidden"] = 16
+# defaultparams["batch_size"] = 5
+# defaultparams["eval_step_interval"] = 1
+# defaultparams["how_many_training_steps"] = "2"
+# defaultparams["learning_rate"] = 0.001
 
 if LEONHARD:
     defaultparams["data_dir"]="$SCRATCH/speech_dataset"
