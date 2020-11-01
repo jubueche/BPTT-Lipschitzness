@@ -16,6 +16,7 @@ from datetime import datetime
 import numpy as onp
 import ujson as json
 from six.moves import xrange
+import sqlite3
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seeds', nargs='+', type=int, default=[0,1,2,3,4,5,6,7,8,9])
@@ -30,19 +31,22 @@ LEONHARD = True
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
-# defaultparams["batch_size"] = 5
 defaultparams["eval_step_interval"] = 100
-# defaultparams["eval_step_interval"] = 2
 defaultparams["model_architecture"] = "lsnn"
 defaultparams["n_hidden"] = 256
-# defaultparams["n_hidden"] = 16
 defaultparams["wanted_words"] = 'yes,no'
-defaultparams["use_epsilon_ball"] = True
-defaultparams["epsilon_lipschitzness"] = 0.01
-defaultparams["num_steps_lipschitzness"] = 10
+defaultparams["minimum_attack_epsilon"] = 0.01
 defaultparams["beta_lipschitzness"] = 1.0
-# defaultparams["how_many_training_steps"] = "15000,3000"
 defaultparams["how_many_training_steps"] = "8000,2000"
+defaultparams["minimum_attack_epsilon"] = 0.01
+defaultparams["mean_attack_epsilon"] = 0.01
+
+LEONHARD = False
+defaultparams["n_hidden"] = 16
+defaultparams["batch_size"] = 5
+defaultparams["eval_step_interval"] = 1
+defaultparams["how_many_training_steps"] = "2"
+defaultparams["learning_rate"] = 0.001
 
 if LEONHARD:
     defaultparams["data_dir"]="$SCRATCH/speech_dataset"
@@ -72,14 +76,35 @@ def find_model(params, get_track = False):
     base_path = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(base_path, "Jax/Resources/")
     track_path = os.path.join(base_path, "Jax/Resources/Plotting/")
-    name_end = '_{}_h{}_b{}_s{}'.format(params["model_architecture"], params["n_hidden"], float(params["beta_lipschitzness"]), params["seed"])
-    search_path = model_path
+    def format_value(val):
+        if type(val) == int:
+            return str(val)
+        if type(val) == float:
+            return str(val)
+        return "\"" + str(val) + "\""
+        
+    try:
+        conn = sqlite3.connect("sessions.db")
+        command = "SELECT session_id FROM sessions WHERE {0} ORDER BY start_time DESC LIMIT 1;".format(" AND ".join(map("=".join,zip(params.keys(),map(format_value,params.values())))))
+        print(command)
+        cur = conn.cursor()
+        cur.execute(command)
+        result = cur.fetchall()
+    except sqlite3.Error as error:
+        return None
+    finally:
+        if (conn):
+            conn.close()
+
+    if len(result)==0:
+        return None
+    session_id = result[0]
+    
     if(get_track):
-        search_path = track_path
-    for file in os.listdir(search_path):
-        if name_end in file:
-            return os.path.join(search_path, file)
-    return None
+        return os.path.join(track_path, str(session_id)+"_track.json")
+    else:
+        return os.path.join(model_path, str(session_id)+ "_model.json")
+    
 
 def estimate_memory(params):
     if params["n_hidden"] >= 128:
@@ -362,6 +387,18 @@ pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
 pparams["n_hidden"] = [64*(2**i) for i in [0,1,2,3,4]]
 run_models(pparams, ARGS.force)
+
+###MISMATCH BALL MODELS
+pparams = copy.copy(defaultparams)
+pparams["seed"] = ARGS.seeds
+pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
+pparams["relative_initial_std"] = True
+pparams["relative_epsilon"] = True
+pparams["minimum_attack_epsilon"] = 0.05
+pparams["mean_attack_epsilon"] = [0.05, 0.075, 0.1]
+
+run_models(pparams,ARGS.force)
+
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node

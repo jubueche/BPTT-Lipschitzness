@@ -1,3 +1,4 @@
+
 from jax import config
 config.FLAGS.jax_log_compiles=True
 
@@ -19,8 +20,10 @@ import wandb
 import matplotlib.pyplot as plt 
 from datetime import datetime
 import jax.nn.initializers as jini
-
-USE_WANBD = False
+from random import randint
+import time
+import string
+import sqlite3
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -40,15 +43,66 @@ if __name__ == '__main__':
 
     # - Paths
     base_path = path.dirname(path.abspath(__file__))
-    stored_name = '{}_{}_h{}_b{}_s{}'.format(
-        datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),FLAGS.model_architecture, FLAGS.n_hidden,FLAGS.beta_lipschitzness,FLAGS.seed)
-    model_name = f"{stored_name}_model.json"
-    track_name = f"{stored_name}_track.json"
+    if FLAGS.session_id == 0:
+        FLAGS.session_id = randint(1000000000, 9999999999)
+    print("Session ID is ", FLAGS.session_id)
+    model_name = f"{FLAGS.session_id}_model.json"
+    track_name = f"{FLAGS.session_id}_track.json"
+    FLAGS.start_time = int(time.time()*1000) #.strftime("%Y-%m-%d_%H-%M-%S")
     model_save_path = path.join(base_path, f"Resources/{model_name}")
     track_save_path = path.join(base_path, f"Resources/Plotting/{track_name}")
 
-    if(USE_WANBD):
-        wandb.init(project="robust-lipschitzness", config=vars(FLAGS),name=model_name)
+    def create_table_from_dict(dictionary, name):
+        fieldset = []
+        for key, val in dictionary.items():
+            if type(val) == int:
+                definition = "INTEGER"
+            if type(val) == float:
+                definition = "REAL"
+            else:
+                definition = "TEXT"
+            
+            if key == "session_id":
+                fieldset.append("'{0}' {1} PRIMARY KEY".format(key, definition))
+            else:
+                fieldset.append("'{0}' {1}".format(key, definition))
+
+        if len(fieldset) > 0:
+            return "CREATE TABLE IF NOT EXISTS {0} ({1});".format(name, ", ".join(fieldset))
+
+    def insert_row_from_dict(dictionary,name):
+        column_names = list(dictionary.keys())
+        column_values = list(dictionary.values())
+        def format_value(val):
+            if type(val) == int:
+                return str(val)
+            if type(val) == float:
+                return str(val)
+            return "\"" + str(val) + "\""
+        
+        return "INSERT INTO {0} ({1}) VALUES({2});".format(name,", ".join(column_names), ", ".join(map(format_value,column_values)))
+
+    try:
+        print("registering session...")
+        conn = sqlite3.connect("sessions.db", timeout=100)
+        c = conn.cursor()
+        c.execute(create_table_from_dict(vars(FLAGS),"sessions"))
+        c.execute(insert_row_from_dict(vars(FLAGS), "sessions"))
+        conn.commit()
+        c.close()
+
+        print(insert_row_from_dict(vars(FLAGS),"sessions"))
+    except sqlite3.Error as error:
+        print("Failed to insert data into sqlite table", error)
+    finally:
+        if (conn):
+            conn.close()
+            print("Registering Complete")
+
+    
+
+    
+    
 
     model_settings = utils.prepare_model_settings(
         len(input_data.prepare_words_list(FLAGS.wanted_words.split(','))),
@@ -126,21 +180,6 @@ if __name__ == '__main__':
             track_dict["training_accuracies"].append(onp.float64(training_accuracy))
             track_dict["attacked_training_accuracies"].append(onp.float64(attacked_accuracy))
             track_dict["kl_over_time"].append(lip_loss_over_time)
-            
-            if(USE_WANBD):
-                plt.subplot(121)
-                plt.plot(track_dict["training_accuracies"], color="g", label="Training acc.")
-                plt.plot(track_dict["attacked_training_accuracies"], color="r", label="Attacked training acc.")
-                plt.legend()
-                plt.subplot(122)
-                for idx,l in enumerate(track_dict["kl_over_time"]):
-                    plt.plot(l, color=(1.0,1.0,color_range[idx]))
-                wandb.log({"train": plt})
-                wandb.log(
-                    {
-                        "training_accuracy":track_dict["training_accuracies"][-1],
-                        "attacked_training_accuracy":track_dict["attacked_training_accuracies"][-1]
-                    })
 
 
         if((i+1) % FLAGS.eval_step_interval == 0):
@@ -171,20 +210,6 @@ if __name__ == '__main__':
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
             track_dict["validation_kl_over_time"].append(list(onp.array(mean_llot, dtype=onp.float64)))
 
-            if(USE_WANBD):
-                plt.subplot(121)
-                plt.plot(track_dict["validation_accuracy"], color="g", label="Val. acc.")
-                plt.plot(track_dict["attacked_validation_accuracy"], color="r", label="Attacked val. acc.")
-                plt.legend()
-                plt.subplot(122)
-                for idx,l in enumerate(track_dict["validation_kl_over_time"]):
-                    plt.plot(l, color=(1.0,1.0,color_range_val[idx]))
-                wandb.log({"val": plt})
-                wandb.log(
-                    {
-                        "validation_accuracy":track_dict["validation_accuracy"][-1],
-                        "attacked_validation_accuracy":track_dict["attacked_validation_accuracy"][-1]
-                    })
 
             # - Save the model
             if(total_accuracy > best_val_acc):

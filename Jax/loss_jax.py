@@ -56,25 +56,30 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         logits_theta_star, _ = rnn.call(X, dropout_mask, **theta_star)
         return loss_kl(logits, logits_theta_star)
 
+
     def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask):
-        if(FLAGS.use_epsilon_ball):
-            initial_std = 0.001
-        else:
-            initial_std = 0.2
+        rand_key, random_normal_var = split_and_sample(rand_key, (1,))
+        epsilon_std = (FLAGS.mean_attack_epsilon - FLAGS.minimum_attack_epsilon) * jnp.sqrt(jnp.pi) / jnp.sqrt(2.)
+        epsilon = FLAGS.minimum_attack_epsilon + jnp.abs(random_normal_var) * epsilon_std
+        step_size = {}
         theta_star = {}
-        # - Initialize theta_star randomly
+        # - Initialize theta_star randomly 
         for key in params.keys():
             rand_key, random_normal_var = split_and_sample(rand_key, params[key].shape)
-            theta_star[key] = params[key] * (1 + initial_std*random_normal_var)
+            if(FLAGS.relative_initial_std):
+                theta_star[key] = params[key] * (1 + FLAGS.initial_std*random_normal_var)
+            else:
+                theta_star[key] = params[key]+FLAGS.initial_std*random_normal_var
+            if(FLAGS.relative_epsilon):
+                step_size[key] = epsilon * params[key] /FLAGS.num_attack_steps
+            else:    
+                step_size[key] = epsilon / FLAGS.num_attack_steps
 
         logits, _ = rnn.call(X, dropout_mask, **params)
-        for _ in range(FLAGS.num_steps_lipschitzness):
+        for _ in range(FLAGS.num_attack_steps):
             grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, params, logits, dropout_mask)
             for key in theta_star.keys():
-                if(FLAGS.use_epsilon_ball):
-                    theta_star[key] = theta_star[key] + FLAGS.epsilon_lipschitzness/FLAGS.num_steps_lipschitzness * jnp.sign(grads_theta_star[key])
-                else:
-                    theta_star[key] = theta_star[key] + FLAGS.step_size_lipschitzness * grads_theta_star[key]
+                theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
         loss_kl = lip_loss(X, theta_star, params, logits, dropout_mask)
         return loss_kl
 
@@ -95,8 +100,8 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
     return opt_update(batch_id, grads, opt_state)
 
 @partial(jit, static_argnums=(3,4))
-def attack_network(X, theta, logits, rnn, FLAGS, rand_key):
-
+def attack_network(X, params, logits, rnn, FLAGS, rand_key):
+    #In contrast to the training attacker this attackers epsilon is deterministic (equal to the mean epsilon)
     dropout_mask = jnp.ones(shape=(1,rnn.units))
 
     def lip_loss(X, theta_star, logits):
@@ -105,25 +110,31 @@ def attack_network(X, theta, logits, rnn, FLAGS, rand_key):
 
     _, rand_key = random.split(rand_key)
 
-    if(FLAGS.use_epsilon_ball):
-        initial_std = 0.001
-    else:
-        initial_std = 0.2
+    rand_key, random_normal_var = split_and_sample(rand_key, (1,))
+    epsilon_std = (FLAGS.mean_attack_epsilon - FLAGS.minimum_attack_epsilon) * jnp.sqrt(jnp.pi) / jnp.sqrt(2.)
+    epsilon = FLAGS.minimum_attack_epsilon + jnp.abs(random_normal_var) * epsilon_std
+    step_size = {}
     theta_star = {}
-    # - Initialize theta_star randomly
-    for key in theta.keys():
-        rand_key, random_normal_var = split_and_sample(rand_key, theta[key].shape)
-        theta_star[key] = theta[key] * (1 + initial_std*random_normal_var)
+
+    # - Initialize theta_star randomly 
+    for key in params.keys():
+        rand_key, random_normal_var = split_and_sample(rand_key, params[key].shape)
+        if(FLAGS.relative_initial_std):
+            theta_star[key] = params[key]+FLAGS.initial_std*random_normal_var
+        else:
+            theta_star[key] = params[key] * (1 + FLAGS.initial_std*random_normal_var)
+        if(FLAGS.relative_epsilon):
+            step_size[key] = epsilon * params[key] /FLAGS.num_attack_steps
+        else:    
+            step_size[key] = epsilon /FLAGS.num_attack_steps
 
     loss_over_time = []
-    for _ in range(FLAGS.num_steps_lipschitzness):
+    logits, _ = rnn.call(X, dropout_mask, **params)
+    for _ in range(FLAGS.num_attack_steps):
         value, grads_theta_star = value_and_grad(lip_loss, argnums=1)(X, theta_star, logits)
         loss_over_time.append(value)
         for key in theta_star.keys():
-            if(FLAGS.use_epsilon_ball):
-                theta_star[key] = theta_star[key] + FLAGS.epsilon_lipschitzness/FLAGS.num_steps_lipschitzness * jnp.sign(grads_theta_star[key])
-            else:
-                theta_star[key] = theta_star[key] + FLAGS.step_size_lipschitzness * grads_theta_star[key]
+            theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
     loss_over_time.append(lip_loss(X, theta_star, logits))
     logits_theta_star , _ = rnn.call(X, dropout_mask, **theta_star)
     return loss_over_time, logits_theta_star 
