@@ -93,7 +93,7 @@ def find_model(params, get_track = False):
         return "\"" + str(val) + "\""
         
     try:
-        conn = sqlite3.connect("sessions" + ARGS.db +".db")
+        conn = sqlite3.connect("sessions_" + ARGS.db +".db")
         command = "SELECT session_id FROM sessions WHERE {0} ORDER BY start_time DESC LIMIT 1;".format(" AND ".join(map("=".join,zip(params.keys(),map(format_value,params.values())))))
         
         cur = conn.cursor()
