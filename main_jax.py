@@ -89,8 +89,6 @@ if __name__ == '__main__':
         c.execute(insert_row_from_dict(vars(FLAGS), "sessions"))
         conn.commit()
         c.close()
-
-        print(insert_row_from_dict(vars(FLAGS),"sessions"))
     except sqlite3.Error as error:
         print("Failed to insert data into sqlite table", error)
     finally:
