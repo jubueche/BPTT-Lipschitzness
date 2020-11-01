@@ -2,10 +2,10 @@ from jax import config
 config.FLAGS.jax_log_compiles=False
 from GraphExecution import utils
 from threading import Thread
-from Jax.RNN_Jax import RNN
+from RNN_Jax import RNN
 import input_data_eager as input_data
 import jax.numpy as jnp
-from Jax.loss_jax import attack_network
+from loss_jax import attack_network
 import jax.random as jax_random
 import copy
 import os
@@ -75,8 +75,8 @@ def grid(params):
 
 def find_model(params, get_track = False):
     base_path = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(base_path, "Jax/Resources/")
-    track_path = os.path.join(base_path, "Jax/Resources/Plotting/")
+    model_path = os.path.join(base_path, "Resources/")
+    track_path = os.path.join(base_path, "Resources/Plotting/")
     def format_value(val):
         if type(val) == int:
             return str(val)
@@ -129,9 +129,9 @@ def run_model(params, force=False):
             os.system("module load python_cpu/3.7.1")
             logfilename = '{}_{}_h{}_b{}_s{}.log'.format(
                 datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), params["model_architecture"], params["n_hidden"], float(params["beta_lipschitzness"]), params["seed"])
-            command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 Jax/main_jax.py "
+            command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 main_jax.py "
         else:
-            command = "python Jax/main_jax.py "
+            command = "python main_jax.py "
         for key in params:
             if type(params[key]) == bool:
                 if params[key]==True:
