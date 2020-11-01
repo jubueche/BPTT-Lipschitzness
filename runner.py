@@ -134,7 +134,7 @@ def run_model(params, force=False):
         return
     else:
         print("Training model {}".format(params))
-        session_id = FLAGS.session_id = randint(1000000000, 9999999999)
+        session_id = randint(1000000000, 9999999999)
         if LEONHARD:
             os.system("module load python_cpu/3.7.1")
             logfilename = f'{session_id}.log'
