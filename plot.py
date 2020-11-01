@@ -18,7 +18,7 @@ import matplotlib.colors as colors
 import matplotlib.cm as cm
 from matplotlib.lines import Line2D
 from matplotlib import ticker as mticker
-
+from scipy.stats import norm
 
 def plot_experiment_a():
 
@@ -278,9 +278,37 @@ def plot_experiment_e():
 
 
     plt.savefig("Figures/experiment_e.png", dpi=1200)
+    plt.show(block=False)
+
+    fig = plt.figure(figsize=(8,3),constrained_layout=False)
+    weight_keys = ["W_in", "W_rec", "W_out"]
+    weight_labels = [r"$W_\textnormal{in}$",r"$W_\textnormal{rec}$",r"$W_\textnormal{out}$"]
+    xlims = [2.0,2.0,6.0]
+    axes = [fig.add_subplot(131+i) for i in range(len(weight_keys))]
+    for model_idx in range(num_models):
+        theta = experiment_e_data[str(model_idx)]["theta"]
+        curr_beta = experiment_e_data[str(model_idx)]["model_params"]["beta_lipschitzness"]
+        for idx,key in enumerate(weight_keys):
+            x = np.array(theta[key]).ravel()
+            axes[idx].set_title(weight_labels[idx])
+            axes[idx].hist(x, bins=50, color=f"C{model_idx}", density=True, alpha=alpha)
+            mu, std = norm.fit(x)
+            xmin = -xlims[idx] ; xmax = xlims[idx]
+            x = np.linspace(xmin, xmax, 100)
+            p = norm.pdf(x, mu, std)
+            axes[idx].plot(x, p, color=f"C{model_idx}", label=f"Beta {curr_beta}", linewidth=2)
+            axes[idx].set_xlim([xmin,xmax])
+            axes[idx].spines["right"].set_visible(False)
+            axes[idx].spines["top"].set_visible(False)
+            axes[idx].spines["left"].set_visible(False)
+            axes[idx].spines["bottom"].set_visible(False)
+            axes[idx].set_yticks([])
+            axes[idx].set_xticks([])
+    fig.get_axes()[0].legend(frameon=False, loc=2, fontsize = 5)
+    plt.savefig("Figures/experiment_e_weight_distributions.png", dpi=1200)
     plt.show(block=True)
 
-plot_experiment_a()
-plot_experiment_b()
-plot_experiment_c()
+# plot_experiment_a()
+# plot_experiment_b()
+# plot_experiment_c()
 plot_experiment_e()

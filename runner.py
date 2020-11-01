@@ -351,9 +351,12 @@ def experiment_e(pparams):
     # - Iterate over each model
     for model_idx,model in enumerate(models):
         # - Unpack
-        rnn, _, tracking_dict = model
+        rnn, theta, tracking_dict = model
         # - Save the tracking dict
-        experiment_dict[str(model_idx)]["tracking_dict"] =  tracking_dict 
+        for key in theta.keys():
+            theta[key] = theta[key].tolist()
+        experiment_dict[str(model_idx)]["tracking_dict"] =  tracking_dict
+        experiment_dict[str(model_idx)]["theta"] = theta
         curr_beta = rnn.model_settings["beta_lipschitzness"]
         experiment_dict["betas"].append(curr_beta)
     return experiment_dict
