@@ -304,17 +304,12 @@ def get_parser():
         help='Number of steps used to find Theta*'
     )
     parser.add_argument(
-        '--minimum_attack_epsilon',
+        '--attack_epsilon',
         default=0.01,
         type=float,
-        help='Smallest attack.'
+        help='Size of attack.'
     )
-    parser.add_argument(
-        '--mean_attack_epsilon',
-        default=0.01,
-        type=float,
-        help='Average Attack. If this value is different from the minimum_attack_epsilon then the attack magnitude is random.'
-    )
+
     parser.add_argument(
         '--relative_epsilon',
         default=False,
