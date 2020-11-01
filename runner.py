@@ -17,6 +17,7 @@ import numpy as onp
 import ujson as json
 from six.moves import xrange
 import sqlite3
+from random import randint
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seeds', nargs='+', type=int, default=[0,1,2,3,4,5,6,7,8,9])
@@ -42,7 +43,7 @@ defaultparams["n_hidden"] = 256
 defaultparams["wanted_words"] = 'yes,no'
 defaultparams["minimum_attack_epsilon"] = 0.01
 defaultparams["beta_lipschitzness"] = 1.0
-defaultparams["how_many_training_steps"] = "8000,2000"
+defaultparams["hn_epochs"] = "8,2"
 defaultparams["minimum_attack_epsilon"] = 0.01
 defaultparams["mean_attack_epsilon"] = 0.01
 defaultparams["relative_initial_std"] = False
@@ -133,13 +134,14 @@ def run_model(params, force=False):
         return
     else:
         print("Training model {}".format(params))
+        session_id = FLAGS.session_id = randint(1000000000, 9999999999)
         if LEONHARD:
             os.system("module load python_cpu/3.7.1")
-            logfilename = '{}_{}_h{}_b{}_s{}.log'.format(
-                datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), params["model_architecture"], params["n_hidden"], float(params["beta_lipschitzness"]), params["seed"])
+            logfilename = f'{session_id}.log'
             command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 main_jax.py "
         else:
             command = "python main_jax.py "
+        command += f"--session_id={session_id}"
         for key in params:
             if type(params[key]) == bool:
                 if params[key]==True:

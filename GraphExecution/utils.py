@@ -120,9 +120,9 @@ def get_parser():
         help='How many bins to use for the MFCC / FBANK fingerprint',
     )
     parser.add_argument(
-        '--how_many_training_steps',
+        '--n_epochs',
         type=str,
-        default='15000,3000',
+        default='8,2',
         help='How many training loops to run',)
     parser.add_argument(
         '--eval_step_interval',

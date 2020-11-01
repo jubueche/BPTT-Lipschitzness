@@ -23,6 +23,7 @@ from random import randint
 import time
 import string
 import sqlite3
+import math
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -120,13 +121,18 @@ if __name__ == '__main__':
         FLAGS.n_thr_spikes, FLAGS.in_repeat, FLAGS.seed
     )
     time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
-    training_steps_list = list(map(int, FLAGS.how_many_training_steps.split(',')))
+    epochs_list = list(map(int, FLAGS.n_epochs.split(',')))
     learning_rates_list = list(map(float, FLAGS.learning_rate.split(',')))
-    if len(training_steps_list) != len(learning_rates_list):
+    if len(epochs_list) != len(learning_rates_list):
         raise Exception(
-            '--how_many_training_steps and --learning_rate must be equal length '
-            'lists, but are %d and %d long instead' % (len(training_steps_list),
+            '--n_epochs and --learning_rate must be equal length '
+            'lists, but are %d and %d long instead' % (len(epochs_list),
                                                         len(learning_rates_list)))
+    
+    
+    
+    steps_list = [math.ceil(epochs * audio_processor.set_size("training")/FLAGS.batch_size) for epochs in epochs_list]
+    
     n_thr_spikes = max(1, FLAGS.n_thr_spikes)
 
     # - Define trainable variables
@@ -144,7 +150,7 @@ if __name__ == '__main__':
     rnn = RNN(model_settings)
 
     init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
-    iteration = onp.array(FLAGS.how_many_training_steps.split(","), int)
+    iteration = onp.array(steps_list, int)
     lrs = onp.array(FLAGS.learning_rate.split(","),float)
     color_range = onp.linspace(0,1,onp.sum(iteration))
     
