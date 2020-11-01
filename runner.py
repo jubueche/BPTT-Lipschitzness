@@ -40,6 +40,7 @@ defaultparams["beta_lipschitzness"] = 1.0
 defaultparams["how_many_training_steps"] = "8000,2000"
 defaultparams["minimum_attack_epsilon"] = 0.01
 defaultparams["mean_attack_epsilon"] = 0.01
+defaultparams["relative_initial_std"] = False
 
 # LEONHARD = False
 # defaultparams["n_hidden"] = 16
@@ -391,7 +392,7 @@ run_models(pparams, ARGS.force)
 ###MISMATCH BALL MODELS
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
-pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
+pparams["beta_lipschitzness"] = 1.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
 pparams["minimum_attack_epsilon"] = 0.05

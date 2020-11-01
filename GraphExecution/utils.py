@@ -292,41 +292,54 @@ def get_parser():
         default=True,
         help='Average spikes over time for readout')
     parser.add_argument(
-        '--lipschitzness_loss',
-        default="kl",
-        type=str,
-        help='Loss to use for Lipschitzness measure (mse, kl)'
-    )
-    parser.add_argument(
         '--beta_lipschitzness',
         default=1.0,
         type=float,
         help='Beta used for weighting lipschitzness term'
     )
     parser.add_argument(
-        '--step_size_lipschitzness',
-        default=0.1,
-        type=float,
-        help='Step size used to update Theta*'
-    )
-    parser.add_argument(
-        '--num_steps_lipschitzness',
+        '--num_attack_steps',
         default=10,
         type=int,
         help='Number of steps used to find Theta*'
     )
     parser.add_argument(
-        '--epsilon_lipschitzness',
-        default=0.05,
+        '--minimum_attack_epsilon',
+        default=0.01,
         type=float,
-        help='Maximum elementwise distance from initial random theta to final theta*'
+        help='Smallest attack.'
     )
     parser.add_argument(
-        '--use_epsilon_ball',
+        '--mean_attack_epsilon',
+        default=0.01,
+        type=float,
+        help='Average Attack. If this value is different from the minimum_attack_epsilon then the attack magnitude is random.'
+    )
+    parser.add_argument(
+        '--relative_epsilon',
         default=False,
         action="store_true",
-        help='Use epsilon ball for attack'
+        help='setting this makes the attack magnitude be relative to the size of each weight (element wise)'
     )
+
+    parser.add_argument(
+        '--initial_std',
+        default=0.001,
+        type=float,
+        help="Size of the random step in the loss function."
+    )
+
+    parser.add_argument(
+        '--relative_initial_std',
+        default=False,
+        action="store_true",
+        help='setting this makes random step in the loss function be relative to the size of each weight (element wise)'
+    )
+    parser.add_argument(
+        '--session_id',
+        type=int,
+        default=0,
+        help='Training Session ID')
 
     # Function used to parse --verbosity argument
     def verbosity_arg(value):
