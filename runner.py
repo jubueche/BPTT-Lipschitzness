@@ -133,15 +133,13 @@ def run_model(params, force=False):
         print("Found Model, skipping")
         return
     else:
-        print("Training model {}".format(params))
-        session_id = randint(1000000000, 9999999999)
+        params["session_id"] = randint(1000000000, 9999999999)
         if LEONHARD:
             os.system("module load python_cpu/3.7.1")
             logfilename = f'{session_id}.log'
             command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 main_jax.py "
         else:
             command = "python main_jax.py "
-        command += f"--session_id={session_id}"
         for key in params:
             if type(params[key]) == bool:
                 if params[key]==True:
@@ -150,6 +148,7 @@ def run_model(params, force=False):
                 command += "--" + key + "=" + str(params[key]) + " "
         if LEONHARD:
             command += '\"'
+        print(command)
         os.system(command)
     
 def run_models(pparams, force = False, parallelness = 10):
