@@ -99,9 +99,6 @@ if __name__ == '__main__':
 
     
 
-    
-    
-
     model_settings = utils.prepare_model_settings(
         len(input_data.prepare_words_list(FLAGS.wanted_words.split(','))),
         FLAGS.sample_rate, FLAGS.clip_duration_ms, FLAGS.window_size_ms,
@@ -120,6 +117,7 @@ if __name__ == '__main__':
         FLAGS.testing_percentage, model_settings, FLAGS.summaries_dir,
         FLAGS.n_thr_spikes, FLAGS.in_repeat, FLAGS.seed
     )
+
     time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
     epochs_list = list(map(int, FLAGS.n_epochs.split(',')))
     learning_rates_list = list(map(float, FLAGS.learning_rate.split(',')))
@@ -130,9 +128,9 @@ if __name__ == '__main__':
                                                         len(learning_rates_list)))
     
     
-    
     steps_list = [math.ceil(epochs * audio_processor.set_size("training")/FLAGS.batch_size) for epochs in epochs_list]
     
+
     n_thr_spikes = max(1, FLAGS.n_thr_spikes)
 
     # - Define trainable variables
@@ -212,7 +210,6 @@ if __name__ == '__main__':
             track_dict["attacked_validation_accuracy"].append(onp.float64(attacked_total_accuracy))
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
             track_dict["validation_kl_over_time"].append(list(onp.array(mean_llot, dtype=onp.float64)))
-
 
             # - Save the model
             if(total_accuracy > best_val_acc):
