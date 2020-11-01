@@ -41,11 +41,9 @@ defaultparams["eval_step_interval"] = 100
 defaultparams["model_architecture"] = "lsnn"
 defaultparams["n_hidden"] = 256
 defaultparams["wanted_words"] = 'yes,no'
-defaultparams["minimum_attack_epsilon"] = 0.01
+defaultparams["attack_epsilon"] = 0.01
 defaultparams["beta_lipschitzness"] = 1.0
 defaultparams["n_epochs"] = "16,4"
-defaultparams["minimum_attack_epsilon"] = 0.01
-defaultparams["mean_attack_epsilon"] = 0.01
 defaultparams["relative_initial_std"] = False
 defaultparams["relative_epsilon"] = False
 defaultparams["num_attack_steps"] = 10
@@ -55,7 +53,7 @@ defaultparams["db"] = ARGS.db
 # defaultparams["n_hidden"] = 16
 # defaultparams["batch_size"] = 5
 # defaultparams["eval_step_interval"] = 1
-# defaultparams["how_many_training_steps"] = "2"
+# defaultparams["n_epochs"] = "1"
 # defaultparams["learning_rate"] = 0.001
 
 if LEONHARD:
