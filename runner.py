@@ -133,7 +133,8 @@ def run_model(params, force=False):
         print("Found Model, skipping")
         return
     else:
-        params["session_id"] = randint(1000000000, 9999999999)
+        session_id = randint(1000000000, 9999999999)
+        params["session_id"] = session_id
         if LEONHARD:
             os.system("module load python_cpu/3.7.1")
             logfilename = f'{session_id}.log'
