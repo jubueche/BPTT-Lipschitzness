@@ -25,6 +25,11 @@ parser.add_argument(
     action='store_true',
     default=False,
     help='Retrains all models even if their files are present.')
+parser.add_argument(
+    '--db',
+    type=str,
+    default = "default"
+)
 ARGS = parser.parse_args()
 
 LEONHARD = True
@@ -41,6 +46,8 @@ defaultparams["how_many_training_steps"] = "8000,2000"
 defaultparams["minimum_attack_epsilon"] = 0.01
 defaultparams["mean_attack_epsilon"] = 0.01
 defaultparams["relative_initial_std"] = False
+defaultparams["relative_epsilon"] = False
+defaultparams["num_attack_steps"] = 10
 
 # LEONHARD = False
 # defaultparams["n_hidden"] = 16
@@ -85,7 +92,7 @@ def find_model(params, get_track = False):
         return "\"" + str(val) + "\""
         
     try:
-        conn = sqlite3.connect("sessions.db")
+        conn = sqlite3.connect("sessions" + ARGS.db +".db")
         command = "SELECT session_id FROM sessions WHERE {0} ORDER BY start_time DESC LIMIT 1;".format(" AND ".join(map("=".join,zip(params.keys(),map(format_value,params.values())))))
         print(command)
         cur = conn.cursor()
@@ -395,8 +402,7 @@ pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = 1.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
-pparams["minimum_attack_epsilon"] = 0.05
-pparams["mean_attack_epsilon"] = [0.05, 0.075, 0.1]
+pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9]
 
 run_models(pparams,ARGS.force)
 

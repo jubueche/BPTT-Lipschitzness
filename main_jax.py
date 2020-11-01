@@ -1,4 +1,3 @@
-
 from jax import config
 config.FLAGS.jax_log_compiles=True
 
@@ -84,7 +83,7 @@ if __name__ == '__main__':
 
     try:
         print("registering session...")
-        conn = sqlite3.connect("sessions.db", timeout=100)
+        conn = sqlite3.connect("sessions_"+ FLAGS.db + ".db", timeout=100)
         c = conn.cursor()
         c.execute(create_table_from_dict(vars(FLAGS),"sessions"))
         c.execute(insert_row_from_dict(vars(FLAGS), "sessions"))

@@ -335,6 +335,11 @@ def get_parser():
         type=int,
         default=0,
         help='Training Session ID')
+    parser.add_argument(
+        '--db',
+        type=str,
+        default="default"
+    )
 
     # Function used to parse --verbosity argument
     def verbosity_arg(value):
