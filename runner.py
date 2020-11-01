@@ -137,7 +137,7 @@ def run_model(params, force=False):
         params["session_id"] = session_id
         if LEONHARD:
             os.system("module load python_cpu/3.7.1")
-            logfilename = f'{session_id}.log'
+            logfilename = str(session_id)+'.log'
             command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 main_jax.py "
         else:
             command = "python main_jax.py "
