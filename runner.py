@@ -408,8 +408,13 @@ pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
 pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9]
 
-run_models(pparams,ARGS.force)
+pparams2 = copy.copy(defaultparams)
+pparams2["seed"] = ARGS.seeds
+pparams2["beta_lipschitzness"] = 0
+pparams2["relative_initial_std"] = True
+pparams2["relative_epsilon"] = True
 
+run_models([pparams,pparams2],ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node
