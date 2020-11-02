@@ -77,7 +77,7 @@ def grid(params):
                 return flatten_lists(ret)
         return params
     if type(params)==list:
-        return flatten_lists[grid(p) for p in params]
+        return flatten_lists([grid(p) for p in params])
 
 
 def find_model(params, get_track = False):
