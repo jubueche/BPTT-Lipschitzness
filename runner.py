@@ -406,7 +406,7 @@ pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = 1.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
-pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9]
+pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9, 1.2, 1.6, 2.0]
 
 pparams2 = copy.copy(defaultparams)
 pparams2["seed"] = ARGS.seeds
