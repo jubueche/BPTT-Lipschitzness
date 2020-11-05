@@ -20,11 +20,13 @@ from matplotlib.lines import Line2D
 from matplotlib import ticker as mticker
 from scipy.stats import norm
 
-def plot_experiment_a():
-
+def plot_experiment_a(ATTACK=False):
     SPLIT = True
     # - Load the data
-    experiment_a_path = "Experiments/experiment_a.json"
+    if(ATTACK):
+        experiment_a_path = "Experiments/experiment_a_attack.json"
+    else:
+        experiment_a_path = "Experiments/experiment_a.json"
     with open(experiment_a_path, "r") as f:
         experiment_a_data = json.load(f)
     mismatch_labels = list(experiment_a_data["normal"].keys())[1:]
@@ -35,7 +37,6 @@ def plot_experiment_a():
         outer = gridspec.GridSpec(1, 2, figure=fig, wspace=0.2)
     c_range = np.linspace(0.0,1.0,len(mismatch_labels))
     colors_mismatch = [(0.9176, 0.8862, i, 1.0) for i in c_range]
-    color_baseline = (0.9176, 0.3862, 0.8, 1.0)
     label_mode = ["Normal", "Robust"]
     if(SPLIT):
         modes = ["normal"]
@@ -61,8 +62,13 @@ def plot_experiment_a():
                     hue = hue,
                     inner = 'quartile', cut=0,
                     scale = "width", palette = [colors_mismatch[idx_std]], saturation=1.0, linewidth=1.0)
-            plt.ylim([0.3, 1.0])
-            ax.set_ylim([0.3, 1.0])
+            if(ATTACK):
+                ylim = 0.35
+            else:
+                ylim = 0.1
+
+            plt.ylim([ylim, 1.0])
+            ax.set_ylim([ylim, 1.0])
             ax.get_legend().remove()
             plt.xlabel('')
             plt.ylabel('')
@@ -82,8 +88,11 @@ def plot_experiment_a():
             ax.set_xlim([-1, 1])
             fig.add_subplot(ax)
     custom_lines = [Line2D([0], [0], color=colors_mismatch[i], lw=4) for i in range(len(mismatch_labels))]
-    legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels]
-    ax.legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize = 7)
+    if(ATTACK):
+        legend_labels = [(f'{str(float(mismatch_label))}') for mismatch_label in mismatch_labels]
+    else:   
+        legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels]
+    fig.get_axes()[0].legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize = 7)
     # show only the outside spines
     for ax in fig.get_axes():
         ax.spines['top'].set_visible(False)
@@ -91,7 +100,10 @@ def plot_experiment_a():
         ax.spines['left'].set_visible(ax.is_first_col())
         ax.spines['right'].set_visible(False)
 
-    plt.savefig("Figures/experiment_a.png", dpi=1200)
+    if(ATTACK):
+        plt.savefig("Figures/experiment_a_attack.png", dpi=1200)
+    else:
+        plt.savefig("Figures/experiment_a.png", dpi=1200)
     plt.show(block=False)
 
 def plot_experiment_b():
@@ -101,7 +113,7 @@ def plot_experiment_b():
     with open(experiment_b_path, "r") as f:
         experiment_b_data = json.load(f)
     num_models = len(experiment_b_data.keys())-1
-    mismatch_level = experiment_b_data["experiment_params"]["mismatch_level"]
+    # mismatch_level = experiment_b_data["experiment_params"]["mismatch_level"]
     gaussian_eps =  experiment_b_data["experiment_params"]["gaussian_eps"]
     gaussian_attack_eps = experiment_b_data["experiment_params"]["gaussian_attack_eps"]
     x_labels = []
@@ -193,7 +205,9 @@ def plot_experiment_c():
             ax.legend(frameon=False, loc=5, fontsize = 8)
         if(i > 0):
             ax.spines["left"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
             ax.set_yticks([])
+            ax.set_xticks([])
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.set_title(x_labels[i])
@@ -229,7 +243,7 @@ def plot_experiment_e():
         axes_sub = [fig.add_subplot(gs[1,i]) for i in range(num_models)]
     for i,ax in enumerate(axes):
         kl_over_time = experiment_e_data[str(i)]["tracking_dict"]["kl_over_time"]
-        last_kl_over_time = [el[-1] for el in kl_over_time][5:] # - Skip artifacts
+        last_kl_over_time = [el[-1] for el in kl_over_time][0:] # - Skip artifacts if any
         ma_last_kl_over_time = np.convolve(last_kl_over_time, np.ones(filter_length)/filter_length, mode="full")[:len(last_kl_over_time)]
         x = np.linspace(0,len(last_kl_over_time)-1, len(last_kl_over_time))
         ax.plot(x, last_kl_over_time, label=r"$\mathcal{L}(f_{\Theta}(x),f_{\Theta^*}(x))$", color="C2", alpha=alpha)
@@ -243,7 +257,9 @@ def plot_experiment_e():
             # ax.legend(frameon=False, loc=2, fontsize = 8)
         if(i > 0):
             ax.spines["left"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
             ax.set_yticks([])
+            ax.set_xticks([])
             ax.minorticks_off()
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
@@ -308,7 +324,7 @@ def plot_experiment_e():
     plt.savefig("Figures/experiment_e_weight_distributions.png", dpi=1200)
     plt.show(block=True)
 
-plot_experiment_a()
+plot_experiment_a(ATTACK=False)
 plot_experiment_b()
 plot_experiment_c()
 plot_experiment_e()

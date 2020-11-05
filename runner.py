@@ -19,6 +19,8 @@ from six.moves import xrange
 import sqlite3
 from random import randint
 
+from jax import partial, jit
+
 # - Set numpy seed
 onp.random.seed(42)
 
@@ -263,11 +265,14 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     audio_processor = get_audio_processor(audio_processor_settings)
     return audio_processor
     
-def experiment_a(pparams):
-    ATTACK = True
-    mismatch_levels = [0.5,0.7,0.9,1.1,1.5]
-    mismatch_levels = [0.5]
-    num_iter = 5
+def experiment_a(pparams, ATTACK=False):
+    if(ATTACK):
+        mismatch_levels = [0.1,0.2,0.5,2.0,7.0]    
+        num_iter = 10
+    else:
+        mismatch_levels = [0.5,0.7,0.9,1.1,1.5]
+        num_iter = 50
+    
     # - Get all the models that we need
     models = get_models(pparams)
     # - Get the audio processor
@@ -306,8 +311,6 @@ def experiment_a(pparams):
 
 # TODO There is some sort of memory leak in attack network
 def experiment_b(pparams):
-    """For the models given in pparams, get the testing accuracies for mismatched weights, gaussian weights and attacked gaussian weights"""
-    mismatch_level = 0.5
     gaussian_eps = 0.1
     gaussian_attack_eps = 0.01
     n_iter = 10
@@ -317,7 +320,7 @@ def experiment_b(pparams):
     audio_processor = load_audio_processor(models[0][0])
     # - Initialize the dictionary to hold the information
     model_grid = grid(pparams)
-    experiment_dict = {"experiment_params": {"mismatch_level": mismatch_level, "gaussian_eps": gaussian_eps, "gaussian_attack_eps": gaussian_attack_eps}}
+    experiment_dict = {"experiment_params": {"gaussian_eps": gaussian_eps, "gaussian_attack_eps": gaussian_attack_eps}}
     for i,model_params in enumerate(model_grid):
         experiment_dict[str(i)] = {"normal_test_acc" : [], "mismatch": [], "gaussian": [], "gaussian_attack": [], "gaussian_with_eps_attack": [],  "model_params": model_params}
     # - Iterate over each model
@@ -334,14 +337,11 @@ def experiment_b(pparams):
         for _ in range(n_iter):
             theta_gaussian = gaussian_noise(theta, eps = gaussian_eps)
             theta_gaussian_eps_attack = gaussian_noise(theta, eps = gaussian_attack_eps)
-            theta_mismatch = apply_mismatch(theta, mm_std = mismatch_level)
             test_acc_gaussian_with_eps_attack = get_test_acc(audio_processor, rnn, theta_gaussian_eps_attack, False)
             test_acc_gaussian = get_test_acc(audio_processor, rnn, theta_gaussian, False)
-            test_acc_mismatch = get_test_acc(audio_processor, rnn, theta_mismatch, False)
             test_acc_attack = get_test_acc(audio_processor, rnn, theta, True)
-            print(f"beta {curr_beta} mismatch acc {test_acc_mismatch} gaussian acc {test_acc_gaussian} gaussian with eps of attack acc {test_acc_gaussian_with_eps_attack} attack acc {test_acc_attack}")
+            print(f"beta {curr_beta} gaussian acc {test_acc_gaussian} gaussian with eps of attack acc {test_acc_gaussian_with_eps_attack} attack acc {test_acc_attack}")
             # - Save
-            experiment_dict[str(model_idx)]["mismatch"].append(test_acc_mismatch)
             experiment_dict[str(model_idx)]["gaussian"].append(test_acc_gaussian)
             experiment_dict[str(model_idx)]["gaussian_attack"].append(test_acc_attack)
             experiment_dict[str(model_idx)]["gaussian_with_eps_attack"].append(test_acc_gaussian_with_eps_attack)
@@ -456,11 +456,20 @@ experiment_a_params2 = copy.deepcopy(experiment_a_params)
 experiment_a_params2.pop("attack_epsilon")
 experiment_a_params2["beta_lipschitzness"] = 0.0
 experiment_a_path = "Experiments/experiment_a.json"
-# - Check if the path exists
-if(False and os.path.exists(experiment_a_path)):
+experiment_a_path_attack = "Experiments/experiment_a_attack.json"
+
+if(os.path.exists(experiment_a_path_attack)):
+    print("File for experiment A ATTACK already exists. Skipping...")
+else:
+    experiment_a_attack_return_dict = experiment_a([experiment_a_params,experiment_a_params2], ATTACK=True)
+    with open(experiment_a_path_attack, "w") as f:
+        json.dump(experiment_a_attack_return_dict, f)
+    print("Successfully completed Experiment A ATTACK.")
+
+if(os.path.exists(experiment_a_path)):
     print("File for experiment A already exists. Skipping...")
 else:
-    experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2])
+    experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2], ATTACK=False)
     # - Save the data for experiment a
     with open(experiment_a_path, "w") as f:
         json.dump(experiment_a_return_dict, f)
@@ -469,7 +478,7 @@ else:
 ####################### B ####################### 
 
 
-experiment_b_params["beta_lipschitzness"] = [0.0,0.1,1.0,2.5,5.0]
+experiment_b_params["beta_lipschitzness"] = [0.0,0.001,0.01,0.1,1.0,10.0]
 experiment_b_path = "Experiments/experiment_b.json"
 # - Check if the path exists
 if(os.path.exists(experiment_b_path)):

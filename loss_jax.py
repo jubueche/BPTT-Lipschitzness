@@ -97,7 +97,7 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
     # clipped_grads = optimizers.clip_grads(grads, max_grad_norm)
     return opt_update(batch_id, grads, opt_state)
 
-@partial(jit, static_argnums=(3,4))
+# @partial(jit, static_argnums=(3,4))
 def attack_network(X, params, logits, rnn, FLAGS, rand_key):
     #In contrast to the training attacker this attackers epsilon is deterministic (equal to the mean epsilon)
     dropout_mask = jnp.ones(shape=(1,rnn.units))
