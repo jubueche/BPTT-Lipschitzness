@@ -77,7 +77,7 @@ def grid(params):
                 return flatten_lists(ret)
         return params
     if type(params)==list:
-        return [grid(p) for p in params]
+        return flatten_lists([grid(p) for p in params])
 
 
 def find_model(params, get_track = False):
@@ -406,10 +406,15 @@ pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = 0.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
-pparams["attack_epsilon"] = [0.9,1.1,1.5,2.0]
+pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9, 1.2, 1.6, 2.0]
 
-# run_models(pparams,ARGS.force)
+pparams2 = copy.copy(defaultparams)
+pparams2["seed"] = ARGS.seeds
+pparams2["beta_lipschitzness"] = 0
+pparams2["relative_initial_std"] = True
+pparams2["relative_epsilon"] = True
 
+run_models([pparams,pparams2],ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node
