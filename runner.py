@@ -19,6 +19,9 @@ from six.moves import xrange
 import sqlite3
 from random import randint
 
+# - Set numpy seed
+onp.random.seed(42)
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--seeds', nargs='+', type=int, default=[0,1,2,3,4,5,6,7,8,9])
 parser.add_argument(
@@ -37,13 +40,13 @@ LEONHARD = False
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
-defaultparams["eval_step_interval"] = 100
+defaultparams["eval_step_interval"] = 200
 defaultparams["model_architecture"] = "lsnn"
 defaultparams["n_hidden"] = 256
 defaultparams["wanted_words"] = 'yes,no'
 defaultparams["attack_epsilon"] = 0.01
 defaultparams["beta_lipschitzness"] = 1.0
-defaultparams["n_epochs"] = "16,4"
+defaultparams["n_epochs"] = "32,8"
 defaultparams["relative_initial_std"] = False
 defaultparams["relative_epsilon"] = False
 defaultparams["num_attack_steps"] = 10
@@ -261,14 +264,14 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     return audio_processor
     
 def experiment_a(pparams):
-    # mismatch_levels = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
-    mismatch_levels = [0.5,0.7,0.9,1.1]
-    num_iter = 50
+    ATTACK = True
+    mismatch_levels = [0.5,0.7,0.9,1.1,1.5]
+    mismatch_levels = [0.5]
+    num_iter = 5
     # - Get all the models that we need
     models = get_models(pparams)
     # - Get the audio processor
     audio_processor = load_audio_processor(models[0][0])
-    # - We expect 2 * number of seeds many models
     mm_dict = {'0.0': []}
     for mismatch_level in mismatch_levels:
         mm_dict[str(mismatch_level)] = []
@@ -285,11 +288,15 @@ def experiment_a(pparams):
         experiment_dict[network_type]['0.0'].append(test_acc)
         print(f"Mismatch level 0.0 Network type {network_type} testing accuracy {test_acc}")
         for mismatch_level in mismatch_levels:
-            # - Attack the weights num_iter times and collect the test accuracy
+            if(ATTACK):
+                rnn.model_settings["attack_epsilon"] = mismatch_level
             for _ in range(num_iter):
                 theta_star = apply_mismatch(theta, mm_std=mismatch_level)
                 # - Get the testing accuracy
-                test_acc = get_test_acc(audio_processor, rnn, theta_star, False)
+                if(ATTACK):
+                    test_acc = get_test_acc(audio_processor, rnn, theta, True)
+                else:
+                    test_acc = get_test_acc(audio_processor, rnn, theta_star, False)
                 print(f"Mismatch level {mismatch_level} Network type {network_type} testing accuracy {test_acc}")
                 # - Append to the correct list in the track
                 experiment_dict[network_type][str(mismatch_level)].append(test_acc)
@@ -399,14 +406,14 @@ def experiment_e(pparams):
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
-pparams["n_hidden"] = [64*(2**i) for i in [0,1,2,3,4]]
+pparams["n_hidden"] = [256]
 if(LEONHARD):
     run_models(pparams, ARGS.force)
 
 ###MISMATCH BALL MODELS
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
-pparams["beta_lipschitzness"] = 1.0
+pparams["beta_lipschitzness"] = 0.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
 pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9, 1.2, 1.6, 2.0]
@@ -444,7 +451,7 @@ experiment_e_params["seed"] = ARGS.seeds
 experiment_a_params["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"]]
 experiment_a_params["relative_initial_std"] = True
 experiment_a_params["relative_epsilon"] = True
-experiment_a_params["attack_epsilon"] = 0.9
+experiment_a_params["attack_epsilon"] = 2.0
 experiment_a_params2 = copy.deepcopy(experiment_a_params)
 experiment_a_params2.pop("attack_epsilon")
 experiment_a_params2["beta_lipschitzness"] = 0.0
