@@ -37,13 +37,13 @@ LEONHARD = True
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
-defaultparams["eval_step_interval"] = 100
+defaultparams["eval_step_interval"] = 200
 defaultparams["model_architecture"] = "lsnn"
 defaultparams["n_hidden"] = 256
 defaultparams["wanted_words"] = 'yes,no'
 defaultparams["attack_epsilon"] = 0.01
 defaultparams["beta_lipschitzness"] = 1.0
-defaultparams["n_epochs"] = "16,4"
+defaultparams["n_epochs"] = "32,8"
 defaultparams["relative_initial_std"] = False
 defaultparams["relative_epsilon"] = False
 defaultparams["num_attack_steps"] = 10
@@ -397,18 +397,18 @@ def experiment_e(pparams):
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
-pparams["n_hidden"] = [64*(2**i) for i in [0,1,2,3,4]]
+pparams["n_hidden"] = [256]
 run_models(pparams, ARGS.force)
 
 ###MISMATCH BALL MODELS
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
-pparams["beta_lipschitzness"] = 1.0
+pparams["beta_lipschitzness"] = 0.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
-pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9]
+pparams["attack_epsilon"] = [0.9,1.1,1.5,2.0]
 
-run_models(pparams,ARGS.force)
+# run_models(pparams,ARGS.force)
 
 
 if(LEONHARD):
