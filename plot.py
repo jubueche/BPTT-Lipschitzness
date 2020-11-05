@@ -308,7 +308,7 @@ def plot_experiment_e():
     plt.savefig("Figures/experiment_e_weight_distributions.png", dpi=1200)
     plt.show(block=True)
 
-# plot_experiment_a()
-# plot_experiment_b()
-# plot_experiment_c()
+plot_experiment_a()
+plot_experiment_b()
+plot_experiment_c()
 plot_experiment_e()

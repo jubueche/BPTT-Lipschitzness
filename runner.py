@@ -33,7 +33,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = True
+LEONHARD = False
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
@@ -107,6 +107,8 @@ def find_model(params, get_track = False):
     if len(result)==0:
         return None
     session_id = result[0]
+    if(type(session_id) is tuple):
+        session_id = session_id[0]
     
     if(get_track):
         return os.path.join(track_path, str(session_id)+"_track.json")
@@ -259,14 +261,14 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     return audio_processor
     
 def experiment_a(pparams):
-    mismatch_levels = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+    # mismatch_levels = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+    mismatch_levels = [0.5,0.7,0.9,1.1]
     num_iter = 50
     # - Get all the models that we need
     models = get_models(pparams)
     # - Get the audio processor
     audio_processor = load_audio_processor(models[0][0])
     # - We expect 2 * number of seeds many models
-    assert len(models) == len(pparams["seed"]*2), "Number of models does not match expected"
     mm_dict = {'0.0': []}
     for mismatch_level in mismatch_levels:
         mm_dict[str(mismatch_level)] = []
@@ -398,7 +400,8 @@ pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
 pparams["n_hidden"] = [64*(2**i) for i in [0,1,2,3,4]]
-run_models(pparams, ARGS.force)
+if(LEONHARD):
+    run_models(pparams, ARGS.force)
 
 ###MISMATCH BALL MODELS
 pparams = copy.copy(defaultparams)
@@ -413,8 +416,8 @@ pparams2["seed"] = ARGS.seeds
 pparams2["beta_lipschitzness"] = 0
 pparams2["relative_initial_std"] = True
 pparams2["relative_epsilon"] = True
-
-run_models([pparams,pparams2],ARGS.force)
+if(LEONHARD):
+    run_models([pparams,pparams2],ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node
@@ -438,13 +441,19 @@ experiment_e_params["seed"] = ARGS.seeds
 ####################### A #######################
 
 # - Use the default parameters (best parameters) for the mismatch experiment
-experiment_a_params["beta_lipschitzness"] = [0.0,defaultparams["beta_lipschitzness"]]
+experiment_a_params["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"]]
+experiment_a_params["relative_initial_std"] = True
+experiment_a_params["relative_epsilon"] = True
+experiment_a_params["attack_epsilon"] = 0.9
+experiment_a_params2 = copy.deepcopy(experiment_a_params)
+experiment_a_params2.pop("attack_epsilon")
+experiment_a_params2["beta_lipschitzness"] = 0.0
 experiment_a_path = "Experiments/experiment_a.json"
 # - Check if the path exists
-if(os.path.exists(experiment_a_path)):
+if(False and os.path.exists(experiment_a_path)):
     print("File for experiment A already exists. Skipping...")
 else:
-    experiment_a_return_dict = experiment_a(experiment_a_params)
+    experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2])
     # - Save the data for experiment a
     with open(experiment_a_path, "w") as f:
         json.dump(experiment_a_return_dict, f)
