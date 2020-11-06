@@ -83,10 +83,17 @@ if __name__ == '__main__':
 
     train_frames, train_ground_truth, test_frames, test_ground_truth = extract()
 
+
+
     # - Define trainable variables
     #d_In = model_settings['fingerprint_width']
-    d_In = train_frames.shape[2]
-    d_Out = model_settings["label_count"]
+    Height_In = train_frames.shape[1]
+    Width_In = train_frames.shape[2]
+    d_Out = train_ground_truth.shape[1]
+
+    Kernels = [[64,1,4,4], [64,64,4,4] ]
+    Dense   = [[1600,256],[256,64],[64, d_Out]]
+
     rng_key = random.PRNGKey(FLAGS.seed)
     _, *sks = random.split(rng_key, 10)
     # W_in = onp.array(random.truncated_normal(sks[1],-2,2,(d_In, FLAGS.n_hidden))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
@@ -94,17 +101,20 @@ if __name__ == '__main__':
     # onp.fill_diagonal(W_rec, 0.)
     # W_out = onp.array(random.truncated_normal(sks[3],-2,2,(FLAGS.n_hidden, d_Out))*0.01)
     # b_out = onp.zeros((d_Out,))
-    K1 = onp.array(random.truncated_normal(sks[1],-2,2,(64, 1, 4,4))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
-    K2 = onp.array(random.truncated_normal(sks[2],-2,2,(64, 64, 4,4))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
-    W1 = onp.array(random.truncated_normal(sks[3],-2,2,(1600, 256))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
-    W2 = onp.array(random.truncated_normal(sks[4],-2,2,(256, 64))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
-    W3 = onp.array(random.truncated_normal(sks[4],-2,2,(64, 10))* (onp.sqrt(2/(d_In + FLAGS.n_hidden)) / .87962566103423978))
+    K1 = onp.array(random.truncated_normal(sks[1],-2,2,(Kernels[0][0], Kernels[0][1], Kernels[0][2], Kernels[0][3]))* (onp.sqrt(2/(Kernels[0][0]*Kernels[0][1]*Kernels[0][2] + Kernels[0][0]*Kernels[0][1]*Kernels[0][3])) / .87962566103423978))
+    K2 = onp.array(random.truncated_normal(sks[2],-2,2,(Kernels[1][0], Kernels[1][1], Kernels[1][2], Kernels[1][3]))* (onp.sqrt(2/(Kernels[1][0]*Kernels[1][1]*Kernels[1][2] + Kernels[1][0]*Kernels[1][1]*Kernels[1][3])) / .87962566103423978))
+    W1 = onp.array(random.truncated_normal(sks[3],-2,2,(Dense[0][0], Dense[0][1]))* (onp.sqrt(2/(Dense[0][0] + Dense[0][1])) / .87962566103423978))
+    W2 = onp.array(random.truncated_normal(sks[4],-2,2,(Dense[1][0], Dense[1][1]))* (onp.sqrt(2/(Dense[1][0] + Dense[1][1])) / .87962566103423978))
+    W3 = onp.array(random.truncated_normal(sks[4],-2,2,(Dense[2][0], Dense[2][1]))* (onp.sqrt(2/(Dense[2][0] + Dense[2][1])) / .87962566103423978))
+    B1 = onp.zeros((Dense[0][1],))
+    B2 = onp.zeros((Dense[1][1],))
+    B3 = onp.zeros((d_Out,))
 
     # - Create the model
     #rnn = RNN(model_settings)
     rnn = CNN(model_settings)
 
-    init_params = {"K1": K1, "K2": K2, "W1": W1, "W2": W2, "W3": W3}
+    init_params = {"K1": K1, "K2": K2, "W1": W1, "W2": W2, "W3": W3, "B1": B1, "B2": B2, "B3": B3}
     #init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
     iteration = onp.array(FLAGS.how_many_training_steps.split(","), int)
     lrs = onp.array(FLAGS.learning_rate.split(","),float)
@@ -123,6 +133,7 @@ if __name__ == '__main__':
         #train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
         X = jnp.transpose(train_frames[i*250:(i+1)*250, :,:,:], (0,3,1,2))
         y = train_ground_truth[i*250:(i+1)*250, :]
+        y = jnp.argmax(y, axis=1)
         # X = train_fingerprints.numpy()
         # y = train_ground_truth.numpy()
 

@@ -28,11 +28,14 @@ class CNN:
                 K2,
                 W1,
                 W2,
-                W3):
+                W3,
+                B1,
+                B2,
+                B3):
 
         _, self._rng_key = rand.split(self._rng_key)
         # - Initial state
-        cnn_out = _evolve_RNN(K1, K2, W1, W2, W3, input, self._rng_key)
+        cnn_out = _evolve_RNN(K1, K2, W1, W2, W3, B1, B2, B3, input, self._rng_key)
         return cnn_out
 
     def save(self,fn,theta):
@@ -63,6 +66,9 @@ def _evolve_RNN(K1,
                 W1,
                 W2,
                 W3,
+                B1,
+                B2,
+                B3,
                 #noise_std,
                 P_input,
                 key):
@@ -72,12 +78,6 @@ def _evolve_RNN(K1,
     _, subkey = rand.split(key)
     #noise_ts = noise_std * rand.normal(subkey, shape=(T, batch_size, N))
 
-    static_params = {}
-    static_params["K1"] = K1
-    static_params["K2"] = K2
-    static_params["W1"] = W1
-    static_params["W2"] = W2
-    static_params["W3"] = W3
 
     def MaxPool(frame, pool_size=(1,1,2,2)):
         return(skm.block_reduce(frame, pool_size, jnp.max))
@@ -129,7 +129,7 @@ def _evolve_RNN(K1,
     x = normalize(P_input) #check if this is a problem
 
     strides = (1,1)
-    x = lax.conv(x, static_params["K1"], strides, padding = 'SAME') #x must be (batch_size, 1, R,C) with (R,C) dimension of 1 frame and K1 must be (64,1,R,C)
+    x = lax.conv(x, K1, strides, padding = 'SAME') #x must be (batch_size, 1, R,C) with (R,C) dimension of 1 frame and K1 must be (64,1,R,C)
     x = relu(x)
 
     #print(x[0,1,:,:].numpy())
@@ -137,7 +137,7 @@ def _evolve_RNN(K1,
     #print(x[0,1,:,:].numpy())
     #x = Dropout(x, 0.1)
 
-    x = lax.conv_general_dilated(x, static_params["K2"], strides, padding = 'VALID')
+    x = lax.conv_general_dilated(x, K2, strides, padding = 'VALID')
     x = relu(x)
 
     x = MaxPool_raw(x)
@@ -148,17 +148,17 @@ def _evolve_RNN(K1,
     #     f[i] = jnp.ravel(x[i,:,:,:])
     x = x.reshape(batch_size,-1)
 
-    x = x @ static_params["W1"] #W2 = 256xdim jnp.ravel x batch
+    x = x @ W1 + B1 #W2 = 256xdim jnp.ravel x batch
     x = relu(x)
 
     #x = Dropout(x, 0.5)
 
-    x = x @ static_params["W2"] #W3 = 64x256
+    x = x @ W2 + B2 #W3 = 64x256
     x = relu(x)
 
     x = normalize(x)
 
-    x = x @ static_params["W3"] #W3 = Numclass x 64
+    x = x @ W3 + B3 #W3 = Numclass x 64
     #x = softmax(x) #Already in 
 
 

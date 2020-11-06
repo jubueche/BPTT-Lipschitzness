@@ -6,8 +6,7 @@ import jax.numpy as jnp
 def categorical_cross_entropy(y, logits):
     """ Calculates cross entropy and applies regularization to average firing rate"""
     logits_s = jnp.log(softmax(logits))   
-    #nll = jnp.take_along_axis(logits_s, jnp.expand_dims(y, axis=1), axis=1)
-    nll = jnp.take_along_axis(logits_s, y, axis=1)
+    nll = jnp.take_along_axis(logits_s, jnp.expand_dims(y, axis=1), axis=1)
     cce = -jnp.mean(nll)
     return cce
 
@@ -23,6 +22,7 @@ def loss_normal(y, logits, average_fr, regularizer):
 
 @jit
 def loss_normal2(y, logits):
+
     cce = categorical_cross_entropy(y, logits)
 
     return cce
@@ -137,10 +137,7 @@ def compute_gradient_and_update2(batch_id, X, y, opt_state, opt_update, get_para
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params)
-    diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
-    # - Remove the diagonal of W_rec from the gradient
-    grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0)
-    # clipped_grads = optimizers.clip_grads(grads, max_grad_norm)
+
     return opt_update(batch_id, grads, opt_state)
 
 
