@@ -86,55 +86,15 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         loss_r = robust_loss(X, y, params, FLAGS, rand_key, dropout_mask)
         return loss_n + FLAGS.beta_lipschitzness*loss_r
 
-
-    # - TODO Remove
-    def test_ind_loss(X, y, params, FLAGS, rand_key, dropout_mask):
-        """ This should not be included in the final code. This function just enables us to show that Jax is indeed capable to keeping the
-            recursive relation between Theta and Theta*. When the random Thet is used, the gradient grads_ind is zero (because Theta_random
-            is a constant. However, the gradient is non-zero when there is a relation between Theta and Theta*."""
-        epsilon = FLAGS.attack_epsilon
-        step_size = {}
-        theta_star = {}
-        # - Initialize theta_star randomly 
-        for key in params.keys():
-            rand_key, random_normal_var = split_and_sample(rand_key, params[key].shape)
-            if(FLAGS.relative_initial_std):
-                theta_star[key] = params[key] * (1 + FLAGS.initial_std*random_normal_var)
-            else:
-                theta_star[key] = params[key]+FLAGS.initial_std*random_normal_var
-            if(FLAGS.relative_epsilon):
-                step_size[key] = epsilon * params[key] /FLAGS.num_attack_steps
-            else:    
-                step_size[key] = epsilon / FLAGS.num_attack_steps
-
-        logits, _ = rnn.call(X, dropout_mask, **params)
-        for _ in range(FLAGS.num_attack_steps):
-            grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, params, logits, dropout_mask)
-            for key in theta_star.keys():
-                theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
-        logits_ts, _ = rnn.call(X, dropout_mask, **theta_star)
-        avg_firing = jnp.mean(logits_ts, axis=1)
-        # return loss_normal(y, logits_ts, avg_firing, 0.001)
-        random_theta = {}
-        for key in theta_star.keys():
-            rand_key, r = split_and_sample(rand_key, theta_star[key].shape)
-            random_theta[key] = r
-        logits_random, _ = rnn.call(X, dropout_mask, **random_theta)
-        avg_firing_random = jnp.mean(logits_random, axis=1)
-        return loss_normal(y, logits_random, avg_firing_random, 0.001)
-
     # - Differentiate w.r.t. element at argnums (deault 0, so first element)
     if(FLAGS.beta_lipschitzness!=0):
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask)
-        # - TODO Remove
-        grads_ind = grad(test_ind_loss, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
     diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
     # - Remove the diagonal of W_rec from the gradient
     grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0) 
-    # - TODO Remove grads_ind
-    return opt_update(batch_id, grads, opt_state), grads_ind
+    return opt_update(batch_id, grads, opt_state)
 
 # @partial(jit, static_argnums=(3,4))
 def attack_network(X, params, logits, rnn, FLAGS, rand_key):
