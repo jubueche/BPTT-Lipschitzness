@@ -5,8 +5,9 @@ import jax.numpy as jnp
 @jit
 def categorical_cross_entropy(y, logits):
     """ Calculates cross entropy and applies regularization to average firing rate"""
-    logits_s = jnp.log(softmax(logits))
-    nll = jnp.take_along_axis(logits_s, jnp.expand_dims(y, axis=1), axis=1)
+    logits_s = jnp.log(softmax(logits))   
+    #nll = jnp.take_along_axis(logits_s, jnp.expand_dims(y, axis=1), axis=1)
+    nll = jnp.take_along_axis(logits_s, y, axis=1)
     cce = -jnp.mean(nll)
     return cce
 

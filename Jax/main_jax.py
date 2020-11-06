@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import jax.nn.initializers as jini
 from import_data import extract
+from jax import lax
 
 USE_WANBD = False
 
@@ -120,8 +121,8 @@ if __name__ == '__main__':
     for i in range(sum(iteration)):
         # - Get training data
         #train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, model_settings, FLAGS.background_frequency,FLAGS.background_volume, time_shift_samples, 'training')
-        X = train_frames[i*250,(i+1)*250, :,:,:].numpy()
-        y = train_ground_truth[i*250,(i+1)*250, :,:,:].numpy()
+        X = jnp.transpose(train_frames[i*250:(i+1)*250, :,:,:], (0,3,1,2))
+        y = train_ground_truth[i*250:(i+1)*250, :]
         # X = train_fingerprints.numpy()
         # y = train_ground_truth.numpy()
 
