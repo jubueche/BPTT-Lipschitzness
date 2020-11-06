@@ -1,22 +1,13 @@
 from jax import lax 
-from jax import vmap, jit, custom_gradient
-from jax.lax import scan
+from jax import jit
 import numpy as onp
-import skimage.measure as skm
 import jax.numpy as jnp
 from jax import random as rand
 import ujson as json
-import jax
-from import_data import extract
-import jax.experimental.stax as stax
-from jax.nn import relu, normalize, softmax
-
+from jax.nn import relu, normalize
 
 class CNN:
-
     def __init__(self,params):
-
-        self.units = params["n_hidden"]
         # - Create variable from numpy array
         self.model_settings = params
         # Parameters
@@ -33,11 +24,12 @@ class CNN:
                 B2,
                 B3):
 
-        _, self._rng_key = rand.split(self._rng_key)
         # - Initial state
-        cnn_out = _evolve_RNN(K1, K2, W1, W2, W3, B1, B2, B3, input, self._rng_key)
+        cnn_out = _evolve_RNN(K1, K2, W1, W2, W3, B1, B2, B3, input)
         return cnn_out
 
+
+    # - TODO needs verification
     def save(self,fn,theta):
         save_dict = {}
         save_dict["params"] = self.model_settings
@@ -53,12 +45,12 @@ class CNN:
     def load(self,fn):
         with open(fn, "r") as f:
             load_dict = json.load(f)
-        rnn = RNN(load_dict["params"])
-        rnn._rng_key = jnp.array(load_dict["rng_key"], jnp.uint32)
+        cnn = CNN(load_dict["params"])
+        cnn._rng_key = jnp.array(load_dict["rng_key"], jnp.uint32)
         theta = load_dict["theta"]
         for key in theta.keys():
             theta[key] = jnp.array(theta[key], jnp.float32)
-        return rnn, load_dict["theta"] 
+        return cnn, load_dict["theta"] 
 
 @jit
 def _evolve_RNN(K1,
@@ -69,34 +61,13 @@ def _evolve_RNN(K1,
                 B1,
                 B2,
                 B3,
-                #noise_std,
-                P_input,
-                key):
+                P_input):
 
-    batch_size = P_input.shape[0]
-
-    _, subkey = rand.split(key)
-    #noise_ts = noise_std * rand.normal(subkey, shape=(T, batch_size, N))
-
-
-    def MaxPool(frame, pool_size=(1,1,2,2)):
-        return(skm.block_reduce(frame, pool_size, jnp.max))
-
-    def MaxPool_raw(mat,ksize=(2,2),method='max',pad=False):  # CHECK https://stackoverflow.com/questions/42463172/how-to-perform-max-mean-pooling-on-a-2d-array-using-numpy
-        '''Non-overlapping pooling on 2D or 3D data.
-        <mat>: ndarray, input array to pool.
-        <ksize>: tuple of 2, kernel size in (ky, kx).
-        <method>: str, 'max for max-pooling, 
-                    'mean' for mean-pooling.
-        <pad>: bool, pad <mat> or not. If no pad, output has size
-            n//f, n being <mat> size, f being kernel size.
-            if pad, output has size ceil(n/f).
-        Return <result>: pooled matrix.
-        '''
+    # - https://stackoverflow.com/questions/42463172/how-to-perform-max-mean-pooling-on-a-2d-array-using-numpy
+    def MaxPool(mat,ksize=(2,2),method='max',pad=False):
         m, n = mat.shape[2:]
         ky,kx=ksize
         _ceil=lambda x,y: int(jnp.ceil(x/float(y)))
-
         if pad:
             ny=_ceil(m,ky)
             nx=_ceil(n,kx)
@@ -107,73 +78,30 @@ def _evolve_RNN(K1,
             ny=m//ky
             nx=n//kx
             mat_pad=mat[:, :, :ny*ky, :nx*kx]
-
         new_shape= mat.shape[:2] + (ny,ky,nx,kx)
-
         if method=='max':
             result=jnp.nanmax(mat_pad.reshape(new_shape),axis=(3,5))
         else:
             result=jnp.nanmean(mat_pad.reshape(new_shape),axis=(3,5))
-
         return result
 
-    def Dropout(frame, drop_prob):
-
-        binary_value = jnp.random.rand(frame.shape[1], frame.shape[2]) < drop_prob
-        res = jnp.multiply(frame, binary_value)
-        res /= (1-drop_prob)  # this line is called inverted dropout technique
-        print(res)
-
-
-
-    x = normalize(P_input) #check if this is a problem
-
+    batch_size = P_input.shape[0]
+    # - TODO check if this is a problem
+    x = normalize(P_input)
     strides = (1,1)
-    x = lax.conv(x, K1, strides, padding = 'SAME') #x must be (batch_size, 1, R,C) with (R,C) dimension of 1 frame and K1 must be (64,1,R,C)
+    # - x must be (batch_size, 1, R,C) with (R,C) dimension of 1 frame and K1 must be (64,1,R,C)
+    x = lax.conv(x, K1, strides, padding = 'SAME')
     x = relu(x)
-
-    #print(x[0,1,:,:].numpy())
-    x = MaxPool_raw(x)
-    #print(x[0,1,:,:].numpy())
-    #x = Dropout(x, 0.1)
-
+    x = MaxPool(x)
     x = lax.conv_general_dilated(x, K2, strides, padding = 'VALID')
     x = relu(x)
-
-    x = MaxPool_raw(x)
-
-    #x = Dropout(x, 0.3)
-    # f = jnp.zeros((batch_size, int(x.size/batch_size)))
-    # for i in range(batch_size):
-    #     f[i] = jnp.ravel(x[i,:,:,:])
+    x = MaxPool(x)
     x = x.reshape(batch_size,-1)
-
-    x = x @ W1 + B1 #W2 = 256xdim jnp.ravel x batch
+    # - W2 = 256xdim jnp.ravel x batch
+    x = x @ W1 + B1
     x = relu(x)
-
-    #x = Dropout(x, 0.5)
-
-    x = x @ W2 + B2 #W3 = 64x256
+    x = x @ W2 + B2
     x = relu(x)
-
     x = normalize(x)
-
-    x = x @ W3 + B3 #W3 = Numclass x 64
-    #x = softmax(x) #Already in 
-
-
-    #Maxpool will need to be implemented manually
-
-    #CHECK IF REQUIRES INTERMEDIATE STATES TO BE REGISTERED SOMEHOW
-
-
-
-    return x
-
-
-if __name__ == '__main__':
-
-    X_train, y_train, X_test, y_test = extract()
-
-    cnn = CNN(model_settings)
-    logits, outputs = cnn.call(X_train, W, b)
+    x = x @ W3 + B3
+    return x, jnp.array([[0]])
