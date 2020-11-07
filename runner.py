@@ -265,14 +265,9 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     audio_processor = get_audio_processor(audio_processor_settings)
     return audio_processor
     
-def experiment_a(pparams, ATTACK=False):
-    if(ATTACK):
-        mismatch_levels = [0.1,0.2,0.5,2.0,7.0]    
-        num_iter = 10
-    else:
-        mismatch_levels = [0.5,0.7,0.9,1.1,1.5]
-        num_iter = 50
-    
+def experiment_a(pparams):
+    mismatch_levels = pparams["mismatch_levels"]
+    num_iter = pparams["num_iter"]
     # - Get all the models that we need
     models = get_models(pparams)
     # - Get the audio processor
@@ -309,11 +304,10 @@ def experiment_a(pparams, ATTACK=False):
     # - We are done. Return the experiment dict
     return experiment_dict
 
-# TODO There is some sort of memory leak in attack network
 def experiment_b(pparams):
-    gaussian_eps = 0.1
-    gaussian_attack_eps = 0.01
-    n_iter = 10
+    gaussian_eps = pparams["gaussian_eps"]
+    gaussian_attack_eps = pparams["attack_epsilon"]
+    n_iter = pparams["num_iter"]
     # - Get the models
     models = get_models(pparams)
     # - Get the audio processor
@@ -348,8 +342,8 @@ def experiment_b(pparams):
     return experiment_dict
 
 def experiment_c(pparams):
-    gaussian_attack_eps = 0.01
-    n_iter = 10
+    gaussian_attack_eps = pparams["attack_epsilon"]
+    n_iter = pparams["num_iter"]
     # - Get the models
     models = get_models(pparams)
     # - Get the audio processor
@@ -452,6 +446,11 @@ experiment_a_params["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"]
 experiment_a_params["relative_initial_std"] = True
 experiment_a_params["relative_epsilon"] = True
 experiment_a_params["attack_epsilon"] = 2.0
+experiment_a_params["mismatch_levels"] = [0.5,0.7,0.9,1.1,1.5]
+experiment_a_params["num_iter"] = 50
+experiment_a_params_attack = copy.deepcopy(experiment_a_params)
+experiment_a_params_attack["mismatch_levels"] = [0.1,0.2,0.5,2.0,7.0]
+experiment_a_params_attack["num_iter"] = 10
 experiment_a_params2 = copy.deepcopy(experiment_a_params)
 experiment_a_params2.pop("attack_epsilon")
 experiment_a_params2["beta_lipschitzness"] = 0.0
@@ -461,7 +460,7 @@ experiment_a_path_attack = "Experiments/experiment_a_attack.json"
 if(os.path.exists(experiment_a_path_attack)):
     print("File for experiment A ATTACK already exists. Skipping...")
 else:
-    experiment_a_attack_return_dict = experiment_a([experiment_a_params,experiment_a_params2], ATTACK=True)
+    experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2])
     with open(experiment_a_path_attack, "w") as f:
         json.dump(experiment_a_attack_return_dict, f)
     print("Successfully completed Experiment A ATTACK.")
@@ -469,7 +468,7 @@ else:
 if(os.path.exists(experiment_a_path)):
     print("File for experiment A already exists. Skipping...")
 else:
-    experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2], ATTACK=False)
+    experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2])
     # - Save the data for experiment a
     with open(experiment_a_path, "w") as f:
         json.dump(experiment_a_return_dict, f)
@@ -479,6 +478,8 @@ else:
 
 
 experiment_b_params["beta_lipschitzness"] = [0.0,0.001,0.01,0.1,1.0,10.0]
+experiment_b_params["gaussian_eps"] = 0.1
+experiment_b_params["num_iter"] = 10
 experiment_b_path = "Experiments/experiment_b.json"
 # - Check if the path exists
 if(os.path.exists(experiment_b_path)):
@@ -492,6 +493,7 @@ else:
 ####################### C ####################### 
 
 experiment_c_params["beta_lipschitzness"] = [0.0,0.1,1.0,10.0]
+experiment_c_params["num_iter"] = 10
 experiment_c_path = "Experiments/experiment_c.json"
 # - Check if the path exists
 if(os.path.exists(experiment_c_path)):
@@ -516,3 +518,34 @@ else:
     with open(experiment_e_path, "w") as f:
         json.dump(experiment_e_return_dict, f)
     print("Successfully completed Experiment E.")
+
+# - Print experiment parameters in Latex table format
+experiments = [experiment_a_params,experiment_a_params_attack,experiment_b_params,experiment_c_params,experiment_e_params]
+print("Figure \t Architecture \t Conv. Layers \t FC Layers \t $\epsilon_\\textnormal{attack}$ \t $\epsilon_\\textnormal{gaussian}$ \t $L$ \t $\\beta$ \t Rel. $\epsilon$ \t $N$")
+for idx,p in enumerate(experiments):
+    ma = p["model_architecture"]
+    nh = p["n_hidden"]
+    ea = p["attack_epsilon"]
+    ge = "$-$"
+    if("gaussian_eps" in p.keys()):
+        ge = p["gaussian_eps"]
+    L = "$-$"
+    if("mismatch_levels" in p.keys()):
+        L = p["mismatch_levels"]
+    beta = p["beta_lipschitzness"]
+    rl = "$\\xmark$"
+    if(p["relative_epsilon"]):
+        rl = "$\\cmark$"
+    nas = p["num_attack_steps"]
+    
+    if(ma == "lsnn"):
+        ma = "sRNN"
+    else:
+        ma = "CNN"
+    if(ma == "CNN"):
+        cl = "[TODO]"
+        fc = "$-$"
+    else:
+        cl = "$-$"
+        fc = f"[{nh}]"
+    print(f"{idx} \t {ma} \t\t {cl} \t\t {fc} \t\t {ea} \t\t {ge} \t\t {L} \t\t {beta} \t\t {rl} \t\t {nas}")
