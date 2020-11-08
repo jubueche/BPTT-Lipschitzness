@@ -19,6 +19,11 @@ from six.moves import xrange
 import sqlite3
 from random import randint
 
+from jax import partial, jit
+
+# - Set numpy seed
+onp.random.seed(42)
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--seeds', nargs='+', type=int, default=[0,1,2,3,4,5,6,7,8,9])
 parser.add_argument(
@@ -33,7 +38,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = True
+LEONHARD = False
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
@@ -107,6 +112,8 @@ def find_model(params, get_track = False):
     if len(result)==0:
         return None
     session_id = result[0]
+    if(type(session_id) is tuple):
+        session_id = session_id[0]
     
     if(get_track):
         return os.path.join(track_path, str(session_id)+"_track.json")
@@ -259,14 +266,12 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     return audio_processor
     
 def experiment_a(pparams):
-    mismatch_levels = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
-    num_iter = 50
+    mismatch_levels = pparams["mismatch_levels"]
+    num_iter = pparams["num_iter"]
     # - Get all the models that we need
     models = get_models(pparams)
     # - Get the audio processor
     audio_processor = load_audio_processor(models[0][0])
-    # - We expect 2 * number of seeds many models
-    assert len(models) == len(pparams["seed"]*2), "Number of models does not match expected"
     mm_dict = {'0.0': []}
     for mismatch_level in mismatch_levels:
         mm_dict[str(mismatch_level)] = []
@@ -283,11 +288,15 @@ def experiment_a(pparams):
         experiment_dict[network_type]['0.0'].append(test_acc)
         print(f"Mismatch level 0.0 Network type {network_type} testing accuracy {test_acc}")
         for mismatch_level in mismatch_levels:
-            # - Attack the weights num_iter times and collect the test accuracy
+            if(ATTACK):
+                rnn.model_settings["attack_epsilon"] = mismatch_level
             for _ in range(num_iter):
                 theta_star = apply_mismatch(theta, mm_std=mismatch_level)
                 # - Get the testing accuracy
-                test_acc = get_test_acc(audio_processor, rnn, theta_star, False)
+                if(ATTACK):
+                    test_acc = get_test_acc(audio_processor, rnn, theta, True)
+                else:
+                    test_acc = get_test_acc(audio_processor, rnn, theta_star, False)
                 print(f"Mismatch level {mismatch_level} Network type {network_type} testing accuracy {test_acc}")
                 # - Append to the correct list in the track
                 experiment_dict[network_type][str(mismatch_level)].append(test_acc)
@@ -295,20 +304,17 @@ def experiment_a(pparams):
     # - We are done. Return the experiment dict
     return experiment_dict
 
-# TODO There is some sort of memory leak in attack network
 def experiment_b(pparams):
-    """For the models given in pparams, get the testing accuracies for mismatched weights, gaussian weights and attacked gaussian weights"""
-    mismatch_level = 0.5
-    gaussian_eps = 0.1
-    gaussian_attack_eps = 0.01
-    n_iter = 10
+    gaussian_eps = pparams["gaussian_eps"]
+    gaussian_attack_eps = pparams["attack_epsilon"]
+    n_iter = pparams["num_iter"]
     # - Get the models
     models = get_models(pparams)
     # - Get the audio processor
     audio_processor = load_audio_processor(models[0][0])
     # - Initialize the dictionary to hold the information
     model_grid = grid(pparams)
-    experiment_dict = {"experiment_params": {"mismatch_level": mismatch_level, "gaussian_eps": gaussian_eps, "gaussian_attack_eps": gaussian_attack_eps}}
+    experiment_dict = {"experiment_params": {"gaussian_eps": gaussian_eps, "gaussian_attack_eps": gaussian_attack_eps}}
     for i,model_params in enumerate(model_grid):
         experiment_dict[str(i)] = {"normal_test_acc" : [], "mismatch": [], "gaussian": [], "gaussian_attack": [], "gaussian_with_eps_attack": [],  "model_params": model_params}
     # - Iterate over each model
@@ -325,22 +331,19 @@ def experiment_b(pparams):
         for _ in range(n_iter):
             theta_gaussian = gaussian_noise(theta, eps = gaussian_eps)
             theta_gaussian_eps_attack = gaussian_noise(theta, eps = gaussian_attack_eps)
-            theta_mismatch = apply_mismatch(theta, mm_std = mismatch_level)
             test_acc_gaussian_with_eps_attack = get_test_acc(audio_processor, rnn, theta_gaussian_eps_attack, False)
             test_acc_gaussian = get_test_acc(audio_processor, rnn, theta_gaussian, False)
-            test_acc_mismatch = get_test_acc(audio_processor, rnn, theta_mismatch, False)
             test_acc_attack = get_test_acc(audio_processor, rnn, theta, True)
-            print(f"beta {curr_beta} mismatch acc {test_acc_mismatch} gaussian acc {test_acc_gaussian} gaussian with eps of attack acc {test_acc_gaussian_with_eps_attack} attack acc {test_acc_attack}")
+            print(f"beta {curr_beta} gaussian acc {test_acc_gaussian} gaussian with eps of attack acc {test_acc_gaussian_with_eps_attack} attack acc {test_acc_attack}")
             # - Save
-            experiment_dict[str(model_idx)]["mismatch"].append(test_acc_mismatch)
             experiment_dict[str(model_idx)]["gaussian"].append(test_acc_gaussian)
             experiment_dict[str(model_idx)]["gaussian_attack"].append(test_acc_attack)
             experiment_dict[str(model_idx)]["gaussian_with_eps_attack"].append(test_acc_gaussian_with_eps_attack)
     return experiment_dict
 
 def experiment_c(pparams):
-    gaussian_attack_eps = 0.01
-    n_iter = 10
+    gaussian_attack_eps = pparams["attack_epsilon"]
+    n_iter = pparams["num_iter"]
     # - Get the models
     models = get_models(pparams)
     # - Get the audio processor
@@ -398,7 +401,8 @@ pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
 pparams["n_hidden"] = [256]
-run_models(pparams, ARGS.force)
+if(LEONHARD):
+    run_models(pparams, ARGS.force)
 
 ###MISMATCH BALL MODELS
 pparams = copy.copy(defaultparams)
@@ -414,7 +418,8 @@ pparams2["beta_lipschitzness"] = 0
 pparams2["relative_initial_std"] = True
 pparams2["relative_epsilon"] = True
 
-# run_models([pparams,pparams2],ARGS.force)
+if(LEONHARD):
+    run_models([pparams,pparams2],ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node
@@ -438,13 +443,33 @@ experiment_e_params["seed"] = ARGS.seeds
 ####################### A #######################
 
 # - Use the default parameters (best parameters) for the mismatch experiment
-experiment_a_params["beta_lipschitzness"] = [0.0,defaultparams["beta_lipschitzness"]]
+experiment_a_params["beta_lipschitzness"] = [defaultparams["beta_lipschitzness"]]
+experiment_a_params["relative_initial_std"] = True
+experiment_a_params["relative_epsilon"] = True
+experiment_a_params["attack_epsilon"] = 2.0
+experiment_a_params["mismatch_levels"] = [0.5,0.7,0.9,1.1,1.5]
+experiment_a_params["num_iter"] = 50
+experiment_a_params_attack = copy.deepcopy(experiment_a_params)
+experiment_a_params_attack["mismatch_levels"] = [0.1,0.2,0.5,2.0,7.0]
+experiment_a_params_attack["num_iter"] = 10
+experiment_a_params2 = copy.deepcopy(experiment_a_params)
+experiment_a_params2.pop("attack_epsilon")
+experiment_a_params2["beta_lipschitzness"] = 0.0
 experiment_a_path = "Experiments/experiment_a.json"
-# - Check if the path exists
+experiment_a_path_attack = "Experiments/experiment_a_attack.json"
+
+if(os.path.exists(experiment_a_path_attack)):
+    print("File for experiment A ATTACK already exists. Skipping...")
+else:
+    experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2])
+    with open(experiment_a_path_attack, "w") as f:
+        json.dump(experiment_a_attack_return_dict, f)
+    print("Successfully completed Experiment A ATTACK.")
+
 if(os.path.exists(experiment_a_path)):
     print("File for experiment A already exists. Skipping...")
 else:
-    experiment_a_return_dict = experiment_a(experiment_a_params)
+    experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2])
     # - Save the data for experiment a
     with open(experiment_a_path, "w") as f:
         json.dump(experiment_a_return_dict, f)
@@ -453,7 +478,9 @@ else:
 ####################### B ####################### 
 
 
-experiment_b_params["beta_lipschitzness"] = [0.0,0.1,1.0,2.5,5.0]
+experiment_b_params["beta_lipschitzness"] = [0.0,0.001,0.01,0.1,1.0,10.0]
+experiment_b_params["gaussian_eps"] = 0.1
+experiment_b_params["num_iter"] = 10
 experiment_b_path = "Experiments/experiment_b.json"
 # - Check if the path exists
 if(os.path.exists(experiment_b_path)):
@@ -467,6 +494,7 @@ else:
 ####################### C ####################### 
 
 experiment_c_params["beta_lipschitzness"] = [0.0,0.1,1.0,10.0]
+experiment_c_params["num_iter"] = 10
 experiment_c_path = "Experiments/experiment_c.json"
 # - Check if the path exists
 if(os.path.exists(experiment_c_path)):
@@ -491,3 +519,34 @@ else:
     with open(experiment_e_path, "w") as f:
         json.dump(experiment_e_return_dict, f)
     print("Successfully completed Experiment E.")
+
+# - Print experiment parameters in Latex table format
+experiments = [experiment_a_params,experiment_a_params_attack,experiment_b_params,experiment_c_params,experiment_e_params]
+print("Figure \t Architecture \t Conv. Layers \t FC Layers \t $\epsilon_\\textnormal{attack}$ \t $\epsilon_\\textnormal{gaussian}$ \t $L$ \t $\\beta$ \t Rel. $\epsilon$ \t $N$")
+for idx,p in enumerate(experiments):
+    ma = p["model_architecture"]
+    nh = p["n_hidden"]
+    ea = p["attack_epsilon"]
+    ge = "$-$"
+    if("gaussian_eps" in p.keys()):
+        ge = p["gaussian_eps"]
+    L = "$-$"
+    if("mismatch_levels" in p.keys()):
+        L = p["mismatch_levels"]
+    beta = p["beta_lipschitzness"]
+    rl = "$\\xmark$"
+    if(p["relative_epsilon"]):
+        rl = "$\\cmark$"
+    nas = p["num_attack_steps"]
+    
+    if(ma == "lsnn"):
+        ma = "sRNN"
+    else:
+        ma = "CNN"
+    if(ma == "CNN"):
+        cl = "[TODO]"
+        fc = "$-$"
+    else:
+        cl = "$-$"
+        fc = f"[{nh}]"
+    print(f"{idx} \t {ma} \t\t {cl} \t\t {fc} \t\t {ea} \t\t {ge} \t\t {L} \t\t {beta} \t\t {rl} \t\t {nas}")
