@@ -43,7 +43,7 @@ defaultparams["n_hidden"] = 256
 defaultparams["wanted_words"] = 'yes,no'
 defaultparams["attack_epsilon"] = 0.01
 defaultparams["beta_lipschitzness"] = 1.0
-defaultparams["n_epochs"] = "32,8"
+defaultparams["n_epochs"] = "64,16"
 defaultparams["relative_initial_std"] = False
 defaultparams["relative_epsilon"] = False
 defaultparams["num_attack_steps"] = 10
@@ -403,10 +403,10 @@ run_models(pparams, ARGS.force)
 ###MISMATCH BALL MODELS
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
-pparams["beta_lipschitzness"] = 0.0
+pparams["beta_lipschitzness"] = 1.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
-pparams["attack_epsilon"] = [0.3,0.5,0.7,0.9, 1.2, 1.6, 2.0]
+pparams["attack_epsilon"] = [2.5,3.0,4.0,5.0]
 
 pparams2 = copy.copy(defaultparams)
 pparams2["seed"] = ARGS.seeds
@@ -414,7 +414,7 @@ pparams2["beta_lipschitzness"] = 0
 pparams2["relative_initial_std"] = True
 pparams2["relative_epsilon"] = True
 
-run_models([pparams,pparams2],ARGS.force)
+# run_models([pparams,pparams2],ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node
