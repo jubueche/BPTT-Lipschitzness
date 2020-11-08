@@ -18,7 +18,9 @@ import matplotlib.colors as colors
 import matplotlib.cm as cm
 from matplotlib.lines import Line2D
 from matplotlib import ticker as mticker
-from scipy.stats import norm
+from scipy.stats import norm, mannwhitneyu
+
+pp = lambda x  : ("%.4f" % x)
 
 def plot_experiment_a(ATTACK=False):
     SPLIT = True
@@ -92,7 +94,7 @@ def plot_experiment_a(ATTACK=False):
         legend_labels = [(f'{str(float(mismatch_label))}') for mismatch_label in mismatch_labels]
     else:   
         legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels]
-    fig.get_axes()[0].legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize = 7)
+    fig.get_axes()[0].legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize = 7) 
     # show only the outside spines
     for ax in fig.get_axes():
         ax.spines['top'].set_visible(False)
@@ -105,6 +107,26 @@ def plot_experiment_a(ATTACK=False):
     else:
         plt.savefig("Figures/experiment_a.png", dpi=1200)
     plt.show(block=False)
+
+    # - Print Latex table
+    print("$L$ \t Mean Acc. Normal \t Mean Acc. Robust  \t $\Delta$ Mean Acc. \t $\Delta$ Std. \t P-Value")
+    dma = np.zeros((len(mismatch_labels,)))
+    dstd = np.zeros((len(mismatch_labels,)))
+    for idx,L in enumerate(mismatch_labels):
+        acc_normal = experiment_a_data["normal"][L]
+        acc_robust = experiment_a_data["robust"][L]
+        mean_acc_normal = np.mean(acc_normal)
+        mean_acc_robust = np.mean(acc_robust)
+        std_normal = np.std(acc_normal)
+        std_robust = np.std(acc_robust)
+        drop_mean_acc = abs(mean_acc_robust - mean_acc_normal)
+        drop_std = abs(std_robust - std_normal)
+        _, p_value = mannwhitneyu(acc_normal, acc_robust)
+        dma[idx] = drop_mean_acc
+        dstd[idx] = 1 - (std_normal - std_robust) / std_normal
+        print(f"{L} \t ${pp(mean_acc_normal)}\\pm {pp(std_normal)}$ \t ${pp(mean_acc_robust)}\\pm {pp(std_robust)}$ \t {pp(drop_mean_acc)} \t {pp(drop_std)} \t {p_value}")
+        
+    print(f"Min Drop Acc {pp(np.min(dma))} Max Drop Acc {pp(np.max(dma))} Min Diff Std {pp(np.min(dstd))} Max Diff Std {pp(np.max(dstd))} ")
 
 def plot_experiment_b():
     """Outputs table format that can be pasted directly into https://www.tablesgenerator.com/ and a plot"""
@@ -132,7 +154,7 @@ def plot_experiment_b():
         print("%d/%.2f \t %.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f" % (n_hidden,beta,normal_test_acc,median_test_acc_gaussian_with_eps_attack,std_test_acc_gaussian_with_eps_attack,median_test_acc_gaussian,std_test_acc_gaussian,median_test_acc_gaussian_attack,std_test_acc_gaussian_attack))
         x_labels.append(r"$\beta$" + f" {beta}")
 
-    plt.figure(figsize=(5,3))
+    plt.figure(figsize=(7,2))
     x = np.linspace(0,num_models-1, num_models)
     y_median_gaussian_with_eps_attack = [np.median(experiment_b_data[str(i)]["gaussian_with_eps_attack"]) for i in range(num_models)]
     y_std_gaussian_with_eps_attack = [np.std(experiment_b_data[str(i)]["gaussian_with_eps_attack"]) for i in range(num_models)]
@@ -296,7 +318,7 @@ def plot_experiment_e():
     plt.savefig("Figures/experiment_e.png", dpi=1200)
     plt.show(block=False)
 
-    fig = plt.figure(figsize=(8,3),constrained_layout=False)
+    fig = plt.figure(figsize=(7,2),constrained_layout=False)
     weight_keys = ["W_in", "W_rec", "W_out"]
     weight_labels = [r"$W_\textnormal{in}$",r"$W_\textnormal{rec}$",r"$W_\textnormal{out}$"]
     xlims = [2.0,2.0,6.0]
@@ -320,11 +342,11 @@ def plot_experiment_e():
             axes[idx].spines["bottom"].set_visible(False)
             axes[idx].set_yticks([])
             axes[idx].set_xticks([])
-    fig.get_axes()[0].legend(frameon=False, loc=2, fontsize = 5)
+    fig.get_axes()[0].legend(frameon=False, loc=2, fontsize = 7)
     plt.savefig("Figures/experiment_e_weight_distributions.png", dpi=1200)
     plt.show(block=True)
 
 plot_experiment_a(ATTACK=False)
-plot_experiment_b()
-plot_experiment_c()
-plot_experiment_e()
+# plot_experiment_b()
+# plot_experiment_c()
+# plot_experiment_e()
