@@ -164,8 +164,7 @@ if __name__ == '__main__':
         X = train_fingerprints.numpy()
         y = train_ground_truth.numpy()
 
-        opt_state, ind_grad = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
-        print(ind_grad)
+        opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
         rnn._rng_key, _ = random.split(rnn._rng_key)
 
         if((i+1) % 10 == 0):

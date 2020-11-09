@@ -38,7 +38,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = True
+LEONHARD = False
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
@@ -463,7 +463,7 @@ experiment_a_path_attack = "Experiments/experiment_a_attack.json"
 experiments.append(copy.deepcopy(experiment_a_params))
 experiments.append(copy.deepcopy(experiment_a_params_attack))
 
-if(True or os.path.exists(experiment_a_path_attack)):
+if(os.path.exists(experiment_a_path_attack)):
     print("File for experiment A ATTACK already exists. Skipping...")
 else:
     experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2])
@@ -471,7 +471,7 @@ else:
         json.dump(experiment_a_attack_return_dict, f)
     print("Successfully completed Experiment A ATTACK.")
 
-if(True or os.path.exists(experiment_a_path)):
+if(os.path.exists(experiment_a_path)):
     print("File for experiment A already exists. Skipping...")
 else:
     experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2])
