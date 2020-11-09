@@ -38,7 +38,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = False
+LEONHARD = True
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
@@ -401,8 +401,8 @@ pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
 pparams["n_hidden"] = [256]
-if(LEONHARD):
-    run_models(pparams, ARGS.force)
+# if(LEONHARD):
+    # run_models(pparams, ARGS.force)
 
 ###MISMATCH BALL MODELS
 pparams = copy.copy(defaultparams)
@@ -410,7 +410,7 @@ pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = 1.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
-pparams["attack_epsilon"] = [2.5,3.0,4.0,5.0]
+pparams["attack_epsilon"] = [2.0,2.5,3.0,4.0,5.0]
 
 pparams2 = copy.copy(defaultparams)
 pparams2["seed"] = ARGS.seeds
