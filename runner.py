@@ -266,8 +266,8 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     return audio_processor
     
 def experiment_a(pparams):
-    mismatch_levels = pparams["mismatch_levels"]
-    num_iter = pparams["num_iter"]
+    mismatch_levels = pparams[0].pop("mismatch_levels")
+    num_iter = pparams[0].pop("num_iter")
     # - Get all the models that we need
     models = get_models(pparams)
     # - Get the audio processor
@@ -305,9 +305,9 @@ def experiment_a(pparams):
     return experiment_dict
 
 def experiment_b(pparams):
-    gaussian_eps = pparams["gaussian_eps"]
-    gaussian_attack_eps = pparams["attack_epsilon"]
-    n_iter = pparams["num_iter"]
+    gaussian_eps = pparams.pop("gaussian_eps")
+    gaussian_attack_eps = pparams.pop("attack_epsilon")
+    n_iter = pparams.pop("num_iter")
     # - Get the models
     models = get_models(pparams)
     # - Get the audio processor
@@ -342,8 +342,8 @@ def experiment_b(pparams):
     return experiment_dict
 
 def experiment_c(pparams):
-    gaussian_attack_eps = pparams["attack_epsilon"]
-    n_iter = pparams["num_iter"]
+    gaussian_attack_eps = pparams.pop("attack_epsilon")
+    n_iter = pparams.pop("num_iter")
     # - Get the models
     models = get_models(pparams)
     # - Get the audio processor
@@ -440,6 +440,7 @@ experiment_c_params["seed"] = ARGS.seeds
 experiment_d_params["seed"] = ARGS.seeds
 experiment_e_params["seed"] = ARGS.seeds
 
+experiments = []
 ####################### A #######################
 
 # - Use the default parameters (best parameters) for the mismatch experiment
@@ -454,11 +455,15 @@ experiment_a_params_attack["mismatch_levels"] = [0.1,0.2,0.5,2.0,7.0]
 experiment_a_params_attack["num_iter"] = 10
 experiment_a_params2 = copy.deepcopy(experiment_a_params)
 experiment_a_params2.pop("attack_epsilon")
+experiment_a_params2.pop("mismatch_levels")
+experiment_a_params2.pop("num_iter")
 experiment_a_params2["beta_lipschitzness"] = 0.0
 experiment_a_path = "Experiments/experiment_a.json"
 experiment_a_path_attack = "Experiments/experiment_a_attack.json"
+experiments.append(copy.deepcopy(experiment_a_params))
+experiments.append(copy.deepcopy(experiment_a_params_attack))
 
-if(os.path.exists(experiment_a_path_attack)):
+if(True or os.path.exists(experiment_a_path_attack)):
     print("File for experiment A ATTACK already exists. Skipping...")
 else:
     experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2])
@@ -466,7 +471,7 @@ else:
         json.dump(experiment_a_attack_return_dict, f)
     print("Successfully completed Experiment A ATTACK.")
 
-if(os.path.exists(experiment_a_path)):
+if(True or os.path.exists(experiment_a_path)):
     print("File for experiment A already exists. Skipping...")
 else:
     experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2])
@@ -482,6 +487,7 @@ experiment_b_params["beta_lipschitzness"] = [0.0,0.001,0.01,0.1,1.0,10.0]
 experiment_b_params["gaussian_eps"] = 0.1
 experiment_b_params["num_iter"] = 10
 experiment_b_path = "Experiments/experiment_b.json"
+experiments.append(copy.deepcopy(experiment_b_params))
 # - Check if the path exists
 if(os.path.exists(experiment_b_path)):
     print("File for experiment B already exists. Skipping...")
@@ -496,6 +502,7 @@ else:
 experiment_c_params["beta_lipschitzness"] = [0.0,0.1,1.0,10.0]
 experiment_c_params["num_iter"] = 10
 experiment_c_path = "Experiments/experiment_c.json"
+experiments.append(copy.deepcopy(experiment_c_params))
 # - Check if the path exists
 if(os.path.exists(experiment_c_path)):
     print("File for experiment C already exists. Skipping...")
@@ -511,6 +518,7 @@ else:
 
 experiment_e_params["beta_lipschitzness"] = [0.0,0.1,1.0,10.0]
 experiment_e_path = "Experiments/experiment_e.json"
+experiments.append(copy.deepcopy(experiment_e_params))
 # - Check if the path exists
 if(os.path.exists(experiment_e_path)):
     print("File for experiment E already exists. Skipping...")
@@ -521,7 +529,6 @@ else:
     print("Successfully completed Experiment E.")
 
 # - Print experiment parameters in Latex table format
-experiments = [experiment_a_params,experiment_a_params_attack,experiment_b_params,experiment_c_params,experiment_e_params]
 print("Figure \t Architecture \t Conv. Layers \t FC Layers \t $\epsilon_\\textnormal{attack}$ \t $\epsilon_\\textnormal{gaussian}$ \t $L$ \t $\\beta$ \t Rel. $\epsilon$ \t $N$")
 for idx,p in enumerate(experiments):
     ma = p["model_architecture"]
