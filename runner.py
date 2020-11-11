@@ -265,7 +265,7 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     audio_processor = get_audio_processor(audio_processor_settings)
     return audio_processor
     
-def experiment_a(pparams):
+def experiment_a(pparams, ATTACK = False):
     mismatch_levels = pparams[0].pop("mismatch_levels")
     num_iter = pparams[0].pop("num_iter")
     # - Get all the models that we need
@@ -466,7 +466,7 @@ experiments.append(copy.deepcopy(experiment_a_params_attack))
 if(os.path.exists(experiment_a_path_attack)):
     print("File for experiment A ATTACK already exists. Skipping...")
 else:
-    experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2])
+    experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2], ATTACK=True)
     with open(experiment_a_path_attack, "w") as f:
         json.dump(experiment_a_attack_return_dict, f)
     print("Successfully completed Experiment A ATTACK.")
