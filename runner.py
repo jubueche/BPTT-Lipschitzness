@@ -39,7 +39,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = False
+LEONHARD = True
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
@@ -57,12 +57,12 @@ defaultparams["db"] = ARGS.db
 
 defaultparams_ecg = {}
 defaultparams_ecg["batch_size"] = 100
-# defaultparams_ecg["eval_step_interval"] = 200
+defaultparams_ecg["eval_step_interval"] = 200
 defaultparams_ecg["model_architecture"] = "lsnn_ecg"
 defaultparams_ecg["n_hidden"] = 256
 defaultparams_ecg["attack_epsilon"] = 2.0
 defaultparams_ecg["beta_lipschitzness"] = 1.0
-defaultparams_ecg["n_epochs"] = "16,4"
+defaultparams_ecg["n_epochs"] = "64,8"
 defaultparams_ecg["relative_initial_std"] = False
 defaultparams_ecg["relative_epsilon"] = False
 defaultparams_ecg["num_attack_steps"] = 10
@@ -78,6 +78,7 @@ defaultparams_ecg["db"] = ARGS.db
 
 if LEONHARD:
     defaultparams["data_dir"]="$SCRATCH/speech_dataset"
+    defaultparams_ecg["data_dir"] = "$SCRATCH/ecg_recordings"
 
 def grid(params):
     def flatten_lists(ll):
@@ -156,9 +157,12 @@ def run_model(params, force=False):
         session_id = randint(1000000000, 9999999999)
         params["session_id"] = session_id
         if LEONHARD:
+            script = "main_jax.py "
+            if(params["model_architecture"] == "lsnn_ecg"):
+                script = "main_ecg_classifier.py "
             os.system("module load python_cpu/3.7.1")
             logfilename = str(session_id)+'.log'
-            command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 main_jax.py "
+            command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 " + script
         else:
             command = "python main_jax.py "
         for key in params:
@@ -291,11 +295,7 @@ def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     audio_processor = get_audio_processor(audio_processor_settings)
     return audio_processor
     
-<<<<<<< HEAD
-def experiment_a(pparams, ATTACK=False):
-=======
 def experiment_a(pparams, ATTACK = False):
->>>>>>> master
     mismatch_levels = pparams[0].pop("mismatch_levels")
     num_iter = pparams[0].pop("num_iter")
     # - Get all the models that we need
@@ -519,8 +519,18 @@ pparams2["beta_lipschitzness"] = 0
 pparams2["relative_initial_std"] = True
 pparams2["relative_epsilon"] = True
 
+# if(LEONHARD):
+#     run_models([pparams,pparams2],ARGS.force)
+
+pparams_ecg = copy.copy(defaultparams_ecg)
+pparams_ecg["seed"] = ARGS.seeds
+pparams_ecg["beta_lipschitzness"] = [0.0,1.0,5.0,10.0]
+pparams_ecg["relative_initial_std"] = True
+pparams_ecg["relative_epsilon"] = True
+pparams_ecg["attack_epsilon"] = 2.0
+
 if(LEONHARD):
-    run_models([pparams,pparams2],ARGS.force)
+    run_models(pparams_ecg,ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node
