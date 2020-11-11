@@ -18,6 +18,7 @@ import ujson as json
 from six.moves import xrange
 import sqlite3
 from random import randint
+from ECG.ecg_data_loader import ECGDataLoader
 
 from jax import partial, jit
 
@@ -48,11 +49,25 @@ defaultparams["n_hidden"] = 256
 defaultparams["wanted_words"] = 'yes,no'
 defaultparams["attack_epsilon"] = 0.01
 defaultparams["beta_lipschitzness"] = 1.0
-defaultparams["n_epochs"] = "64,16"
+defaultparams["n_epochs"] = "32,8"
 defaultparams["relative_initial_std"] = False
 defaultparams["relative_epsilon"] = False
 defaultparams["num_attack_steps"] = 10
 defaultparams["db"] = ARGS.db
+
+defaultparams_ecg = {}
+defaultparams_ecg["batch_size"] = 100
+# defaultparams_ecg["eval_step_interval"] = 200
+defaultparams_ecg["model_architecture"] = "lsnn_ecg"
+defaultparams_ecg["n_hidden"] = 256
+defaultparams_ecg["attack_epsilon"] = 2.0
+defaultparams_ecg["beta_lipschitzness"] = 1.0
+defaultparams_ecg["n_epochs"] = "16,4"
+defaultparams_ecg["relative_initial_std"] = False
+defaultparams_ecg["relative_epsilon"] = False
+defaultparams_ecg["num_attack_steps"] = 10
+defaultparams_ecg["db"] = ARGS.db
+
 
 # LEONHARD = False
 # defaultparams["n_hidden"] = 16
@@ -189,7 +204,6 @@ def apply_mismatch(theta, mm_std):
         theta_star[key] = theta[key] * (1 + mm_std * onp.random.normal(loc=0.0, scale=1.0, size=theta[key].shape))
     return theta_star
 
-
 def get_model(params):
     model_fn = find_model(params)
     if(model_fn is None):
@@ -259,13 +273,25 @@ def get_test_acc(audio_processor, rnn, theta_star, ATTACK):
     else:
         return onp.float64(total_accuracy)
 
+def get_test_acc_ecg(ecg_processor, rnn, theta_star):
+    set_size = ecg_processor.N_test
+    total_accuracy = 0.0
+    bs = 200
+    for _ in range(0, int(onp.ceil(set_size/bs))):
+        X,y = ecg_processor.get_batch("test", batch_size=bs)
+        logits, _ = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **theta_star)
+        batched_test_acc = get_batched_accuracy(y, logits)
+        total_accuracy += (batched_test_acc * X.shape[0]) / set_size
+    return onp.float64(total_accuracy)
+
+
 def load_audio_processor(model, data_dir = "tmp/speech_dataset"):
     audio_processor_settings = model.model_settings
     audio_processor_settings["data_dir"] = data_dir
     audio_processor = get_audio_processor(audio_processor_settings)
     return audio_processor
     
-def experiment_a(pparams):
+def experiment_a(pparams, ATTACK=False):
     mismatch_levels = pparams[0].pop("mismatch_levels")
     num_iter = pparams[0].pop("num_iter")
     # - Get all the models that we need
@@ -397,6 +423,77 @@ def experiment_e(pparams):
         experiment_dict["betas"].append(curr_beta)
     return experiment_dict
 
+def experiment_f(pparams):
+    mismatch_levels = pparams[0].pop("mismatch_levels")
+    num_iter = pparams[0].pop("num_iter")
+    # - Get all the models that we need
+    models = get_models(pparams)
+    FLAGS = MyFLAGS(models[0][0].model_settings)
+    # - Get the ECG Dataloader
+    ecg_processor = ECGDataLoader(path=FLAGS.data_dir, batch_size=FLAGS.batch_size)
+
+    mm_dict = {'0.0': []}
+    for mismatch_level in mismatch_levels:
+        mm_dict[str(mismatch_level)] = []
+    # - For each level of mismatch, except for 0.0, and each model, we have to re-draw from the Gaussian. We do that 10 times and record the testing accuracy.
+    experiment_dict = {"normal": copy.deepcopy(mm_dict), "robust": copy.deepcopy(mm_dict)}
+    # - Get the full sequence and the chopped up signals and labels
+    X,y,ecg_seq = ecg_processor.get_sequence(N_per_class=10, path=FLAGS.data_dir)
+    X = onp.array(X)
+    # - Perform class. of the sequence under fixed mm level
+    rob_rnn, theta_rob, _ = models[0]
+    norm_rnn, theta_norm, _ = models[1]
+    assert rob_rnn.model_settings["beta_lipschitzness"] > 0.0
+    found_good_rob = False; found_good_norm = False
+    mm_level_ecg_seq = 0.2
+    # - This is just for illustrative purposes. We search for a case where the difference is truly visible.
+    # - This is of course not reflective of actual performance.
+    for _ in range(100):
+        if(not found_good_rob):
+            theta_rob_star = apply_mismatch(theta_rob, mm_level_ecg_seq)
+            logits, _ = rob_rnn.call(X, jnp.ones(shape=(1,rob_rnn.units)), **theta_rob_star)
+            preds = onp.argmax(logits, axis=1)
+            acc = get_batched_accuracy(jnp.array(y),logits)
+            print(f"Robust {acc}")
+            if(acc>0.9):
+                found_good_rob = True
+                experiment_dict["rob_pred_seq"] = preds.tolist()
+        if(not found_good_norm):
+            theta_norm_star = apply_mismatch(theta_norm, mm_level_ecg_seq)
+            logits, _ = norm_rnn.call(X, jnp.ones(shape=(1,norm_rnn.units)), **theta_norm_star)
+            preds = onp.argmax(logits, axis=1)
+            acc = get_batched_accuracy(jnp.array(y),logits)
+            print(f"Normal {acc}")
+            if(acc<0.7):
+                found_good_norm = True
+                experiment_dict["norm_pred_seq"] = preds.tolist()
+        if(found_good_norm and found_good_rob):
+            break
+    experiment_dict["ecg_seq"] = ecg_seq.tolist()
+    experiment_dict["ecg_seq_y"] = onp.array(y, dtype=onp.float64).tolist()
+
+    for model in models:
+        # - Unpack the model
+        rnn, theta, _ = model
+        network_type = "normal"
+        if(rnn.model_settings["beta_lipschitzness"] > 0.0):
+            network_type = "robust"
+        # - Get the test accuracy for 0.0 mismatch (and we don't need to repeat this)
+        test_acc = get_test_acc_ecg(ecg_processor, rnn, theta)
+        experiment_dict[network_type]['0.0'].append(test_acc)
+        print(f"Mismatch level 0.0 Network type {network_type} testing accuracy {test_acc}")
+        for mismatch_level in mismatch_levels:
+            for _ in range(num_iter):
+                theta_star = apply_mismatch(theta, mm_std=mismatch_level)
+                # - Get the testing accuracy
+                test_acc = get_test_acc_ecg(ecg_processor, rnn, theta_star)
+                print(f"Mismatch level {mismatch_level} Network type {network_type} testing accuracy {test_acc}")
+                # - Append to the correct list in the track
+                experiment_dict[network_type][str(mismatch_level)].append(test_acc)
+
+    return experiment_dict
+
+
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
@@ -434,11 +531,13 @@ experiment_b_params = copy.copy(defaultparams)
 experiment_c_params = copy.copy(defaultparams)
 experiment_d_params = copy.copy(defaultparams)
 experiment_e_params = copy.copy(defaultparams)
+experiment_f_params = copy.copy(defaultparams_ecg)
 experiment_a_params["seed"] = ARGS.seeds
 experiment_b_params["seed"] = ARGS.seeds
 experiment_c_params["seed"] = ARGS.seeds
 experiment_d_params["seed"] = ARGS.seeds
 experiment_e_params["seed"] = ARGS.seeds
+experiment_f_params["seed"] = ARGS.seeds
 
 experiments = []
 ####################### A #######################
@@ -463,15 +562,7 @@ experiment_a_path_attack = "Experiments/experiment_a_attack.json"
 experiments.append(copy.deepcopy(experiment_a_params))
 experiments.append(copy.deepcopy(experiment_a_params_attack))
 
-if(os.path.exists(experiment_a_path_attack)):
-    print("File for experiment A ATTACK already exists. Skipping...")
-else:
-    experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2])
-    with open(experiment_a_path_attack, "w") as f:
-        json.dump(experiment_a_attack_return_dict, f)
-    print("Successfully completed Experiment A ATTACK.")
-
-if(os.path.exists(experiment_a_path)):
+if(True or os.path.exists(experiment_a_path)):
     print("File for experiment A already exists. Skipping...")
 else:
     experiment_a_return_dict = experiment_a([experiment_a_params,experiment_a_params2])
@@ -479,6 +570,14 @@ else:
     with open(experiment_a_path, "w") as f:
         json.dump(experiment_a_return_dict, f)
     print("Successfully completed Experiment A.")
+
+if(True or os.path.exists(experiment_a_path_attack)):
+    print("File for experiment A ATTACK already exists. Skipping...")
+else:
+    experiment_a_attack_return_dict = experiment_a([experiment_a_params_attack,experiment_a_params2], ATTACK=True)
+    with open(experiment_a_path_attack, "w") as f:
+        json.dump(experiment_a_attack_return_dict, f)
+    print("Successfully completed Experiment A ATTACK.")
 
 ####################### B ####################### 
 
@@ -527,6 +626,30 @@ else:
     with open(experiment_e_path, "w") as f:
         json.dump(experiment_e_return_dict, f)
     print("Successfully completed Experiment E.")
+
+####################### F #######################
+
+experiment_f_path = "Experiments/experiment_f.json"
+experiment_f_params["relative_initial_std"] = True
+experiment_f_params["relative_epsilon"] = True
+experiment_f_params["attack_epsilon"] = 2.0
+experiment_f_params["beta_lipschitzness"] = 5.0
+experiment_f_params["mismatch_levels"] = [0.5,0.7,0.9,1.1,1.5]
+experiment_f_params["num_iter"] = 50
+experiment_f_params_2 = copy.deepcopy(experiment_f_params)
+experiment_f_params_2.pop("relative_initial_std")
+experiment_f_params_2.pop("relative_epsilon")
+experiment_f_params_2.pop("attack_epsilon")
+experiment_f_params_2.pop("mismatch_levels")
+experiment_f_params_2.pop("num_iter")
+experiment_f_params_2["beta_lipschitzness"] = 0.0
+if(False and os.path.exists(experiment_f_path)):
+    print("File for experiment F already exists. Skipping...")
+else:
+    experiment_f_return_dict = experiment_f([experiment_f_params,experiment_f_params_2])
+    with open(experiment_f_path, "w") as f:
+        json.dump(experiment_f_return_dict, f)
+    print("Successfully completed Experiment F.")
 
 # - Print experiment parameters in Latex table format
 print("Figure \t Architecture \t Conv. Layers \t FC Layers \t $\epsilon_\\textnormal{attack}$ \t $\epsilon_\\textnormal{gaussian}$ \t $L$ \t $\\beta$ \t Rel. $\epsilon$ \t $N$")

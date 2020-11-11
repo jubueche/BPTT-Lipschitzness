@@ -346,7 +346,129 @@ def plot_experiment_e():
     plt.savefig("Figures/experiment_e_weight_distributions.png", dpi=1200)
     plt.show(block=True)
 
-plot_experiment_a(ATTACK=False)
-plot_experiment_b()
-plot_experiment_c()
-plot_experiment_e()
+
+def plot_experiment_f():
+    # - Load the data
+    experiment_f_path = "Experiments/experiment_f.json"
+    with open(experiment_f_path, "r") as f:
+        experiment_f_data = json.load(f)
+    mismatch_labels = list(experiment_f_data["normal"].keys())[1:]
+    ecg_seq = np.array(experiment_f_data["ecg_seq"])
+    pred_normal = np.array(experiment_f_data["norm_pred_seq"])
+    pred_rob = np.array(experiment_f_data["rob_pred_seq"])
+    y_seq = np.array(experiment_f_data["ecg_seq_y"])
+    baseline_acc_normal = experiment_f_data["normal"]["0.0"][0]
+    baseline_acc_robust = experiment_f_data["robust"]["0.0"][0]
+    fig = plt.figure(figsize=(7.14,3.91))
+    outer = gridspec.GridSpec(5, 1, figure=fig, wspace=0.2)
+    c_range = np.linspace(0.0,1.0,len(mismatch_labels))
+    colors_mismatch = [(0.9176, 0.8862, i, 1.0) for i in c_range]
+    label_mode = ["Normal", "Robust"]
+    modes = ["normal"]
+    for idx_mode,mode in enumerate(modes):
+        inner = gridspec.GridSpecFromSubplotSpec(1, len(mismatch_labels),
+                        subplot_spec=outer[3:5], wspace=0.0)
+        for idx_std, mismatch_std in enumerate(mismatch_labels):
+            ax = plt.Subplot(fig, inner[idx_std])
+            x = [idx_std] * (len(experiment_f_data["normal"][mismatch_std]) + len(experiment_f_data["robust"][mismatch_std]))
+            y = np.hstack((experiment_f_data["normal"][mismatch_std],experiment_f_data["robust"][mismatch_std]))
+            hue = np.hstack(([0] * len(experiment_f_data["normal"][mismatch_std]), [1] * len(experiment_f_data["robust"][mismatch_std])))
+            sns.violinplot(ax = ax,
+                    x = x,
+                    y = y,
+                    split = True,
+                    hue = hue,
+                    inner = 'quartile', cut=0,
+                    scale = "width", palette = [colors_mismatch[idx_std]], saturation=1.0, linewidth=1.0)
+            
+            ylim = 0.2
+            plt.ylim([ylim, 1.0])
+            ax.set_ylim([ylim, 1.0])
+            ax.get_legend().remove()
+            plt.xlabel('')
+            plt.ylabel('')
+            if (idx_mode == 0 and idx_std == 0):
+                ax.text(x = -1, y = 0.95 , s=r"$\textbf{b}$")
+                ax.axhline(y=baseline_acc_normal, color="r", linestyle="--", alpha=0.6)
+            if (True or idx_mode > 0 or idx_std > 0):
+                ax.set_yticks([])
+                plt.axis('off')
+            ax.set_xticks([])
+            plt.xticks([])
+            ax.set_xlim([-1, 1])
+            fig.add_subplot(ax)
+
+    custom_lines = [Line2D([0], [0], color=colors_mismatch[i], lw=4) for i in range(len(mismatch_labels))]
+    legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels]
+    fig.get_axes()[0].legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize=4) 
+    # show only the outside spines
+    for ax in fig.get_axes():
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(ax.is_first_col())
+        ax.spines['right'].set_visible(False)
+
+    inner_norm = gridspec.GridSpecFromSubplotSpec(1, 1,
+                        subplot_spec=outer[0], wspace=0.0)
+    inner_gt = gridspec.GridSpecFromSubplotSpec(1, 1,
+                        subplot_spec=outer[1], wspace=0.0)
+    inner_rob = gridspec.GridSpecFromSubplotSpec(1, 1,
+                        subplot_spec=outer[2], wspace=0.0)
+    ax_norm = plt.Subplot(fig, inner_norm[0])
+    ax_gt = plt.Subplot(fig, inner_gt[0])
+    ax_rob = plt.Subplot(fig, inner_rob[0])
+    channel_colors = sns.color_palette(["#34495e", "#2ecc71"]).as_hex()
+    class_colors = sns.color_palette(["#9b59b6", "#3498db", "#95a5a6", "#e74c3c"]).as_hex()
+    def plt_ax(ax, pred, title):
+        ax.set_ylabel(title)
+        ax.plot(ecg_seq[:,0], color=channel_colors[0])
+        ax.plot(ecg_seq[:,1], color=channel_colors[1])
+        ax.set_xticks([]); ax.set_yticks([])
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        for idx,y in enumerate(pred.tolist()):
+            ax.axvspan(idx*100, idx*100+100, facecolor=class_colors[int(y)], alpha=0.4)
+        fig.add_subplot(ax)
+    
+    ax_norm.set_title(r"$\textbf{a}$", loc="left")
+
+    plt_ax(ax_norm, pred_normal, title="Normal")
+    plt_ax(ax_gt, y_seq, title="Groundtruth")
+    plt_ax(ax_rob, pred_rob, title="Robust")
+
+    n_steps_ms = int(300 / 2.778)
+    ax_rob.set_ylim([-3.7,max(ax_rob.get_ylim())])
+    ax_rob.plot([0,n_steps_ms],[-2,-2], color="k")
+    ax_rob.text(x=0+0.01, y=-3.5, s="300 ms")
+
+    plt.savefig("Figures/experiment_f.png", dpi=1200)
+    plt.show(block=True)
+
+    # - Print Latex table
+    print("Experiment F")
+    print("$L$ \t Mean Acc. Normal \t Mean Acc. Robust  \t $\Delta$ Mean Acc. \t $\Delta$ Std. \t P-Value")
+    dma = np.zeros((len(mismatch_labels,)))
+    dstd = np.zeros((len(mismatch_labels,)))
+    for idx,L in enumerate(mismatch_labels):
+        acc_normal = experiment_f_data["normal"][L]
+        acc_robust = experiment_f_data["robust"][L]
+        mean_acc_normal = np.mean(acc_normal)
+        mean_acc_robust = np.mean(acc_robust)
+        std_normal = np.std(acc_normal)
+        std_robust = np.std(acc_robust)
+        drop_mean_acc = abs(mean_acc_robust - mean_acc_normal)
+        drop_std = abs(std_robust - std_normal)
+        _, p_value = mannwhitneyu(acc_normal, acc_robust)
+        dma[idx] = drop_mean_acc
+        dstd[idx] = 1 - (std_normal - std_robust) / std_normal
+        print(f"{L} \t ${pp(mean_acc_normal)}\\pm {pp(std_normal)}$ \t ${pp(mean_acc_robust)}\\pm {pp(std_robust)}$ \t {pp(drop_mean_acc)} \t {pp(drop_std)} \t {p_value}")
+        
+    print(f"Min Drop Acc {pp(np.min(dma))} Max Drop Acc {pp(np.max(dma))} Min Diff Std {pp(np.min(dstd))} Max Diff Std {pp(np.max(dstd))} ")
+
+# plot_experiment_a(ATTACK=False)
+# plot_experiment_b()
+# plot_experiment_c()
+# plot_experiment_e()
+plot_experiment_f()
