@@ -3,7 +3,6 @@ import numpy as onp
 from sklearn.model_selection import train_test_split
 import jax.numpy as jnp
 from sklearn.utils import shuffle
-from imblearn.under_sampling import RandomUnderSampler
 import warnings
 warnings.filterwarnings("ignore")
 import matplotlib.pyplot as plt
