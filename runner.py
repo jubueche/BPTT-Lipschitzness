@@ -38,7 +38,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = False
+LEONHARD = True
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
