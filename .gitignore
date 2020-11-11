@@ -4,6 +4,7 @@
 **/tmp
 **/results
 **/tests
+**/ecg_recordings
 **/runs
 # **/Resources
 # **/Plotting
