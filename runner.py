@@ -39,7 +39,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = True
+LEONHARD = False
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
@@ -57,12 +57,11 @@ defaultparams["db"] = ARGS.db
 
 defaultparams_ecg = {}
 defaultparams_ecg["batch_size"] = 100
-defaultparams_ecg["eval_step_interval"] = 200
 defaultparams_ecg["model_architecture"] = "lsnn_ecg"
 defaultparams_ecg["n_hidden"] = 256
 defaultparams_ecg["attack_epsilon"] = 2.0
 defaultparams_ecg["beta_lipschitzness"] = 1.0
-defaultparams_ecg["n_epochs"] = "64,8"
+defaultparams_ecg["n_epochs"] = "32,8"
 defaultparams_ecg["relative_initial_std"] = False
 defaultparams_ecg["relative_epsilon"] = False
 defaultparams_ecg["num_attack_steps"] = 10
@@ -211,7 +210,8 @@ def apply_mismatch(theta, mm_std):
 def get_model(params):
     model_fn = find_model(params)
     if(model_fn is None):
-        raise Exception
+        print("Cant find model with "); print(params) 
+        sys.exit(0)
     else:
         model = RNN.load(model_fn)
     track_fn = find_model(params, get_track=True)
@@ -647,8 +647,8 @@ experiment_f_path = "Experiments/experiment_f.json"
 experiment_f_params["relative_initial_std"] = True
 experiment_f_params["relative_epsilon"] = True
 experiment_f_params["attack_epsilon"] = 2.0
-experiment_f_params["beta_lipschitzness"] = 5.0
-experiment_f_params["mismatch_levels"] = [0.5,0.7,0.9,1.1,1.5]
+experiment_f_params["beta_lipschitzness"] = 1.0
+experiment_f_params["mismatch_levels"] = [0.1,0.2,0.3,0.5,0.7]
 experiment_f_params["num_iter"] = 50
 experiment_f_params_2 = copy.deepcopy(experiment_f_params)
 experiment_f_params_2.pop("relative_initial_std")
@@ -657,7 +657,8 @@ experiment_f_params_2.pop("attack_epsilon")
 experiment_f_params_2.pop("mismatch_levels")
 experiment_f_params_2.pop("num_iter")
 experiment_f_params_2["beta_lipschitzness"] = 0.0
-if(False and os.path.exists(experiment_f_path)):
+experiment_f_params_2["n_epochs"] = "16,4"
+if(os.path.exists(experiment_f_path)):
     print("File for experiment F already exists. Skipping...")
 else:
     experiment_f_return_dict = experiment_f([experiment_f_params,experiment_f_params_2])

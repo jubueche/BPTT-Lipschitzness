@@ -344,7 +344,7 @@ def plot_experiment_e():
             axes[idx].set_xticks([])
     fig.get_axes()[0].legend(frameon=False, loc=2, fontsize = 7)
     plt.savefig("Figures/experiment_e_weight_distributions.png", dpi=1200)
-    plt.show(block=True)
+    plt.show(block=False)
 
 
 def plot_experiment_f():
@@ -389,7 +389,8 @@ def plot_experiment_f():
             plt.ylabel('')
             if (idx_mode == 0 and idx_std == 0):
                 ax.text(x = -1, y = 0.95 , s=r"$\textbf{b}$")
-                ax.axhline(y=baseline_acc_normal, color="r", linestyle="--", alpha=0.6)
+                ax.axhline(y=baseline_acc_normal, color="r", linestyle="dashed", alpha=0.6)
+                ax.axhline(y=baseline_acc_robust, color="b", linestyle="dotted", alpha=0.6)
             if (True or idx_mode > 0 or idx_std > 0):
                 ax.set_yticks([])
                 plt.axis('off')
@@ -398,9 +399,9 @@ def plot_experiment_f():
             ax.set_xlim([-1, 1])
             fig.add_subplot(ax)
 
-    custom_lines = [Line2D([0], [0], color=colors_mismatch[i], lw=4) for i in range(len(mismatch_labels))]
-    legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels]
-    fig.get_axes()[0].legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize=4) 
+    custom_lines = [Line2D([0], [0], color=colors_mismatch[i], lw=4) for i in range(len(mismatch_labels))] + [Line2D([0], [0], color="r", lw=4)] + [Line2D([0], [0], color="b", lw=4)] 
+    legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels] + [("Test acc. normal %.2f" % (100*baseline_acc_normal)), ("Test acc. robust %.2f" % (100*baseline_acc_robust))]
+    fig.get_axes()[0].legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize=5) 
     # show only the outside spines
     for ax in fig.get_axes():
         ax.spines['top'].set_visible(False)
@@ -467,8 +468,8 @@ def plot_experiment_f():
         
     print(f"Min Drop Acc {pp(np.min(dma))} Max Drop Acc {pp(np.max(dma))} Min Diff Std {pp(np.min(dstd))} Max Diff Std {pp(np.max(dstd))} ")
 
-# plot_experiment_a(ATTACK=False)
-# plot_experiment_b()
-# plot_experiment_c()
-# plot_experiment_e()
+plot_experiment_a(ATTACK=False)
+plot_experiment_b()
+plot_experiment_c()
+plot_experiment_e()
 plot_experiment_f()
