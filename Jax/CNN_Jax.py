@@ -5,6 +5,7 @@ import jax.numpy as jnp
 from jax import random as rand
 import ujson as json
 from jax.nn import relu, normalize
+from jax.experimental.stax import BatchNorm
 
 class CNN:
     def __init__(self,params):
@@ -16,7 +17,9 @@ class CNN:
     def call(self,
                 input,
                 K1,
+                CB1,
                 K2,
+                CB2,
                 W1,
                 W2,
                 W3,
@@ -25,7 +28,7 @@ class CNN:
                 B3):
 
         # - Initial state
-        cnn_out = _evolve_RNN(K1, K2, W1, W2, W3, B1, B2, B3, input)
+        cnn_out = _evolve_CNN(K1, CB1, K2, CB2, W1, W2, W3, B1, B2, B3, input)
         return cnn_out
 
 
@@ -53,8 +56,10 @@ class CNN:
         return cnn, load_dict["theta"] 
 
 @jit
-def _evolve_RNN(K1,
+def _evolve_CNN(K1,
+                CB1,
                 K2,
+                CB2,
                 W1,
                 W2,
                 W3,
@@ -86,22 +91,20 @@ def _evolve_RNN(K1,
         return result
 
     batch_size = P_input.shape[0]
-    # - TODO check if this is a problem
-    x = normalize(P_input)
+
+    x = normalize(P_input, axis=(0,2,3))
     strides = (1,1)
-    # - x must be (batch_size, 1, R,C) with (R,C) dimension of 1 frame and K1 must be (64,1,R,C)
-    x = lax.conv(x, K1, strides, padding = 'SAME')
+    x = lax.conv_general_dilated(x, K1, strides, padding = [(2,1),(2,1)]) + CB1 #'SAME'
     x = relu(x)
     x = MaxPool(x)
-    x = lax.conv_general_dilated(x, K2, strides, padding = 'VALID')
+    x = lax.conv_general_dilated(x, K2, strides, padding = [(0,0),(0,0)]) + CB2 #'VALID'
     x = relu(x)
     x = MaxPool(x)
     x = x.reshape(batch_size,-1)
-    # - W2 = 256xdim jnp.ravel x batch
     x = x @ W1 + B1
     x = relu(x)
     x = x @ W2 + B2
     x = relu(x)
-    x = normalize(x)
+    x = normalize(x, axis=0)
     x = x @ W3 + B3
     return x, jnp.array([[0]])

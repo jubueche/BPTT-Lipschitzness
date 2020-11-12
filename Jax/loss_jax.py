@@ -21,13 +21,6 @@ def loss_normal(y, logits, average_fr, regularizer):
     return cce
 
 @jit
-def loss_normal2(y, logits):
-
-    cce = categorical_cross_entropy(y, logits)
-
-    return cce
-
-@jit
 def loss_kl(logits, logits_theta_star):
     # - Apply softmax
     logits_s = softmax(logits)

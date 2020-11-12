@@ -6,6 +6,10 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import jax.numpy as jnp
 from sklearn.utils import shuffle
+from numpy import save, load 
+import os.path
+from os import path
+
 
 fashion_classes     = {0: 'T-shirt/top', 
                        1: 'Trouser', 
@@ -50,7 +54,6 @@ def preprocess_data(images, targets, name, use_augmentation=False, nb_of_augment
     use_augmentation: True if augmentation should be used
     nb_of_augmentation: If use_augmentation=True, number of augmentations
     """
-    # - TODO Check for a folder like cached/ if not exists, create folder. And store preprocessed data in there
     
     X = []
     y = []
@@ -72,19 +75,21 @@ def preprocess_data(images, targets, name, use_augmentation=False, nb_of_augment
 class DataLoader():
 
     def __init__(self, batch_size):
-        # - Save the data
-        train_fashion_mnist = tfds.as_numpy(tfds.load("fashion_mnist", split="train", batch_size=-1))
-        test_fashion_mnist  = tfds.as_numpy(tfds.load("fashion_mnist", split="test", batch_size=-1)) 
-        X_train, y_train = train_fashion_mnist["image"], train_fashion_mnist["label"]
-        X_test, y_test = test_fashion_mnist["image"], test_fashion_mnist["label"]
+        if path.isfile('FMnist.npy'):
+            Data = load('FMnist.npy', allow_pickle=True)
+            X_train_shaped, y_train_shaped, X_test, y_test = Data[0], Data[1],Data[2], Data[3]
 
-        X_train_shaped, y_train_shaped = preprocess_data(
-        X_train, y_train, "train",
-        use_augmentation=True,
-        nb_of_augmentation=2)
+        else:
+            train_fashion_mnist = tfds.as_numpy(tfds.load("fashion_mnist", split="train", batch_size=-1))
+            test_fashion_mnist  = tfds.as_numpy(tfds.load("fashion_mnist", split="test", batch_size=-1)) 
+            X_train, y_train = train_fashion_mnist["image"], train_fashion_mnist["label"]
+            X_test, y_test = test_fashion_mnist["image"], test_fashion_mnist["label"]
 
-        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(X_train_shaped, y_train_shaped,
-                                                            test_size=0.2, random_state=42)
+            X_train_shaped, y_train_shaped = preprocess_data(X_train, y_train, "train", use_augmentation=True, nb_of_augmentation=2)
+            Data = np.array([X_train_shaped, y_train_shaped, X_test, y_test])
+            save('FMnist.npy', Data, allow_pickle=True)
+
+        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(X_train_shaped, y_train_shaped, test_size=0.2, random_state=42)
         self.X_test, self.y_test = preprocess_data(X_test,  y_test, "test")
 
         self.batch_size = batch_size
@@ -100,7 +105,7 @@ class DataLoader():
         num_samples = self.N - self.i
         if(num_samples > self.batch_size):
             num_samples = self.batch_size
-        X = jnp.transpose(self.X_train[self.i:self.i+num_samples,:,:,:], (0,3,1,2))
+        X = np.transpose(self.X_train[self.i:self.i+num_samples,:,:,:], (0,3,1,2))
         y = self.y_train[self.i:self.i+num_samples,:]
         self.i += num_samples
         if(self.i >= self.N):
