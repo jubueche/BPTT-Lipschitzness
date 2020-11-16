@@ -91,9 +91,10 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
-    diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
-    # - Remove the diagonal of W_rec from the gradient
-    grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0) 
+    if(not FLAGS.model_architecture == "cnn"):
+        diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
+        # - Remove the diagonal of W_rec from the gradient
+        grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0) 
     return opt_update(batch_id, grads, opt_state)
 
 # @partial(jit, static_argnums=(3,4))
