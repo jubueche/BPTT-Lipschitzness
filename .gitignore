@@ -1,11 +1,10 @@
-**/.vscode
 **/__pycache__
 **/wandb
 **/tmp
 **/results
 **/tests
-**/results
+**/ecg_recordings
 **/runs
-**/Resources
-**/Plotting
-**/FMnist.npy
+**/Data
+# **/Resources
+# **/Plotting

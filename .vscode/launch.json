@@ -1,0 +1,35 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--seeds=0", "--db=merged"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "ECG",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--model_architecture=lsnn_ecg", "--n_hidden=256", "--relative_initial_std", "--relative_epsilon", "--attack_epsilon=2.0", "--batch_size=100", "--data_dir=ECG/ecg_recordings/","--seed=0", "--n_epochs=16,4", "--learning_rate=0.001,0.0001", "--beta_lipschitzness=0.0", "--db=ecg"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "CNN",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["--batch_size=100", "--model_architecture=cnn", "--beta_lipschitzness=1.0", "--relative_initial_std", "--relative_epsilon", "--attack_epsilon=1.0", "--num_attack_steps=10", "--initial_std=0.0001", "--db=cnn", "--eval_step_interval=1000", "--n_epochs=32,8"],
+            "console": "integratedTerminal"
+        }
+    ]
+}
+
+
+// "args": ["--seeds=0", "--db=merged"],
