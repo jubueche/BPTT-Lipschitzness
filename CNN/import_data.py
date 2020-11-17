@@ -106,7 +106,7 @@ class DataLoader():
 
     def shuffle(self):
         self.X_train, self.y_train = shuffle(self.X_train, self.y_train)
-        self.i = 0
+        self.i_train = 0
         return
 
     def get_batch(self, dset, batch_size=None):

@@ -160,6 +160,8 @@ if __name__ == '__main__':
         (X,y) = data_loader.get_batch("train")
         y = jnp.argmax(y, axis=1)
 
+        if(X.shape[0] == 0):
+            continue
         opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, cnn, FLAGS, cnn._rng_key)
         cnn._rng_key, _ = random.split(cnn._rng_key)
 
