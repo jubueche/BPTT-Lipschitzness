@@ -79,7 +79,7 @@ def get_parser():
     parser.add_argument(
         '--seed',
         type=int,
-        default=42,
+        default=0,
         help="""\
         Seed used to initialize data loader and initial matrices
         """)

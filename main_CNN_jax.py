@@ -174,10 +174,11 @@ if __name__ == '__main__':
             lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
-            print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
             track_dict["training_accuracies"].append(onp.float64(training_accuracy))
             track_dict["attacked_training_accuracies"].append(onp.float64(attacked_accuracy))
-            track_dict["kl_over_time"].append(lip_loss_over_time)
+            if(not onp.isnan(lip_loss_over_time).any()):
+                track_dict["kl_over_time"].append(lip_loss_over_time)
+                print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
@@ -191,7 +192,8 @@ if __name__ == '__main__':
                 logits, _ = cnn.call(X, [[0]], **params)
                 lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, cnn, FLAGS, cnn._rng_key)
                 cnn._rng_key, _ = random.split(cnn._rng_key)
-                llot.append(lip_loss_over_time)
+                if(not onp.isnan(lip_loss_over_time).any()):
+                    llot.append(lip_loss_over_time)
                 batched_validation_acc = get_batched_accuracy(y, logits)
                 attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
                 total_accuracy += (batched_validation_acc * val_bs) / set_size

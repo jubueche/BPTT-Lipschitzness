@@ -5,11 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Runner",
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["--seeds=0", "--db=merged"],
+            "args": ["--seeds=0", "--db=cnn"],
             "console": "integratedTerminal"
         },
         {
@@ -25,7 +25,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["--batch_size=100", "--model_architecture=cnn", "--beta_lipschitzness=1.0", "--relative_initial_std", "--relative_epsilon", "--attack_epsilon=1.0", "--num_attack_steps=10", "--initial_std=0.0001", "--db=cnn", "--eval_step_interval=1000", "--n_epochs=32,8"],
+            "args": ["--batch_size=100", "--seed=0", "--model_architecture=cnn", "--beta_lipschitzness=0.0", "--relative_initial_std", "--relative_epsilon", "--attack_epsilon=1.0", "--num_attack_steps=10", "--initial_std=0.0001", "--db=cnn", "--eval_step_interval=1000", "--n_epochs=32,8"],
             "console": "integratedTerminal"
         }
     ]

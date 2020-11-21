@@ -109,6 +109,27 @@ class DataLoader():
         self.i_train = 0
         return
 
+    def get_n_images(self, n_per_class, classes):
+        return_dict = {}
+        for c in classes:
+            return_dict[str(c)] = []
+        found_all = False
+        final_batch = np.zeros((n_per_class*len(classes),1,28,28))
+        final_labels = np.zeros((n_per_class*len(classes),10))
+        i = 0
+        while(not found_all):
+            batch, labels_vec = self.get_batch("train", batch_size=100)
+            labels = np.argmax(labels_vec, axis=1)
+            for j,(b,l) in enumerate(zip(batch,labels)):
+                if(l in classes and len(return_dict[str(l)]) < n_per_class):
+                    return_dict[str(l)].append(b)
+                    final_batch[i] = b
+                    final_labels[i] = labels_vec[j]
+                    i += 1
+                if(np.array([len(return_dict[str(c)])==n_per_class for c in classes]).all()):
+                    found_all = True
+        return return_dict, final_batch, final_labels
+
     def get_batch(self, dset, batch_size=None):
         if(batch_size is None):
             bs = self.batch_size
