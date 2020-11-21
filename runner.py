@@ -42,7 +42,7 @@ parser.add_argument(
 )
 ARGS = parser.parse_args()
 
-LEONHARD = False
+LEONHARD = True
 
 defaultparams = {}
 defaultparams["batch_size"] = 100
@@ -639,8 +639,9 @@ pparams_ecg["attack_epsilon"] = 2.0
 # if(LEONHARD):
 #     run_models(pparams_ecg,ARGS.force)
 
-params_cnn = copy.copy(defaultparams_cnn)
+pparams_cnn = copy.copy(defaultparams_cnn)
 pparams_cnn["seed"] = ARGS.seeds
+pparams_cnn["n_hidden"] = 256
 pparams_cnn["beta_lipschitzness"] = [0.0,1.0]
 pparams_cnn["relative_initial_std"] = True
 pparams_cnn["relative_epsilon"] = True
