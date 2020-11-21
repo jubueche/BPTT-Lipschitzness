@@ -648,6 +648,7 @@ pparams_cnn["beta_lipschitzness"] = [0.0,1.0]
 pparams_cnn["relative_initial_std"] = True
 pparams_cnn["relative_epsilon"] = True
 pparams_cnn["attack_epsilon"] = 1.0
+pparams_cnn["eval_step_interval"] = 1000
 
 if(LEONHARD):
     run_models(pparams_cnn,ARGS.force)
