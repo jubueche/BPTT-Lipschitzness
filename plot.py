@@ -140,7 +140,7 @@ def plot_experiment_b():
     gaussian_attack_eps = experiment_b_data["experiment_params"]["gaussian_attack_eps"]
     x_labels = []
 
-    print(f"N,$\\beta$ \t Test acc \t Gaussian @ {gaussian_attack_eps} \t Gaussian @ {gaussian_eps} \t Gaussian Attack @ {gaussian_attack_eps}")
+    print(f"N,$\\beta$ \t Test acc \t Gaussian @ {gaussian_attack_eps} \t Gaussian @ {gaussian_eps} \t Gaussian Attack @ {gaussian_attack_eps} \t Surface @ {gaussian_attack_eps} \t Larger Surface @ {gaussian_eps}")
     for i in range(num_models):
         beta = experiment_b_data[str(i)]["model_params"]["beta_lipschitzness"]
         n_hidden = experiment_b_data[str(i)]["model_params"]["n_hidden"]
@@ -151,7 +151,11 @@ def plot_experiment_b():
         std_test_acc_gaussian = np.std(experiment_b_data[str(i)]["gaussian"])
         median_test_acc_gaussian_attack = np.median(experiment_b_data[str(i)]["gaussian_attack"])
         std_test_acc_gaussian_attack = np.std(experiment_b_data[str(i)]["gaussian_attack"])
-        print("%d/%.2f \t %.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f" % (n_hidden,beta,normal_test_acc,median_test_acc_gaussian_with_eps_attack,std_test_acc_gaussian_with_eps_attack,median_test_acc_gaussian,std_test_acc_gaussian,median_test_acc_gaussian_attack,std_test_acc_gaussian_attack))
+        median_test_acc_surface = np.median(experiment_b_data[str(i)]["ball_surface"])
+        std_test_acc_surface = np.std(experiment_b_data[str(i)]["ball_surface"])
+        median_test_acc_surface_larger = np.median(experiment_b_data[str(i)]["ball_surface_larger_eps"])
+        std_test_acc_surface_larger = np.std(experiment_b_data[str(i)]["ball_surface_larger_eps"])
+        print("%d/%.2f \t %.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f \t %.4f$\pm$%.4f " % (n_hidden,beta,normal_test_acc,median_test_acc_gaussian_with_eps_attack,std_test_acc_gaussian_with_eps_attack,median_test_acc_gaussian,std_test_acc_gaussian,median_test_acc_gaussian_attack,std_test_acc_gaussian_attack,median_test_acc_surface,std_test_acc_surface,median_test_acc_surface_larger,std_test_acc_surface_larger))
         x_labels.append(r"$\beta$" + f" {beta}")
 
     plt.figure(figsize=(7,2))
@@ -165,12 +169,22 @@ def plot_experiment_b():
     y_median_gaussian_attack = [np.median(experiment_b_data[str(i)]["gaussian_attack"]) for i in range(num_models)]
     y_std_gaussian_attack = [np.std(experiment_b_data[str(i)]["gaussian_attack"]) for i in range(num_models)]
 
+    y_median_surface = [np.median(experiment_b_data[str(i)]["ball_surface"]) for i in range(num_models)]
+    y_std_surface = [np.std(experiment_b_data[str(i)]["ball_surface"]) for i in range(num_models)]
+
+    y_median_surface_larger_eps = [np.median(experiment_b_data[str(i)]["ball_surface_larger_eps"]) for i in range(num_models)]
+    y_std_surface_larger_eps = [np.std(experiment_b_data[str(i)]["ball_surface_larger_eps"]) for i in range(num_models)]
+
     label_gaussian_with_eps_attack = f"Gaussian {gaussian_attack_eps}" # r"$\Theta^*=\Theta (1+\epsilon X),X \sim \mathcal{N}(0,1)$"
     label_gaussian = f"Gaussian {gaussian_eps}" # r"$\Theta^* \sim \mathcal{N}(\Theta,\epsilon)$"
-    label_gaussian_attack = f"Gaussian attack {gaussian_attack_eps}" # r"$\Theta^*= \max_{\Theta^* \in \mathcal{B}(\Theta,\epsilon)} \mathcal{L}(f_{\Theta}(x),f_{\Theta^*}(x))$"
-    plt.errorbar(x, y_median_gaussian_with_eps_attack, y_std_gaussian_with_eps_attack, label=label_gaussian_with_eps_attack, color="C2", linestyle="dashed", marker="o", markevery=list(np.array(x,int)), capsize=3)
-    plt.errorbar(x, y_median_gaussian, y_std_gaussian, label=label_gaussian, color="C3", marker="^", linestyle="dotted", markevery=list(np.array(x,int)), capsize=3)
+    label_gaussian_attack = f"Eps. {gaussian_attack_eps} attack" # r"$\Theta^*= \max_{\Theta^* \in \mathcal{B}(\Theta,\epsilon)} \mathcal{L}(f_{\Theta}(x),f_{\Theta^*}(x))$"
+    label_surface = f"Eps. {gaussian_attack_eps} surface"
+    label_surface_larger_step = f"Eps. {gaussian_eps} surface"
+    # plt.errorbar(x, y_median_gaussian_with_eps_attack, y_std_gaussian_with_eps_attack, label=label_gaussian_with_eps_attack, color="C2", linestyle="dashed", marker="o", markevery=list(np.array(x,int)), capsize=3)
+    # plt.errorbar(x, y_median_gaussian, y_std_gaussian, label=label_gaussian, color="C3", marker="^", linestyle="dotted", markevery=list(np.array(x,int)), capsize=3)
     plt.errorbar(x,y_median_gaussian_attack, y_std_gaussian_attack, label=label_gaussian_attack, color="C4", marker="s", linestyle="solid", markevery=list(np.array(x,int)), capsize=3)
+    plt.errorbar(x,y_median_surface, y_std_surface, label=label_surface, color="C5", marker="+", linestyle="dashdot", markevery=list(np.array(x,int)), capsize=3)
+    plt.errorbar(x,y_median_surface_larger_eps, y_std_surface_larger_eps, label=label_surface_larger_step, color="C6", marker="D", linestyle=(0, (1,1)), markevery=list(np.array(x,int)), capsize=3)
     plt.legend(frameon=False, loc=4, fontsize = 7)
     ax = plt.gca()
     ax.spines['top'].set_visible(False)
@@ -468,8 +482,118 @@ def plot_experiment_f():
         
     print(f"Min Drop Acc {pp(np.min(dma))} Max Drop Acc {pp(np.max(dma))} Min Diff Std {pp(np.min(dstd))} Max Diff Std {pp(np.max(dstd))} ")
 
-plot_experiment_a(ATTACK=False)
-plot_experiment_b()
-plot_experiment_c()
-plot_experiment_e()
-plot_experiment_f()
+
+def plot_experiment_g():
+    # - Load the data
+    experiment_g_path = "Experiments/experiment_g.json"
+    with open(experiment_g_path, "r") as f:
+        experiment_g_data = json.load(f)
+    mismatch_labels = list(experiment_g_data["normal"].keys())[1:]
+    baseline_acc_normal = experiment_g_data["normal"]["0.0"][0]
+    baseline_acc_robust = experiment_g_data["robust"]["0.0"][0]
+    fig = plt.figure(figsize=(10.0,2.0), constrained_layout=True)
+    outer = gridspec.GridSpec(7, 1, figure=fig, wspace=0.0, hspace=0)
+    c_range = np.linspace(0.0,1.0,len(mismatch_labels))
+    colors_mismatch = [(0.9176, 0.8862, i, 1.0) for i in c_range]
+    label_mode = ["Normal", "Robust"]
+    modes = ["normal"]
+    for idx_mode,mode in enumerate(modes):
+        inner = gridspec.GridSpecFromSubplotSpec(1, len(mismatch_labels),
+                        subplot_spec=outer[5:7], wspace=0.0)
+        for idx_std, mismatch_std in enumerate(mismatch_labels):
+            ax = plt.Subplot(fig, inner[idx_std])
+            x = [idx_std] * (len(experiment_g_data["normal"][mismatch_std]) + len(experiment_g_data["robust"][mismatch_std]))
+            y = np.hstack((experiment_g_data["normal"][mismatch_std],experiment_g_data["robust"][mismatch_std]))
+            hue = np.hstack(([0] * len(experiment_g_data["normal"][mismatch_std]), [1] * len(experiment_g_data["robust"][mismatch_std])))
+            sns.violinplot(ax = ax,
+                    x = x,
+                    y = y,
+                    split = True,
+                    hue = hue,
+                    inner = 'quartile', cut=0,
+                    scale = "width", palette = [colors_mismatch[idx_std]], saturation=1.0, linewidth=1.0)
+            
+            ylim = 0.05
+            plt.ylim([ylim, 1.0])
+            ax.set_ylim([ylim, 1.0])
+            ax.get_legend().remove()
+            plt.xlabel('')
+            plt.ylabel('')
+            if (idx_mode == 0 and idx_std == 0):
+                ax.text(x = -1, y = 0.95 , s=r"$\textbf{b}$")
+                ax.axhline(y=baseline_acc_normal, color="r", linestyle="dashed", alpha=0.6)
+                ax.axhline(y=baseline_acc_robust, color="b", linestyle="dotted", alpha=0.6)
+            if (True or idx_mode > 0 or idx_std > 0):
+                ax.set_yticks([])
+                plt.axis('off')
+            ax.set_xticks([])
+            plt.xticks([])
+            ax.set_xlim([-1, 1])
+            fig.add_subplot(ax)
+
+    # custom_lines = [Line2D([0], [0], color=colors_mismatch[i], lw=4) for i in range(len(mismatch_labels))] + [Line2D([0], [0], color="r", lw=4)] + [Line2D([0], [0], color="b", lw=4)] 
+    # legend_labels = [(f'{str(int(100*float(mismatch_label)))}\%') for mismatch_label in mismatch_labels] + [("Test acc. normal %.2f" % (100*baseline_acc_normal)), ("Test acc. robust %.2f" % (100*baseline_acc_robust))]
+    # fig.get_axes()[0].legend(custom_lines, legend_labels, frameon=False, loc=3, fontsize=5)
+
+    # show only the outside spines
+    for ax in fig.get_axes():
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(ax.is_first_col())
+        ax.spines['right'].set_visible(False)
+
+    image_seq = np.array(experiment_g_data["image_seq"])
+    pred_normal = np.array(experiment_g_data["norm_pred_seq"])
+    pred_rob = np.array(experiment_g_data["rob_pred_seq"])
+    y_seq = np.array(experiment_g_data["image_seq_y"])
+    class_labels = experiment_g_data["class_labels"]
+
+    num_classes = len(class_labels.keys())
+    num_per = int(len(y_seq)/num_classes)
+
+    inner_rob = gridspec.GridSpecFromSubplotSpec(1,num_classes*num_per,
+                        subplot_spec=outer[0:2], wspace=0.0, hspace=0.1)
+    inner_normal = gridspec.GridSpecFromSubplotSpec(1,num_classes*num_per,
+                        subplot_spec=outer[2:4], wspace=0.0, hspace=0.1)
+
+    ax_rob = [plt.Subplot(fig, inner_rob[c]) for c in range(num_classes*num_per)]
+    ax_normal = [plt.Subplot(fig, inner_normal[c]) for c in range(num_classes*num_per)]
+
+    def inv_spines(ax):
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+    def plot_images(ax, X, y_pred, y_true, label):
+        for i in range(num_classes):
+            for j in range(num_per):
+                c = i*num_per+j
+                if(c == 0):
+                    ax[c].set(ylabel=label)
+                    plt.setp(ax[c].get_xticklabels(), visible=False)
+                    plt.setp(ax[c].get_yticklabels(), visible=False)
+                    ax[c].tick_params(axis='both', which='both', length=0)
+                else:
+                    plt.setp(ax[c].get_xticklabels(), visible=False)
+                    plt.setp(ax[c].get_yticklabels(), visible=False)
+                    ax[c].tick_params(axis='both', which='both', length=0)
+                if(y_pred[c] == y_true[c]):
+                    plt.setp(ax[c].spines.values(), color="g", linewidth=2.0)
+                else:
+                    plt.setp(ax[c].spines.values(), color="r", linewidth=2.0)
+                ax[c].imshow(np.squeeze(X[c]), aspect='auto')
+                fig.add_subplot(ax[c])
+
+    plot_images(ax_rob, image_seq, pred_rob, y_seq, label="Robust")
+    plot_images(ax_normal, image_seq, pred_normal, y_seq, label="Normal")
+    plt.subplots_adjust(wspace=0, hspace=0.1)
+    ax_rob[0].text(x = -1, y = -4 , s=r"$\textbf{a}$")
+    plt.savefig("Figures/experiment_g.png", dpi=1200)
+    plt.show(block=True)
+
+# plot_experiment_a(ATTACK=False)
+# plot_experiment_b()
+# plot_experiment_c()
+# plot_experiment_e()
+# plot_experiment_f()
+plot_experiment_g()

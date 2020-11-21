@@ -79,7 +79,7 @@ def get_parser():
     parser.add_argument(
         '--seed',
         type=int,
-        default=42,
+        default=0,
         help="""\
         Seed used to initialize data loader and initial matrices
         """)
@@ -244,6 +244,16 @@ def get_parser():
         type=float,
         default=1.,
         help='Simulation dt',)
+    parser.add_argument(
+        '--Kernels',
+        type=list,
+        default=[[64,1,4,4], [64,64,4,4] ],
+        help='List of Kernels dimensions for the conv layers',)
+    parser.add_argument(
+        '--Dense',
+        type=list,
+        default=[[1600,256],[256,64],[64, 10]],
+        help='List of Weights dimensions for Dense layers',)
     parser.add_argument(
         '--thr',
         type=float,
