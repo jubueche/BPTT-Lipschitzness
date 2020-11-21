@@ -74,7 +74,7 @@ def preprocess_data(images, targets, name, use_augmentation=False, nb_of_augment
 
 class DataLoader():
 
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, data_dir = None):
         folder_path = os.path.join(os.path.dirname(__file__), "Data/")
         data_path = os.path.join(folder_path, "FMnits.npy")
         if(not os.path.isdir(folder_path)):
@@ -84,8 +84,8 @@ class DataLoader():
             X_train_shaped, y_train_shaped, X_test, y_test = Data[0], Data[1],Data[2], Data[3]
 
         else:
-            train_fashion_mnist = tfds.as_numpy(tfds.load("fashion_mnist", split="train", batch_size=-1))
-            test_fashion_mnist  = tfds.as_numpy(tfds.load("fashion_mnist", split="test", batch_size=-1))
+            train_fashion_mnist = tfds.as_numpy(tfds.load("fashion_mnist", data_dir=data_dir, split="train", batch_size=-1))
+            test_fashion_mnist  = tfds.as_numpy(tfds.load("fashion_mnist", data_dir=data_dir, split="test", batch_size=-1))
             X_train, y_train = train_fashion_mnist["image"], train_fashion_mnist["label"]
             X_test, y_test = test_fashion_mnist["image"], test_fashion_mnist["label"]
 

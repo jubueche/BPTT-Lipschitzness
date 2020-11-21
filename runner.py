@@ -607,8 +607,8 @@ def experiment_g(pparams):
 
 pparams = copy.copy(defaultparams)
 pparams["seed"] = ARGS.seeds
-pparams["beta_lipschitzness"] = [0.0,0.001*defaultparams["beta_lipschitzness"],0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
-pparams["n_hidden"] = [256]
+pparams["beta_lipschitzness"] = [0.0,0.01*defaultparams["beta_lipschitzness"],0.1*defaultparams["beta_lipschitzness"],1.0*defaultparams["beta_lipschitzness"],2.0*defaultparams["beta_lipschitzness"],10.0*defaultparams["beta_lipschitzness"]]
+pparams["n_hidden"] = 256
 # if(LEONHARD):
     # run_models(pparams, ARGS.force)
 
@@ -618,7 +618,7 @@ pparams["seed"] = ARGS.seeds
 pparams["beta_lipschitzness"] = 1.0
 pparams["relative_initial_std"] = True
 pparams["relative_epsilon"] = True
-pparams["attack_epsilon"] = [2.0,2.5,3.0,4.0,5.0]
+pparams["attack_epsilon"] = 2.0
 
 pparams2 = copy.copy(defaultparams)
 pparams2["seed"] = ARGS.seeds
@@ -631,13 +631,23 @@ pparams2["relative_epsilon"] = True
 
 pparams_ecg = copy.copy(defaultparams_ecg)
 pparams_ecg["seed"] = ARGS.seeds
-pparams_ecg["beta_lipschitzness"] = [0.0,1.0,5.0,10.0]
+pparams_ecg["beta_lipschitzness"] = [0.0,1.0]
 pparams_ecg["relative_initial_std"] = True
 pparams_ecg["relative_epsilon"] = True
 pparams_ecg["attack_epsilon"] = 2.0
 
+# if(LEONHARD):
+#     run_models(pparams_ecg,ARGS.force)
+
+params_cnn = copy.copy(defaultparams_cnn)
+pparams_cnn["seed"] = ARGS.seeds
+pparams_cnn["beta_lipschitzness"] = [0.0,1.0]
+pparams_cnn["relative_initial_std"] = True
+pparams_cnn["relative_epsilon"] = True
+pparams_cnn["attack_epsilon"] = 1.0
+
 if(LEONHARD):
-    run_models(pparams_ecg,ARGS.force)
+    run_models(pparams_cnn,ARGS.force)
 
 if(LEONHARD):
     # - Exit here before we run experiments on Leonhard login node

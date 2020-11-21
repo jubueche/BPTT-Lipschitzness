@@ -25,7 +25,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["--batch_size=100", "--seed=0", "--model_architecture=cnn", "--beta_lipschitzness=0.0", "--relative_initial_std", "--relative_epsilon", "--attack_epsilon=1.0", "--num_attack_steps=10", "--initial_std=0.0001", "--db=cnn", "--eval_step_interval=1000", "--n_epochs=32,8"],
+            "args": [ "--data_dir=tmp/fashion_mnist/", "--batch_size=100", "--seed=0", "--model_architecture=cnn", "--beta_lipschitzness=0.0", "--relative_initial_std", "--relative_epsilon", "--attack_epsilon=1.0", "--num_attack_steps=10", "--initial_std=0.0001", "--db=cnn", "--eval_step_interval=1000", "--n_epochs=32,8"],
             "console": "integratedTerminal"
         }
     ]

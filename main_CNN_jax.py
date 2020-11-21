@@ -120,7 +120,7 @@ if __name__ == '__main__':
             'lists, but are %d and %d long instead' % (len(epochs_list),
                                                         len(learning_rates_list)))
 
-    data_loader = DataLoader(FLAGS.batch_size)
+    data_loader = DataLoader(FLAGS.batch_size, FLAGS.data_dir)
     steps_list = [math.ceil(epochs * data_loader.N_train/FLAGS.batch_size) for epochs in epochs_list]
 
     d_Out = data_loader.y_train.shape[1]
