@@ -170,6 +170,8 @@ def run_model(params, force=False):
             script = "main_jax.py "
             if(params["model_architecture"] == "lsnn_ecg"):
                 script = "main_ecg_classifier.py "
+            elif(params["model_architecture"] == "cnn"):
+                script = "main_CNN_jax.py "
             os.system("module load python_cpu/3.7.1")
             logfilename = str(session_id)+'.log'
             command = "bsub -o ../logs/"+ logfilename +" -W " + str(estimate_time(params)) + " -n " + str(estimate_cores(params)) + " -R \"rusage[mem=" + str(estimate_memory(params)) + "]\" \"python3 " + script
