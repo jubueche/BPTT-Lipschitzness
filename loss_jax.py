@@ -86,13 +86,14 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
-    diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
-    # - Remove the diagonal of W_rec from the gradient
-    grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0) 
+    if("W_rec" in grads.keys()):
+        diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
+        # - Remove the diagonal of W_rec from the gradient
+        grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0) 
     return opt_update(batch_id, grads, opt_state)
 
-# @partial(jit, static_argnums=(3,))
-def attack_network(X, params, logits, rnn, rand_key):
+# @partial(jit, static_argnums=(3,4))
+def attack_network(X, params, logits, rnn, FLAGS, rand_key):
     #In contrast to the training attacker this attackers epsilon is deterministic (equal to the mean epsilon)
     dropout_mask = jnp.ones(shape=(1,rnn.units))
 
@@ -100,11 +101,11 @@ def attack_network(X, params, logits, rnn, rand_key):
         logits_theta_star, _ = rnn.call(X, dropout_mask, **theta_star)
         return loss_kl(logits, logits_theta_star)
 
-    n_attack_steps = rnn.model_settings["n_attack_steps"]
-    initial_std_constant = rnn.model_settings["initial_std_constant"]
-    initial_std_mismatch = rnn.model_settings["initial_std_mismatch"]
-    attack_size_constant = rnn.model_settings["attack_size_constant"]
-    attack_size_mismatch = rnn.model_settings["attack_size_mismatch"]
+    n_attack_steps = FLAGS.n_attack_steps
+    initial_std_constant = FLAGS.initial_std_constant
+    initial_std_mismatch = FLAGS.initial_std_mismatch
+    attack_size_constant = FLAGS.attack_size_constant
+    attack_size_mismatch = FLAGS.attack_size_mismatch
 
     step_size = {}
     theta_star = {}
@@ -125,4 +126,4 @@ def attack_network(X, params, logits, rnn, rand_key):
             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
     loss_over_time.append(lip_loss(X, theta_star, logits))
     logits_theta_star , _ = rnn.call(X, dropout_mask, **theta_star)
-    return loss_over_time, logits_theta_star 
+    return loss_over_time, logits_theta_star

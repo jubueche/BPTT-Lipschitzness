@@ -22,56 +22,8 @@ def get_flags_and_register():
         arch = Architecture.load(bootstrap_flags.arch_file)
     except:
         return None
-    parser = arch.get_argparser()
-    flags = parser.parse_args()
-    flags.start_time = int(time.time()*1000)
-    if flags.session_id == 0:
-        random.seed()
-        flags.session_id = random.randint(1000000000, 9999999999)
+    flags = arch.register_session()
     
-    fieldset = []
-    for key, val in vars(flags).items():
-        if type(val) == int:
-            definition = "INTEGER"
-        if type(val) == float:
-            definition = "REAL"
-        else:
-            definition = "TEXT"
-        
-        if key == "session_id":
-            fieldset.append("'{0}' {1} PRIMARY KEY".format(key, definition))
-        else:
-            fieldset.append("'{0}' {1}".format(key, definition))
-
-    create_table = "CREATE TABLE IF NOT EXISTS {0} ({1});".format(arch.name, ", ".join(fieldset))
-    
-    column_names = list(vars(flags).keys())
-    column_values = list(vars(flags).values())
-    def format_value(val):
-        if type(val) == int:
-            return str(val)
-        if type(val) == float:
-            return str(val)
-        return "\"" + str(val) + "\""
-    
-    register = "INSERT INTO {0} ({1}) VALUES({2});".format(arch.name,", ".join(column_names), ", ".join(map(format_value,column_values)))
-    
-    
-    
-    try:
-        print("Registering session...")
-        conn = sqlite3.connect(flags.db_file, timeout=100)
-        c = conn.cursor()
-        c.execute(create_table)
-        c.execute(register)
-        conn.commit()
-        c.close()
-    except sqlite3.Error as error:
-        print("Failed to insert data into sqlite table", error)
-    finally:
-        if (conn):
-            conn.close()
-            print("Registering Complete")
     return flags
 
 def record_training_data(flags, key, value, save_dir = None):
@@ -149,6 +101,7 @@ class Architecture:
         assert(type(modelPath) == str)
         self.name = name
         self.hyperparameters = []
+        self.env_parameters = []
         self.modelPath = os.path.normpath(modelPath)
         self.loadResults = loadResults
     
@@ -158,16 +111,78 @@ class Architecture:
         assert type(default) == t
         self.hyperparameters += [Architecture.Hyperparameter(name, t, default, double_dash, help)]
     
+    def add_env_parameter(self, name, t, default, double_dash=False,help=""):
+        assert type(name) == str
+        assert type(t) == type
+        assert type(default) == t
+        self.env_parameters += [Architecture.Hyperparameter(name, t, default, double_dash, help)]
 
     def get_argparser(self):
         parser = argparse.ArgumentParser(prog = os.path.basename(self.modelPath))
         for hp in self.hyperparameters:
             hp.add_to_argparser(parser)
-        
+        for hp in self.env_parameters:
+            hp.add_to_argparser(parser)
         parser.add_argument('-db_file',type=str,default="")
         parser.add_argument("-session_id",type=int,default=0)
         parser.add_argument("-arch_file",type=str,default='')
         return parser
+
+    def register_session(self):
+        parser = self.get_argparser()
+        flags = parser.parse_args()
+        flags.start_time = int(time.time()*1000)
+        if flags.session_id == 0:
+            random.seed()
+            flags.session_id = random.randint(1000000000, 9999999999)
+        
+        fieldset = []
+        for key, val in vars(flags).items():
+            if type(val) == int:
+                definition = "INTEGER"
+            if type(val) == float:
+                definition = "REAL"
+            else:
+                definition = "TEXT"
+            if key in [p.name for p in self.env_parameters]:
+                continue
+            if key == "session_id":
+                fieldset.append("'{0}' {1} PRIMARY KEY".format(key, definition))
+            else:
+                fieldset.append("'{0}' {1}".format(key, definition))
+
+        create_table = "CREATE TABLE IF NOT EXISTS {0} ({1});".format(self.name, ", ".join(fieldset))
+        
+        column_names = [key for key in vars(flags) if not key in [p.name for p in self.env_parameters]]
+        column_values = [vars(flags)[key] for key in column_names]
+        
+        def format_value(val):
+            if type(val) == int:
+                return str(val)
+            if type(val) == float:
+                return str(val)
+            return "\"" + str(val) + "\""
+        
+        register = "INSERT INTO {0} ({1}) VALUES({2});".format(self.name,", ".join(column_names), ", ".join(map(format_value,column_values)))
+        
+        
+        
+        try:
+            print("Registering session...")
+            conn = sqlite3.connect(flags.db_file, timeout=100)
+            c = conn.cursor()
+            c.execute(create_table)
+            c.execute(register)
+            conn.commit()
+            c.close()
+        except sqlite3.Error as error:
+            print("Failed to insert data into sqlite table", error)
+            raise Exception
+        finally:
+            if (conn):
+                conn.close()
+                print("Registering Complete")
+        return flags
 
     def get_dict(self):
         d = {}
@@ -182,7 +197,7 @@ class Architecture:
                 return values[hp.name]
             else:
                 return hp.default
-        return " ".join([hp.get_argument(get_value(hp,values)) for hp in self.hyperparameters])
+        return " ".join([hp.get_argument(get_value(hp,values)) for hp in self.hyperparameters + self.env_parameters])
 
 
     def save(self, savePath=None):
@@ -212,13 +227,15 @@ class ModelGrid:
                 assert key in self.hyperparams
                 self.hyperparams[key] = hyperparam_dict[key]
         
-        def make_command(self,launch_setting,db_file,arch_dir=None):
+        def make_command(self,launch_setting,env_parameters,db_file,arch_dir=None):
             if arch_dir is None:
                 arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),"Resources/Architectures/")
             arch_file = os.path.join(arch_dir,self.architecture.name+".arch")
             if not os.path.isfile(arch_file):
                 self.architecture.save(arch_dir)
             hyperparams = copy.copy(self.hyperparams)
+            for key in env_parameters:
+                hyperparams[key] = env_parameters[key]
             session_id = random.randint(1000000000, 9999999999)
             
             ct = launch_setting
@@ -294,7 +311,7 @@ class ModelGrid:
             self.grid += [ModelGrid.Model(self.architecture,hyperparam_dict)]
     
 
-    def make_commands(self, launch_setting,db_file, time_estimator, processors_estimator, memory_estimator,force=False):
+    def make_commands(self, launch_setting,db_file, time_estimator, processors_estimator, memory_estimator,force=False,env_parameters={},arch_dir=None):
         if time_estimator is None:
             time_estimator = lambda _: "24:00"
         if processors_estimator is None:
@@ -304,7 +321,7 @@ class ModelGrid:
         commands = []
         for model in self.grid:
             if model.get_newest_session(db_file) is None or force:
-                commands += [model.make_command(launch_setting,db_file)]
+                commands += [model.make_command(launch_setting,env_parameters,db_file,arch_dir)]
         return commands
     
     # def get_session_ids(self,db_file):
@@ -535,7 +552,7 @@ def get_all_grids(grid_dir=None):
     
     return ret
 
-def run_grids(launch_setting,grid_dir=None,grids=[],n_threads=1, db_file=None, time_estimator=None, processors_estimator=None, memory_estimator=None, force=False):
+def run_grids(launch_setting,env_parameters={},arch_dir=None,grid_dir=None,grids=[],n_threads=1, db_file=None, time_estimator=None, processors_estimator=None, memory_estimator=None, force=False):
         if db_file is None:
             db_file = os.path.join(os.path.dirname(os.path.abspath(__file__)),"Resources/sessions.db")
         commands = []
@@ -544,6 +561,5 @@ def run_grids(launch_setting,grid_dir=None,grids=[],n_threads=1, db_file=None, t
         if type(grids) is ModelGrid:
             grids = [grids]
         for grid in grids:
-            commands += grid.make_commands(launch_setting,db_file,time_estimator,processors_estimator,memory_estimator,force)
+            commands += grid.make_commands(launch_setting,db_file, time_estimator, processors_estimator, memory_estimator,force=False,env_parameters=env_parameters,arch_dir=arch_dir)
         run_in_parallel(target=os.system,l_args=[(command,) for command in set(commands)],n_threads=n_threads)
-

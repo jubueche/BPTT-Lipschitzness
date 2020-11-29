@@ -5,7 +5,7 @@ import numpy as onp
 import sys
 import os.path as path
 sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
-import input_data_eager as input_data
+from TensorCommands import input_data
 from six.moves import xrange
 from RNN_Jax import RNN
 from jax import random
@@ -13,17 +13,16 @@ import jax.numpy as jnp
 from loss_jax import loss_normal, compute_gradient_and_update, attack_network
 from jax.experimental import optimizers
 import ujson as json
-import wandb
 import matplotlib.pyplot as plt 
 from datetime import datetime
 import jax.nn.initializers as jini
 from random import randint
 import time
 import string
-import sqlite3
 import math
-
+import sqlite3
 import experiment_utils
+from experiments import speech_lsnn_loader
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -131,7 +130,6 @@ if __name__ == '__main__':
     opt_init, opt_update, get_params = optimizers.adam(get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
     opt_state = opt_init(init_params)
 
-    #track_dict = {"training_accuracies": [], "attacked_training_accuracies": [], "kl_over_time": [], "validation_accuracy": [], "attacked_validation_accuracy": [], "validation_kl_over_time": [], "model_parameters": model_settings}
     best_val_acc = 0.0
     for i in range(sum(iteration)):
         # - Get training data
@@ -147,7 +145,7 @@ if __name__ == '__main__':
             logits, spikes = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
             avg_firing = jnp.mean(spikes, axis=1)
             loss = loss_normal(y, logits, avg_firing, FLAGS.reg)
-            lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, rnn._rng_key)
+            lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
             rnn._rng_key, _ = random.split(rnn._rng_key)
             lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
             training_accuracy = get_batched_accuracy(y, logits)
@@ -169,7 +167,7 @@ if __name__ == '__main__':
                 X = validation_fingerprints.numpy()
                 y = validation_ground_truth.numpy()
                 logits, _ = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
-                lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, rnn._rng_key)
+                lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
                 rnn._rng_key, _ = random.split(rnn._rng_key)
                 llot.append(lip_loss_over_time)
                 predicted_labels = jnp.argmax(logits, axis=1)
@@ -180,7 +178,6 @@ if __name__ == '__main__':
                 attacked_total_accuracy += (attacked_batched_validation_acc * FLAGS.batch_size) / set_size
 
             # - Logging
-            color_range_val = onp.linspace(0,1,int(sum(iteration)/FLAGS.eval_step_interval))
             experiment_utils.record_training_data(FLAGS,"validation_accuracy",onp.float64(total_accuracy))
             experiment_utils.record_training_data(FLAGS,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
@@ -191,7 +188,6 @@ if __name__ == '__main__':
                 best_val_acc = total_accuracy
                 rnn.save(model_save_path, params)
                 print(f"Saved model under {model_save_path}")
-
 
             print(f"Validation accuracy {total_accuracy} Attacked val. accuracy {attacked_total_accuracy}")
 

@@ -1,11 +1,12 @@
-**/.vscode
 **/__pycache__
 **/tmp
+**/Data
+**/speech_dataset
 **/results
 **/tests
 **/ecg_recordings
 **/runs
-**/Resources
-**/Out
-**/Figures
+# **/Resources
+# **/Out
+# **/Figures
 # **/Plotting

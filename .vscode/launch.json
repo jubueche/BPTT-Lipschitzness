@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Runner",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-seeds=0", "-db=cnn"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Speech",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-arch_file=Resources/Architectures/speech_lsnn.arch", "-n_hidden=256", "-initial_std_mismatch=0.0001", "-initial_std_constant=0.0", "-attack_size_constant=0.0", "-attack_size_mismatch=2.0", "-data_dir=TensorCommands/speech_dataset/", "-beta_robustness=0.0"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "ECG",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-arch_file=Resources/Architectures/ecg_lsnn.arch", "-n_hidden=256", "-initial_std_mismatch=0.0001", "-initial_std_constant=0.0", "-attack_size_constant=0.0", "-attack_size_mismatch=2.0", "-data_dir=ECG/ecg_recordings/", "-beta_robustness=0.0"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "CNN",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-arch_file=Resources/Architectures/cnn.arch", "-initial_std_mismatch=0.0001", "-initial_std_constant=0.0", "-attack_size_constant=0.0", "-attack_size_mismatch=1.0", "-data_dir=tmp/fashion_mnist/", "-beta_robustness=0.0", "-eval_step_interval=1000"],
+            "console": "integratedTerminal"
+        }
+    ]
+}
