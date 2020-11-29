@@ -70,7 +70,7 @@ def get_features_range(model_settings):
 class AudioProcessor(object):
     def __init__(self, data_url, data_dir, silence_percentage, unknown_percentage,
                    wanted_words, validation_percentage, testing_percentage,
-                   model_settings, summaries_dir, n_thr_spikes=-1, n_repeat=1, seed=59185):
+                   n_thr_spikes=-1, n_repeat=1, seed=59185):
         self.RANDOM_SEED = seed
         np.random.seed(seed)
         if data_dir:
@@ -313,6 +313,7 @@ class AudioProcessor(object):
         return data, labels
 
 
+
     def get_processing(self, model_settings, foreground_volume, time_shift_padding, time_shift_offset, background_data, background_volume, wav_filename):
         desired_samples = model_settings['desired_samples']
         wav_loader = io_ops.read_file(wav_filename)
@@ -367,7 +368,7 @@ class AudioProcessor(object):
                             (model_settings['preprocess']))
 
         return final_output
-
+        
     def find_onset_offset(self, y, threshold):
         if threshold == 1:
             equal = y == threshold

@@ -5,7 +5,8 @@ import jax.numpy as jnp
 from jax import random as rand
 import ujson as json
 import jax
-
+import os
+import errno
 class RNN:
 
     def __init__(self,params):
@@ -61,7 +62,13 @@ class RNN:
             if(not type(theta[key]) is list):
                 theta[key] = theta[key].tolist()
         save_dict["theta"] = theta
-        with open(fn, "w") as f:
+        try:
+            os.makedirs(os.path.dirname(fn))
+        except OSError as exc: # Python >2.5
+            if exc.errno == errno.EEXIST and os.path.isdir(os.path.dirname(fn)):
+                pass
+            else: raise
+        with open(fn, "w+") as f:
             json.dump(save_dict, f)
 
     @classmethod
