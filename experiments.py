@@ -171,7 +171,9 @@ def visualize_exp_a(experiment_results):
     plt.show(block=False)
 
 def train_local(n_threads=1):
-    experiment_utils.run_grids("python $$MODEL_PATH$$ $$ARGS$$",n_threads=n_threads)
+    experiment_utils.run_grids("python $$MODEL_PATH$$ $$ARGS$$",n_threads=n_threads, grid_dir="Resources/SpeechGrids/", db_file="Resources/sessions_final.db")
+    # experiment_utils.run_grids("python $$MODEL_PATH$$ $$ARGS$$",n_threads=n_threads, grid_dir="Resources/ECGGrids/", db_file="Resources/sessions_final.db")
+    # experiment_utils.run_grids("python $$MODEL_PATH$$ $$ARGS$$",n_threads=n_threads, grid_dir="Resources/CNNGrids/", db_file="Resources/sessions_final.db")
 
 def train_leonhard():
     experiment_utils.run_grids("bsub -o ../logs/$$SESSION_ID$$ -W $$TIME_ESTIMATE$$ -n $$PROCESSORS_ESTIMATE$$ -R \"rusage[mem=$$MEMORY_ESTIMATE$$]\" \"python3 $$MODEL_PATH$$ $$ARGS$$\"", {"data_dir":"$SCRATCH/speech_dataset"}, grid_dir="Resources/SpeechGrids/")
@@ -234,7 +236,7 @@ def setup():
     speech_lsnn.add_hyperparameter("attack_size_mismatch",t=float,default=0.0,help='')
     speech_lsnn.add_hyperparameter("initial_std_constant",t=float,default=0.0001,help='')
     speech_lsnn.add_hyperparameter("initial_std_mismatch",t=float,default=0.0,help='')
-    speech_lsnn.add_env_parameter("data_dir",t=str,default='TensorCommands/speech_signals/',help='Directory of speech signals')
+    speech_lsnn.add_env_parameter("data_dir",t=str,default='TensorCommands/speech_dataset/',help='Directory of speech signals')
 
     ecg_lsnn = experiment_utils.Architecture("ecg_lsnn", "main_ecg_lsnn.py", ecg_lsnn_loader)
     ecg_lsnn = add_standard_hyperparameters(ecg_lsnn)
@@ -252,7 +254,7 @@ def setup():
     cnn.add_hyperparameter("attack_size_mismatch",t=float,default=1.0,help='')
     cnn.add_hyperparameter("initial_std_constant",t=float,default=0.0,help='')
     cnn.add_hyperparameter("initial_std_mismatch",t=float,default=0.0001,help='')
-    cnn.add_hyperparameter("Kernels",t=list,default=[[64,1,4,4], [64,64,4,4] ],help='List of Kernels dimensions for the conv layers')
+    cnn.add_hyperparameter("Kernels",t=list,default=[[64,1,4,4],[64,64,4,4]],help='List of Kernels dimensions for the conv layers')
     cnn.add_hyperparameter("Dense",t=list,default=[[1600,256],[256,64],[64, 10]],help='List of Weights dimensions for Dense layers',)
     cnn.add_env_parameter("data_dir",t=str,default='CNN/fashion_mnist/',help='Directory of fashion mnist images')
 
@@ -261,7 +263,12 @@ def setup():
     ecg_lsnn.save()
     cnn.save()
 
-    
+    speech_test_sweep = experiment_utils.ModelGrid("speech_test", speech_lsnn, {"attack_size_constant":0.0, "initial_std_mismatch":0.001, "initial_std_constant":0.0, "beta_robustness":1.0, "attack_size_mismatch": 2.0, "eval_step_interval": 200, "n_epochs":'64,16', "seed":[0,1,2]})
+    # ecg_test_sweep = experiment_utils.ModelGrid("ecg_test", ecg_lsnn, {"attack_size_constant":0.01, "attack_size_mismatch": 0.0, "eval_step_interval": 10, "n_epochs":'5,2', "seed":[0]})
+    # cnn_test_sweep = experiment_utils.ModelGrid("ecg_test", cnn, {"attack_size_constant":0.01, "attack_size_mismatch": 0.0, "eval_step_interval": 10, "n_epochs":'5,2', "seed":[0]})
+    speech_test_sweep.save(savePath="Resources/SpeechGrids/")
+    # ecg_test_sweep.save(savePath="Resources/ECGGrids/")
+    # cnn_test_sweep.save(savePath="Resources/CNNGrids/")
 
     #speech_lsnn_cube_beta_sweep = experiment_utils.ModelGrid("speech_lsnn_cube_beta_sweep",speech_lsnn, {"attack_size_constant":0.01, "attack_size_mismatch":0.0,"beta_robustness":[0.0, 0.001, 0.01, 0.1, 1.0, 10]})
 
@@ -297,4 +304,5 @@ def setup():
 
 if __name__ == '__main__':
     setup()
+    train_local()
 
