@@ -2,6 +2,7 @@
 **/tmp
 **/Data
 **/speech_dataset
+**/speech_commands
 **/results
 **/tests
 **/ecg_recordings
