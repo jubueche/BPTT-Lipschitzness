@@ -41,7 +41,7 @@ class RNN:
                 W_rec,
                 W_out,
                 b_out):
-
+        
         input_frequency_size = self.model_settings['fingerprint_width']
         input_channels = jnp.max(jnp.array([1, 2*self.model_settings['n_thr_spikes'] - 1]))
         #input_channels = max(1,2*self.model_settings['n_thr_spikes'] - 1)
