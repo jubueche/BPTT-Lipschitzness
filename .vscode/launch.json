@@ -2,11 +2,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Runner",
+            "name": "Run",
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-seeds=0", "-db=cnn"],
+            "args": ["-exp=mismatch_experiment", "-mode=direct", "-n_threads=1"],
             "console": "integratedTerminal"
         },
         {

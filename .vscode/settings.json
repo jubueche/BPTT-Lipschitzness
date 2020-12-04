@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/home/faberf/anaconda3/envs/ai-ctx/bin/python",
+    "python.pythonPath": "/home/julian/anaconda3/envs/ai-ctx/bin/python",
     "sqltools.connections": [
         {
             "previewLimit": 50,

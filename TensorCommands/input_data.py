@@ -92,8 +92,7 @@ def load_mnist(path, kind='train'):
 
 class AudioProcessor(object):
     def __init__(self, data_url, data_dir, silence_percentage, unknown_percentage,
-                   wanted_words, validation_percentage, testing_percentage,
-                   model_settings, summaries_dir, n_thr_spikes=-1, n_repeat=1, seed=59185):
+                   wanted_words, validation_percentage, testing_percentage, n_thr_spikes=-1, n_repeat=1, seed=59185):
         self.RANDOM_SEED = seed
         np.random.seed(seed)
         if data_dir:

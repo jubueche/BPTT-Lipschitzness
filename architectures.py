@@ -38,7 +38,6 @@ def standard_defaults():
         "dampening_factor":0.3 ,
         "dropout_prob":0.0,
         "reg":0.001,
-
         "learning_rate":"0.001,0.0001",
         "wanted_words":"yes,no",
         "n_epochs":"32,8",

@@ -83,11 +83,11 @@ if __name__ == '__main__':
     FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
 
     audio_processor = input_data.AudioProcessor(
-        FLAGS.data_url, FLAGS.data_dir,
-        FLAGS.silence_percentage, FLAGS.unknown_percentage,
-        FLAGS.wanted_words.split(','), FLAGS.validation_percentage,
-        FLAGS.testing_percentage, 
-        FLAGS.n_thr_spikes, FLAGS.in_repeat, FLAGS.seed
+        data_url=FLAGS.data_url, data_dir=FLAGS.data_dir,
+        silence_percentage=FLAGS.silence_percentage, unknown_percentage=FLAGS.unknown_percentage,
+        wanted_words=FLAGS.wanted_words.split(','), validation_percentage=FLAGS.validation_percentage,
+        testing_percentage=FLAGS.testing_percentage, 
+        n_thr_spikes=FLAGS.n_thr_spikes, n_repeat=FLAGS.in_repeat, seed=FLAGS.seed
     )
 
     FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
