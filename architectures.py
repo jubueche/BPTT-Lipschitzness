@@ -1,4 +1,3 @@
-from run_utils import Architecture
 from TensorCommands import input_data
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
@@ -9,37 +8,16 @@ import jax.numpy as jnp
 import numpy as onp
 import math
 import os
+import os.path
+from datajuicer import cachable, get, format_template
+import argparse
+import random
 
 def standard_defaults():
     return {
-        "clip_duration_ms":1000,
-        "window_size_ms":30.0,
-        "window_stride_ms":10.0, 
-        "feature_bin_count":40 ,
-        "sample_rate":16000 ,
-        "in_repeat":1 ,
-        "preprocess":"mfcc",
-        "data_url":"https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz",
-        "silence_percentage":10 ,
-        "unknown_percentage":10 ,
-        "validation_percentage":10 ,
-        "testing_percentage":10 ,
-        "n_thr_spikes":-1 ,
-        "background_volume":0.1 ,
-        "background_frequency":0.8 ,
-        "time_shift_ms":100.0,
-        "dt":1.,
-        "tau":20. ,
-        "beta":2. ,
-        "tau_adaptation":98. ,
-        "thr":0.01 ,
-        "thr_min":0.005 ,
-        "refr":2 ,
-        "dampening_factor":0.3 ,
         "dropout_prob":0.0,
         "reg":0.001,
         "learning_rate":"0.001,0.0001",
-        "wanted_words":"yes,no",
         "n_epochs":"32,8",
         "n_attack_steps": 10,
         "beta_robustness": 1.0,
@@ -49,152 +27,234 @@ def standard_defaults():
         "batch_size":100
         }
 
-def standard_help():
+def help():
     return {
         "batch_size": "The batch size of the model."
         }
 
-def standard_launch_settings(mode):
-    if mode == "direct":
-        return {
-            "launch":"python {code_file} {make_args}"
-        }
-    elif mode == "bsub":
-        return {
-            "launch": "bsub -o ../logs/{{architecture}_session_id} -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {make_args}\""
-        }
-    raise Exception("Invalid Mode")
+launch_settings = {
+    "direct":"python {code_file} {args}",
+    "bsub":"bsub -o ../logs/{{architecture}_session_id} -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
+}
 
-class speech_lsnn(Architecture):
+def mk_runner(architecture, env_vars):
+    @cachable(
+        dependencies=["model:"+key for key in architecture.default_hyperparameters().keys()], 
+        saver = None,
+        loader = architecture.loader,
+        checker=architecture.checker,
+        table_name=architecture.__name__
+    )
+    def runner(model):
+        try:
+            mode = get(model, "mode")
+        except:
+            mode = "direct"
+        model["mode"] = mode
+        model["args"] = " ".join([f"-{key}={get(model, key)}" for key in list(architecture.default_hyperparameters().keys())+env_vars])
+        command = format_template(model,launch_settings[mode])
+        os.system(command)
+        return None
 
-    @staticmethod
-    def default_hyperparameters():
-        d = standard_defaults()
-        d["eval_step_interval"]=200
-        d["attack_size_constant"]=0.01
-        d["attack_size_mismatch"]=0.0
-        d["initial_std_constant"]=0.0001
-        d["initial_std_mismatch"]=0.0
-        return d
+    return runner
+
+def _get_flags(default_dict, help_dict):
+    parser = argparse.ArgumentParser()
+    for key, value in default_dict.items():
+        parser.add_argument("-" + key,type=type(value),default=value,help=help_dict.get(key,""))
+    parser.add_argument("-session_id", type=int, default = 0)
     
+    flags = parser.parse_args()
+    if flags.session_id==0:
+        flags.session_id = random.randint(1000000000, 9999999999)
+    return flags
 
-    @staticmethod
-    def environment_parameters(mode="direct"):
-        if mode=="direct":
-            return {
-                "data_dir": "TensorCommands/speech_dataset/"
-            }
-        elif mode=="bsub":
-            return {
-                "data_dir": "$SCRATCH/speech_dataset"
-            }
-        raise Exception("Invalid Mode")
+def log(session_id, key, value, save_dir = None):
+    if save_dir is None:
+        save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),"Resources/TrainingResults/")
+    file = os.path.join(save_dir, str(session_id) + ".json")
+    exists = os.path.isfile(file)
+    directory = os.path.dirname(file)
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+    if exists:
+        data = open(file).read()
+        try:
+            d = json.loads(data)
+        except:
+            d = {}
+    else:
+        d = {}
+    with open(file,'w+') as f:
+        if key in d:
+            d[key] += [value]
+        else:
+            d[key]=[value]
+        json.dump(d,f)
 
+class speech_lsnn:
     @staticmethod
-    def launch_settings(mode):
-        d = standard_launch_settings(mode)
+    def make():
+        d = speech_lsnn.default_hyperparameters()
+        def mk_data_dir(mode="direct"):
+            if mode=="direct":
+                return "TensorCommands/speech_dataset/"
+            elif mode=="bsub":
+                return "$SCRATCH/speech_dataset"
+            raise Exception("Invalid Mode")
+        d["mk_data_dir"] = mk_data_dir
+        d["data_dir"] = "{mk_data_dir({mode})}"
         d["code_file"] = "main_speech_lsnn.py"
+        d["architecture"] = "speech_lsnn"
+        d["train"] = mk_runner(speech_lsnn, ["data_dir"])
         return d
-
-    @staticmethod
-    def help():
-        return standard_help()
-
-    @staticmethod
-    def checker(model):
-        try:
-            speech_lsnn.loader(model)
-        except:
-            return False
-        epochs_list = list(map(int, model["n_epochs"].split(',')))
-        n_steps = sum([math.ceil(epochs * model["audio_processor"].set_size("training")/model["batch_size"]) for epochs in epochs_list])
-        return len(model["training_accuracy"]) >= int(n_steps/2)
-
-    @staticmethod
-    def loader(model):
-        session_id = model["speech_lsnn_session_id"]
-        training_data = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), f"Resources/TrainingResults/{session_id}.train"),'r'))
         
-        for key in training_data:
-            model[key] = training_data[key]
-        
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_path, f"Resources/Models/{session_id}_model.json")
-        rnn, theta = RNN.load(model_path)
-        model["rnn"] = rnn
-        model["theta"] = theta
-        model["audio_processor"] =  input_data.AudioProcessor(
-            model["data_url"], model["data_dir"],
-            model["silence_percentage"], model["unknown_percentage"],
-            model["wanted_words"].split(','), model["validation_percentage"],
-            model["testing_percentage"],
-            model["n_thr_spikes"], model["in_repeat"], model["seed"]
-        )
-        
-    
 
-class ecg_lsnn(Architecture):
     @staticmethod
     def default_hyperparameters():
         d = standard_defaults()
+        d["dt"]=1.
+        d["tau"]=20. 
+        d["beta"]=2. 
+        d["tau_adaptation"]=98.
+        d["thr"]=0.01
+        d["thr_min"]=0.005
+        d["refr"]=2
+        d["dampening_factor"]=0.3
+        d["sample_rate"]=16000 
         d["eval_step_interval"]=200
+        d["clip_duration_ms"]=1000
+        d["window_size_ms"]=30.0
+        d["window_stride_ms"]=10.0 
+        d["feature_bin_count"]=40 
+        d["sample_rate"]=16000 
+        d["in_repeat"]=1 
+        d["preprocess"]="mfcc"
+        d["data_url"]="https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz"
+        d["silence_percentage"]=10.0 
+        d["unknown_percentage"]=10.0 
+        d["validation_percentage"]=10.0 
+        d["testing_percentage"]=10.0 
+        d["n_thr_spikes"]=-1 
+        d["background_volume"]=0.1 
+        d["background_frequency"]=0.8 
+        d["time_shift_ms"]=100.0
+        d["wanted_words"] = "yes,no"
         d["attack_size_constant"]=0.0
-        d["attack_size_mismatch"]=2.0
         d["initial_std_constant"]=0.0
-        d["initial_std_mismatch"]=0.0001
-        d["initial_std_mismatch"]=0.0
+        d["attack_size_mismatch"]=0.2
+        d["initial_std_mismatch"]=0.001
+        d["n_epochs"] = "64,16"
         return d
     
+    @staticmethod
+    def get_flags():
+        default_dict = {**speech_lsnn.default_hyperparameters(), **{"data_dir":"TensorCommands/speech_dataset/"}}
+        return _get_flags(default_dict, help())
 
     @staticmethod
-    def environment_parameters(mode="direct"):
-        if mode=="direct":
-            return {
-                "data_dir": "ECG/ecg_recordings/"
-            }
-        elif mode=="bsub":
-            return {
-                "data_dir": "$SCRATCH/ecg_recordings/"
-            }
-        print(mode)
-        raise Exception("Invalid Mode")
-
-    @staticmethod
-    def launch_settings(mode):
-        d = standard_launch_settings(mode)
-        d["code_file"] = "main_ecg_lsnn.py"
-        return d
-
-    @staticmethod
-    def help():
-        return standard_help()
-
-
-    @staticmethod
-    def checker(model):
+    def checker(sid, table, cache_dir, model):
         try:
-            ecg_lsnn.loader(model)
+            data = speech_lsnn.loader(sid, table, cache_dir, model)
         except:
             return False
-        return len(model["training_accuracy"]) > 10
+        epochs_list = list(map(int, data["n_epochs"].split(',')))
+        n_steps = sum([math.ceil(epochs * data["audio_processor"].set_size("training")/data["batch_size"]) for epochs in epochs_list])
+        return len(data["training_accuracy"]) >= int(n_steps/2)
+
+    @staticmethod
+    def loader(sid, table, cache_dir, model):
+        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json")),'r')
+        for key in speech_lsnn.default_hyperparameters().keys():
+            data[key] = model[key]
+        
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
+        rnn, theta = RNN.load(model_path)
+        data["rnn"] = rnn
+        data["theta"] = theta
+        data["speech_lsnn_session_id"] = sid
+        # data["audio_processor"] =  input_data.AudioProcessor(
+        #     data["data_url"], model["data_dir"],
+        #     data["silence_percentage"], data["unknown_percentage"],
+        #     data["wanted_words"].split(','), data["validation_percentage"],
+        #     data["testing_percentage"],
+        #     data["n_thr_spikes"], data["in_repeat"], data["seed"]
+        # )
+        return data
+
+class ecg_lsnn:
+
+    @staticmethod
+    def default_hyperparameters():
+        d = standard_defaults()
+        d["dt"]=1.
+        d["tau"]=20. 
+        d["beta"]=2. 
+        d["tau_adaptation"]=98.
+        d["thr"]=0.01
+        d["thr_min"]=0.005
+        d["refr"]=2
+        d["dampening_factor"]=0.3
+        d["sample_rate"]=16000 
+        d["eval_step_interval"]=400
+        d["attack_size_constant"]=0.0
+        d["initial_std_constant"]=0.0
+        d["attack_size_mismatch"]=0.2
+        d["initial_std_mismatch"]=0.001
+        d["clip_duration_ms"]=1000
+        d["window_size_ms"]=30.0
+        d["window_stride_ms"]=10.0 
+        d["preprocess"]="mfcc"
+        d["feature_bin_count"]=40 
+        return d
+    
+    @staticmethod
+    def make():
+        d = ecg_lsnn.default_hyperparameters()
+        def mk_data_dir(mode="direct"):
+            if mode=="direct":
+                return "ECG/ecg_recordings/"
+            elif mode=="bsub":
+                return "$SCRATCH/ecg_recordings/"
+            raise Exception("Invalid Mode")
+        d["mk_data_dir"] = mk_data_dir
+        d["data_dir"] = "{mk_data_dir({mode})}"
+        d["code_file"] = "main_ecg_lsnn.py"
+        d["architecture"] = "ecg_lsnn"
+        d["train"] = mk_runner(ecg_lsnn, ["data_dir"])
+        return d
+
+    @staticmethod
+    def get_flags():
+        default_dict = {**ecg_lsnn.default_hyperparameters(), **{"data_dir":"ECG/ecg_recordings/"}}
+        return _get_flags(default_dict, help())
+
+    @staticmethod
+    def checker(sid, table, cache_dir, model):
+        try:
+            data = ecg_lsnn.loader(sid, table, cache_dir, model)
+        except:
+            return False
+        return len(data["training_accuracy"]) > 10
 
     
     @staticmethod
-    def loader(model):
-        session_id = model["ecg_lsnn_session_id"]
-        training_data = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), f"Resources/TrainingResults/{session_id}.train"),'r'))
-        
-        for key in training_data:
-            model[key] = training_data[key]
+    def loader(sid, table, cache_dir, model):
+        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json")),'r')
+        for key in ecg_lsnn.default_hyperparameters().keys():
+            data[key] = model[key]
         
         base_path = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_path, f"Resources/Models/{session_id}_model.json")
+        model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
         rnn, theta = RNN.load(model_path)
-        model["rnn"] = rnn
-        model["theta"] = theta
-        model["ecg_data_loader"] = ECGDataLoader(path=model["data_dir"], batch_size=model["batch_size"])
+        data["rnn"] = rnn
+        data["theta"] = theta
+        data["ecg_lsnn_session_id"] = sid
+        #data["ecg_data_loader"] = ECGDataLoader(path=model["data_dir"], batch_size=data["batch_size"])
+        return data
 
-class cnn(Architecture):
+class cnn:
     @staticmethod 
     def default_hyperparameters():
         d = standard_defaults()
@@ -202,54 +262,54 @@ class cnn(Architecture):
         d["attack_size_constant"]=0.0
         d["attack_size_mismatch"]=1.0
         d["initial_std_constant"]=0.0
-        d["initial_std_mismatch"]=0.0001
+        d["initial_std_mismatch"]=0.001
         d["Kernels"]="[[64,1,4,4],[64,64,4,4]]"
-        d["Dense"]="[[1600,256],[256,64],[6410]]"
-        d["initial_std_mismatch"]=0.0
+        d["Dense"]="[[1600,256],[256,64],[64,10]]"
         return d
 
     @staticmethod
-    def environment_parameters(mode="direct"):
-        if mode=="direct":
-            return {
-                "data_dir": "CNN/fashion_mnist/"
-            }
-        elif mode=="bsub":
-            return {
-                "data_dir": "$SCRATCH/fashion_mnist"
-            }
-        raise Exception("Invalid Mode")
-    
-    @staticmethod
-    def launch_settings(mode):
-        d = standard_launch_settings(mode)
-        d['code_file'] = "main_CNN_jax.py"
+    def make():
+        d = cnn.default_hyperparameters()
+        def mk_data_dir(mode="direct"):
+            if mode=="direct":
+                return "CNN/fashion_mnist/"
+            elif mode=="bsub":
+                return "$SCRATCH/fashion_mnist"
+            raise Exception("Invalid Mode")
+        d["mk_data_dir"] = mk_data_dir
+        d["data_dir"] = "{mk_data_dir({mode})}"
+        d["code_file"] = "main_CNN_jax.py"
+        d["architecture"] = "cnn"
+        d["train"] = mk_runner(cnn, ["data_dir"])
         return d
-    
-    @staticmethod
-    def help():
-        return standard_help()
 
     @staticmethod
-    def checker(model):
+    def get_flags():
+        default_dict = {**cnn.default_hyperparameters(), **{"data_dir":"CNN/fashion_mnist/"}}
+        return _get_flags(default_dict, help())
+
+    @staticmethod
+    def checker(sid, table, cache_dir, model):
         try:
-            cnn.loader(model)
+            data = cnn.loader(sid, table, cache_dir, model)
         except:
             return False
-        epochs_list = list(map(int, model["n_epochs"].split(',')))
-        n_steps = sum([math.ceil(epochs * model["cnn_data_loader"].N_train/model["batch_size"]) for epochs in epochs_list])
-        return len(model["training_accuracy"]) >= int(n_steps/2)
+        epochs_list = list(map(int, data["n_epochs"].split(',')))
+        n_steps = sum([math.ceil(epochs * data["cnn_data_loader"].N_train/data["batch_size"]) for epochs in epochs_list])
+        return len(data["training_accuracy"]) >= int(n_steps/2)
 
     @staticmethod
-    def loader(model):
-        session_id = model["cnn_session_id"]
-        training_data = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), f"Resources/TrainingResults/{session_id}.train"),'r'))
-        for key in training_data:
-            model[key] = training_data[key]
+    def loader(sid, table, cache_dir, model):
+        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json")),'r')
+        for key in ecg_lsnn.default_hyperparameters().keys():
+            data[key] = model[key]
+        
         base_path = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_path, f"Resources/Models/{session_id}_model.json")
+        model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
         cnn, theta = CNN.load(model_path)
-        model["theta"] = theta
-        model["cnn"] = cnn
-        model["cnn_data_loader"] = CNNDataLoader(model["batch_size"],model["data_dir"])
+        data["theta"] = theta
+        data["cnn"] = cnn
+        data["cnn_session_id"] = sid
+        #data["cnn_data_loader"] = CNNDataLoader(data["batch_size"],model["data_dir"])
+        return data
 

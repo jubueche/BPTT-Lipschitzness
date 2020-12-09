@@ -7,3 +7,4 @@
 **/tests
 **/ecg_recordings
 **/runs
+**/fashion_mnist

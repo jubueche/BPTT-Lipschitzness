@@ -22,6 +22,7 @@ import string
 import math
 import sqlite3
 from architectures import speech_lsnn as arch
+from architectures import log
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -52,7 +53,7 @@ def get_lr_schedule(iteration, lrs):
 
 if __name__ == '__main__':
 
-    FLAGS = arch.get_flags("direct")
+    FLAGS = arch.get_flags()
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
 
@@ -150,9 +151,9 @@ if __name__ == '__main__':
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
             print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
-            arch.log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
-            arch.log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
-            arch.log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
+            log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
+            log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
+            log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
 
 
         if((i+1) % FLAGS.eval_step_interval == 0):
@@ -177,10 +178,10 @@ if __name__ == '__main__':
                 attacked_total_accuracy += (attacked_batched_validation_acc * FLAGS.batch_size) / set_size
 
             # - Logging
-            arch.log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
-            arch.log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
+            log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
+            log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
-            arch.log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
+            log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
 
             # - Save the model
             if(total_accuracy > best_val_acc):

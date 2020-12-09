@@ -23,6 +23,7 @@ import string
 import sqlite3
 import math
 from architectures import ecg_lsnn as arch
+from architectures import log
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -52,7 +53,7 @@ def get_lr_schedule(iteration, lrs):
     return lr_schedule
 
 if __name__ == '__main__':
-    FLAGS = arch.get_flags("direct")
+    FLAGS = arch.get_flags()
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
 
@@ -81,8 +82,8 @@ if __name__ == '__main__':
         raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
                         ' "average", or "micro")' % (FLAGS.preprocess))
     FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
-    FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
-    FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
+    # FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
+    # FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
     
     ecg_processor = ECGDataLoader(path=FLAGS.data_dir, batch_size=FLAGS.batch_size)
     flags_dict = vars(FLAGS)
@@ -167,10 +168,10 @@ if __name__ == '__main__':
                 attacked_total_accuracy += (attacked_batched_validation_acc * val_bs) / set_size
 
             # - Logging
-            arch.log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
-            arch.log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
+            log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
+            log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
-            arch.log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
+            log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
 
             # - Save the model
             if(total_accuracy > best_val_acc):

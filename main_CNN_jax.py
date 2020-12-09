@@ -23,6 +23,7 @@ from jax import lax
 import math
 import sqlite3
 from architectures import cnn as arch
+from architectures import log
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -52,37 +53,39 @@ def get_lr_schedule(iteration, lrs):
     return lr_schedule
 
 if __name__ == '__main__':
-    FLAGS = arch.get_flags("direct")
+    FLAGS = arch.get_flags()
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
+    FLAGS.Kernels = json.loads(FLAGS.Kernels)
+    FLAGS.Dense = json.loads(FLAGS.Dense)
 
-    def _next_power_of_two(x):
-        return 1 if x == 0 else 2**(int(x) - 1).bit_length()
+    # def _next_power_of_two(x):
+    #     return 1 if x == 0 else 2**(int(x) - 1).bit_length()
 
-    FLAGS.desired_samples = int(FLAGS.sample_rate * FLAGS.clip_duration_ms / 1000)
-    FLAGS.window_size_samples = int(FLAGS.sample_rate * FLAGS.window_size_ms / 1000)
-    FLAGS.window_stride_samples = int(FLAGS.sample_rate * FLAGS.window_stride_ms / 1000)
-    FLAGS.length_minus_window = (FLAGS.desired_samples - FLAGS.window_size_samples)
-    if FLAGS.length_minus_window < 0:
-        spectrogram_length = 0
-    else:
-        FLAGS.spectrogram_length = 1 + int(FLAGS.length_minus_window / FLAGS.window_stride_samples)
-    if FLAGS.preprocess == 'average':
-        fft_bin_count = 1 + (_next_power_of_two(FLAGS.window_size_samples) / 2)
-        FLAGS.average_window_width = int(math.floor(fft_bin_count / FLAGS.feature_bin_count))
-        FLAGS.fingerprint_width = int(math.ceil(fft_bin_count / FLAGS.average_window_width))
-    elif FLAGS.preprocess in ['mfcc', 'fbank']:
-        FLAGS.average_window_width = -1
-        FLAGS.fingerprint_width = FLAGS.feature_bin_count
-    elif FLAGS.preprocess == 'micro':
-        FLAGS.average_window_width = -1
-        FLAGS.fingerprint_width = FLAGS.feature_bin_count
-    else:
-        raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
-                        ' "average", or "micro")' % (FLAGS.preprocess))
-    FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
-    FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
-    FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
+    # FLAGS.desired_samples = int(FLAGS.sample_rate * FLAGS.clip_duration_ms / 1000)
+    # FLAGS.window_size_samples = int(FLAGS.sample_rate * FLAGS.window_size_ms / 1000)
+    # FLAGS.window_stride_samples = int(FLAGS.sample_rate * FLAGS.window_stride_ms / 1000)
+    # FLAGS.length_minus_window = (FLAGS.desired_samples - FLAGS.window_size_samples)
+    # if FLAGS.length_minus_window < 0:
+    #     spectrogram_length = 0
+    # else:
+    #     FLAGS.spectrogram_length = 1 + int(FLAGS.length_minus_window / FLAGS.window_stride_samples)
+    # if FLAGS.preprocess == 'average':
+    #     fft_bin_count = 1 + (_next_power_of_two(FLAGS.window_size_samples) / 2)
+    #     FLAGS.average_window_width = int(math.floor(fft_bin_count / FLAGS.feature_bin_count))
+    #     FLAGS.fingerprint_width = int(math.ceil(fft_bin_count / FLAGS.average_window_width))
+    # elif FLAGS.preprocess in ['mfcc', 'fbank']:
+    #     FLAGS.average_window_width = -1
+    #     FLAGS.fingerprint_width = FLAGS.feature_bin_count
+    # elif FLAGS.preprocess == 'micro':
+    #     FLAGS.average_window_width = -1
+    #     FLAGS.fingerprint_width = FLAGS.feature_bin_count
+    # else:
+    #     raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
+    #                     ' "average", or "micro")' % (FLAGS.preprocess))
+    # FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
+    # FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
+    # FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
 
     data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
     flags_dict = vars(FLAGS)
@@ -144,10 +147,10 @@ if __name__ == '__main__':
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
 
-            arch.log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
-            arch.log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
+            log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
+            log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
             if(not onp.isnan(lip_loss_over_time).any()):
-                arch.log(FLAGS.cnn_session_id,"kl_over_time",lip_loss_over_time)
+                log(FLAGS.cnn_session_id,"kl_over_time",lip_loss_over_time)
                 print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
 
         if((i+1) % FLAGS.eval_step_interval == 0):
@@ -170,10 +173,10 @@ if __name__ == '__main__':
                 attacked_total_accuracy += (attacked_batched_validation_acc * val_bs) / set_size
 
             # - Logging
-            arch.log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
-            arch.log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
+            log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
+            log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
-            arch.log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
+            log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
 
             # - Save the model
             if(total_accuracy > best_val_acc):
