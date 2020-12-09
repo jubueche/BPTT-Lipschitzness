@@ -56,7 +56,8 @@ def dj(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir
                 if checker(session_id, func.table_name, cache_dir, data):
                     sid = session_id
                     break
-            
+            print(sid)
+            print(sid is None or run_mode == "force")
             if sid is None or run_mode == "force":
                 if run_mode == "load":
                     raise Exception("No Sessions Found")

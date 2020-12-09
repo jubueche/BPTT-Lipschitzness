@@ -82,8 +82,6 @@ if __name__ == '__main__':
         raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
                         ' "average", or "micro")' % (FLAGS.preprocess))
     FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
-    # FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
-    # FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
     
     ecg_processor = ECGDataLoader(path=FLAGS.data_dir, batch_size=FLAGS.batch_size)
     flags_dict = vars(FLAGS)
@@ -144,9 +142,9 @@ if __name__ == '__main__':
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
             print(f"Loss is {pp(loss)} Lipschitzness loss over time {ppl(lip_loss_over_time)} Accuracy {pp(training_accuracy)} Attacked accuracy {pp(attacked_accuracy)}",flush=True)
-            arch.log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
-            arch.log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
-            arch.log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
+            log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
+            log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
+            log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)

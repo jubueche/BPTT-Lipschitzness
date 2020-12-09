@@ -29,7 +29,6 @@ class RNN:
         self.decay_b = jnp.reshape(jnp.exp(-1*self.dt / params["tau_adaptation"]), (1,-1))
         self.thr_min = params["thr_min"]
         self.model_settings = params
-        self.d_out = params["label_count"]
         self.noise_std = 0.0
         self._rng_key = rand.PRNGKey(params["seed"])
         self.dropout_prob = params["dropout_prob"]

@@ -21,6 +21,7 @@ def select(db_file, column, table, where, order_by):
         cur.execute(command)
         result = [sid[0] for sid in cur.fetchall()] 
     except sqlite3.Error as error:
+        print(error)
         return []
     
     if (conn):
@@ -33,11 +34,10 @@ def insert(db_file, table, row, primary_key):
     for key, val in row.items():
         if type(val) == int:
             definition = "INTEGER"
-        if type(val) == float:
+        elif type(val) == float:
             definition = "REAL"
         else:
             definition = "TEXT"
-        
         if key == primary_key:
             fieldset.append(f"'{key}' {definition} PRIMARY KEY")
         else:

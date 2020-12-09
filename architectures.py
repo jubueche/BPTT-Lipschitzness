@@ -142,7 +142,7 @@ class speech_lsnn:
         d["wanted_words"] = "yes,no"
         d["attack_size_constant"]=0.0
         d["initial_std_constant"]=0.0
-        d["attack_size_mismatch"]=0.2
+        d["attack_size_mismatch"] = 2.0
         d["initial_std_mismatch"]=0.001
         d["n_epochs"] = "64,16"
         return d
@@ -156,15 +156,21 @@ class speech_lsnn:
     def checker(sid, table, cache_dir, model):
         try:
             data = speech_lsnn.loader(sid, table, cache_dir, model)
-        except:
+        except Exception as er:
+            print(er)
             return False
-        epochs_list = list(map(int, data["n_epochs"].split(',')))
-        n_steps = sum([math.ceil(epochs * data["audio_processor"].set_size("training")/data["batch_size"]) for epochs in epochs_list])
-        return len(data["training_accuracy"]) >= int(n_steps/2)
+        if "training_accuracies" in data:
+            ta = data["training_accuracies"]
+        elif "training_accuracy" in data:
+            ta = data["training_accuracy"]
+        else:
+            return False
+            
+        return len(ta) >= 50
 
     @staticmethod
     def loader(sid, table, cache_dir, model):
-        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json")),'r')
+        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
         for key in speech_lsnn.default_hyperparameters().keys():
             data[key] = model[key]
         
@@ -200,13 +206,15 @@ class ecg_lsnn:
         d["eval_step_interval"]=400
         d["attack_size_constant"]=0.0
         d["initial_std_constant"]=0.0
-        d["attack_size_mismatch"]=0.2
+        d["attack_size_mismatch"]=2.0
         d["initial_std_mismatch"]=0.001
         d["clip_duration_ms"]=1000
         d["window_size_ms"]=30.0
         d["window_stride_ms"]=10.0 
         d["preprocess"]="mfcc"
         d["feature_bin_count"]=40 
+        d["in_repeat"]=1 
+        d["n_thr_spikes"]=-1 
         return d
     
     @staticmethod
@@ -234,14 +242,22 @@ class ecg_lsnn:
     def checker(sid, table, cache_dir, model):
         try:
             data = ecg_lsnn.loader(sid, table, cache_dir, model)
-        except:
+        except Exception as er:
+            print(er)
             return False
-        return len(data["training_accuracy"]) > 10
+        if "training_accuracies" in data:
+            ta = data["training_accuracies"]
+        elif "training_accuracy" in data:
+            ta = data["training_accuracy"]
+        else:
+            return False
+
+        return len(ta) > 50
 
     
     @staticmethod
     def loader(sid, table, cache_dir, model):
-        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json")),'r')
+        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
         for key in ecg_lsnn.default_hyperparameters().keys():
             data[key] = model[key]
         
@@ -292,23 +308,31 @@ class cnn:
     def checker(sid, table, cache_dir, model):
         try:
             data = cnn.loader(sid, table, cache_dir, model)
-        except:
+        except Exception as er:
+            print("error", er)
             return False
-        epochs_list = list(map(int, data["n_epochs"].split(',')))
-        n_steps = sum([math.ceil(epochs * data["cnn_data_loader"].N_train/data["batch_size"]) for epochs in epochs_list])
-        return len(data["training_accuracy"]) >= int(n_steps/2)
+        
+        if "training_accuracies" in data:
+            ta = data["training_accuracies"]
+        elif "training_accuracy" in data:
+            ta = data["training_accuracy"]
+        else:
+            return False
+            
+        return len(ta) >= 50
 
     @staticmethod
     def loader(sid, table, cache_dir, model):
-        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json")),'r')
-        for key in ecg_lsnn.default_hyperparameters().keys():
+        print(model)
+        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
+        for key in cnn.default_hyperparameters().keys():
             data[key] = model[key]
         
         base_path = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
-        cnn, theta = CNN.load(model_path)
+        cnnmodel, theta = CNN.load(model_path)
         data["theta"] = theta
-        data["cnn"] = cnn
+        data["cnn"] = cnnmodel
         data["cnn_session_id"] = sid
         #data["cnn_data_loader"] = CNNDataLoader(data["batch_size"],model["data_dir"])
         return data
