@@ -24,7 +24,7 @@ from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
 from copy import copy
 from loss_jax import attack_network
-from datajuicer import cachable
+from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
 
 @cachable(dependencies = ["model:{architecture}_session_id", "mm_level", "model:architecture"])
@@ -53,13 +53,13 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
             silence_percentage=FLAGS.silence_percentage, unknown_percentage=FLAGS.unknown_percentage,
             wanted_words=FLAGS.wanted_words.split(','), validation_percentage=FLAGS.validation_percentage,
             testing_percentage=FLAGS.testing_percentage, 
-            n_thr_spikes=FLAGS.n_thr_spikes, n_repeat=FLAGS.in_repeat, seed=FLAGS.seed
+            n_thr_spikes=FLAGS.n_thr_spikes, n_repeat=FLAGS.in_repeat
         )
         set_size = audio_processor.set_size('testing')
-    if FLAGS.architecture=="ecg_lsnn":
+    elif FLAGS.architecture=="ecg_lsnn":
         ecg_processor = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
         set_size = ecg_processor.N_test
-    if FLAGS.architecture=="cnn":
+    elif FLAGS.architecture=="cnn":
         cnn_data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
         set_size = cnn_data_loader.N_test
     def get_X_y(i):

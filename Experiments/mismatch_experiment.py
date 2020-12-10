@@ -63,7 +63,7 @@ class mismatch_experiment:
 
         grid = configure(grid, {"mode":"direct"}) #36
         
-        grid = djm(grid, get_mismatch_list, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
+        grid = djm(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
         def get_data_acc(architecture):
             robust_data = query(grid, "mismatch_list", where={"beta_robustness":1.0, "architecture":architecture})

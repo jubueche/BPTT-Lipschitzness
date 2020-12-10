@@ -150,7 +150,7 @@ if __name__ == '__main__':
             log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
             log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
             if(not onp.isnan(lip_loss_over_time).any()):
-                log(FLAGS.cnn_session_id,"kl_over_time",lip_loss_over_time)
+                log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
                 print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
 
         if((i+1) % FLAGS.eval_step_interval == 0):
