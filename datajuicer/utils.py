@@ -42,25 +42,23 @@ def dj(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir
                     reserved_keys = [item for sublist in reserved_keys for item in sublist]
                     if not key in reserved_keys:
                         dep_name = key
-                    dependencies[dep_name] = boundargs.arguments[arg][key]
+                    dependencies[dep_name] = get(boundargs.arguments[arg], key)
                 else:
                     dependencies[dep_name] = boundargs.arguments[dep_name]
 
             session_ids = database.select(db_file = os.path.join(cache_dir, "sessions.db"),column = "session_id", table = func.table_name, where= dependencies, order_by="start_time")
-            print(session_ids)
             sid = None
             for session_id in session_ids:
                 checker = func.checker
                 if checker is None:
                     checker = lambda *args: True
-                if checker(session_id, func.table_name, cache_dir, data):
+                if checker(session_id, func.table_name, cache_dir):
                     sid = session_id
                     break
-            print(sid)
-            print(sid is None or run_mode == "force")
             if sid is None or run_mode == "force":
                 if run_mode == "load":
                     raise Exception("No Sessions Found")
+                random.seed()
                 sid = random.randint(1000000000, 9999999999)
                 data[func.table_name+"_session_id"] = sid
                 row = copy.copy(dependencies)
@@ -72,14 +70,19 @@ def dj(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir
                 if cache_mode == "no_save" or func.saver is None:
                     return ret
                 
+                func.saver(sid,func.table_name,cache_dir,ret)
+                
                 return ret
             
-            if not func.loader is None: return func.loader(sid, func.table_name, cache_dir, data)
+            if not func.loader is None: return func.loader(sid, func.table_name, cache_dir)
             
 
         if type(grid) is dict:
             grid = [grid]
         
+        if n_threads==1:
+            return [_run(copy.copy(data),func,list(args),kwargs) for data in grid]
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
             param_list = [(copy.copy(data),func,list(args),kwargs) for data in grid]
             futures = [executor.submit(_run, *param) for param in param_list]
@@ -92,9 +95,15 @@ def djm(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_di
     def _run_and_merge(*args, **kwargs):
         ret = runner(*args, **kwargs)
         if store_key is None:
-            return [{**data, **retdata} for data, retdata in zip(grid,ret)]
+            merged_grid = []
+            for data, retdata in zip(grid,ret):
+                copied = copy.copy(data)
+                copied.update(retdata)
+                merged_grid.append(copied)
+            return merged_grid
         else:
             return [{**data, **{store_key:retdata}} for data, retdata in zip(grid,ret)]
+    return _run_and_merge
         
 
 def cachable(dependencies=None, saver=in_out.easy_saver, loader=in_out.easy_loader, checker=in_out.easy_checker, table_name=None):
@@ -139,19 +148,22 @@ def get(data, key):
 def split(grid, key, values, where={}):
     if type(grid) is dict:
         grid = [grid]
-    out = []
-    for value in values:
-        cg = [copy.copy(model) for model in grid]
-        for d in cg:
-            if all([d[kkey]==where[kkey] for kkey in where]):
-                d[key] = value
-        out += cg
-    return out
+    
+    output = []
+    for data in grid:
+        if all([data[kkey]==where[kkey] for kkey in where]):
+            for val in values:
+                copied = copy.copy(data)
+                copied[key] = val
+                output.append(copied)
+        else:
+            output.append(copy.copy(data))
+    return output
 
 def configure(grid, dictionary, where={}):
     cg = [copy.copy(model) for model in grid]
     for model in cg:
-        if all([cg[key]==where[key] for key in where]):
+        if all([model[key]==where[key] for key in where]):
             for key in dictionary:
                 model[key] = dictionary[key]
     return cg

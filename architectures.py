@@ -153,9 +153,9 @@ class speech_lsnn:
         return _get_flags(default_dict, help())
 
     @staticmethod
-    def checker(sid, table, cache_dir, model):
+    def checker(sid, table, cache_dir):
         try:
-            data = speech_lsnn.loader(sid, table, cache_dir, model)
+            data = speech_lsnn.loader(sid, table, cache_dir)
         except Exception as er:
             print(er)
             return False
@@ -169,15 +169,13 @@ class speech_lsnn:
         return len(ta) >= 50
 
     @staticmethod
-    def loader(sid, table, cache_dir, model):
+    def loader(sid, table, cache_dir):
         data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
-        for key in speech_lsnn.default_hyperparameters().keys():
-            data[key] = model[key]
         
         base_path = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
         rnn, theta = RNN.load(model_path)
-        data["rnn"] = rnn
+        data["network"] = rnn
         data["theta"] = theta
         data["speech_lsnn_session_id"] = sid
         # data["audio_processor"] =  input_data.AudioProcessor(
@@ -239,9 +237,9 @@ class ecg_lsnn:
         return _get_flags(default_dict, help())
 
     @staticmethod
-    def checker(sid, table, cache_dir, model):
+    def checker(sid, table, cache_dir):
         try:
-            data = ecg_lsnn.loader(sid, table, cache_dir, model)
+            data = ecg_lsnn.loader(sid, table, cache_dir)
         except Exception as er:
             print(er)
             return False
@@ -256,15 +254,13 @@ class ecg_lsnn:
 
     
     @staticmethod
-    def loader(sid, table, cache_dir, model):
+    def loader(sid, table, cache_dir):
         data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
-        for key in ecg_lsnn.default_hyperparameters().keys():
-            data[key] = model[key]
         
         base_path = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
         rnn, theta = RNN.load(model_path)
-        data["rnn"] = rnn
+        data["network"] = rnn
         data["theta"] = theta
         data["ecg_lsnn_session_id"] = sid
         #data["ecg_data_loader"] = ECGDataLoader(path=model["data_dir"], batch_size=data["batch_size"])
@@ -305,9 +301,9 @@ class cnn:
         return _get_flags(default_dict, help())
 
     @staticmethod
-    def checker(sid, table, cache_dir, model):
+    def checker(sid, table, cache_dir):
         try:
-            data = cnn.loader(sid, table, cache_dir, model)
+            data = cnn.loader(sid, table, cache_dir)
         except Exception as er:
             print("error", er)
             return False
@@ -322,17 +318,14 @@ class cnn:
         return len(ta) >= 50
 
     @staticmethod
-    def loader(sid, table, cache_dir, model):
-        print(model)
+    def loader(sid, table, cache_dir):
         data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
-        for key in cnn.default_hyperparameters().keys():
-            data[key] = model[key]
         
         base_path = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
         cnnmodel, theta = CNN.load(model_path)
         data["theta"] = theta
-        data["cnn"] = cnnmodel
+        data["network"] = cnnmodel
         data["cnn_session_id"] = sid
         #data["cnn_data_loader"] = CNNDataLoader(data["batch_size"],model["data_dir"])
         return data

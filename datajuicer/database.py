@@ -2,19 +2,20 @@ import sqlite3
 import datajuicer.in_out as in_out
 
 def _format_value(val):
-        if type(val) == int:
-            return str(val)
-        if type(val) == float:
-            return str(val)
-        return "\"" + str(val) + "\""
+    if type(val) == int:
+        return str(val)
+    if type(val) == float:
+        return str(val)
+    return "\"" + str(val) + "\""
 
-
+def _format_key(key):
+    return f"\"{key}\""
 def select(db_file, column, table, where, order_by):
     
     try:
         conn = sqlite3.connect(db_file)
         command = f"SELECT {column} FROM {table} WHERE "
-        command += " AND ".join([f"{key}={_format_value(value)}" for key, value in where.items()])
+        command += " AND ".join([f"{_format_key(key)}={_format_value(value)}" for key, value in where.items()])
         command += f" ORDER BY {order_by} DESC;"
         print(command)
         cur = conn.cursor()
@@ -39,17 +40,18 @@ def insert(db_file, table, row, primary_key):
         else:
             definition = "TEXT"
         if key == primary_key:
-            fieldset.append(f"'{key}' {definition} PRIMARY KEY")
+            fieldset.append(f"{_format_key(key)} {definition} PRIMARY KEY")
         else:
-            fieldset.append(f"'{key}' {definition}")
+            fieldset.append(f"{_format_key(key)} {definition}")
 
     create_table = "CREATE TABLE IF NOT EXISTS {0} ({1});".format(table, ", ".join(fieldset))
 
     insert = f"INSERT INTO {table} ("
-    insert += ", ".join(row.keys())
+    insert += ", ".join([_format_key(key) for key in row])
     insert += ") VALUES("
     insert += ", ".join([_format_value(value) for value in row.values()])
     insert += ");"
+
 
     in_out.make_dir(db_file)
     try:
