@@ -68,10 +68,11 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
             y = validation_ground_truth.numpy()
             return X, y
         elif FLAGS.architecture=="ecg_lsnn":
-            return ecg_processor.get_batch("test")
+            X,y = ecg_processor.get_batch("test")
+            return onp.array(X), onp.array(y)
         elif FLAGS.architecture=="cnn":
-            return cnn_data_loader.get_batch("test")
-
+            X,y= cnn_data_loader.get_batch("test")
+            return onp.array(X), onp.array(y)
     total_accuracy = 0.0
     if(ATTACK):
         attacked_total_accuracy = 0.0
@@ -94,6 +95,8 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
         return onp.float64(total_accuracy)
 
 def get_batched_accuracy(y, logits):
+    y =onp.array(y)
+    logits = onp.array(logits)
     if(y.ndim > 1):
         y = onp.argmax(y, axis=1)
     predicted_labels = jnp.argmax(logits, axis=1)
