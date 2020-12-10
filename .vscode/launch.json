@@ -6,7 +6,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-exp=mismatch_experiment", "-mode=direct", "-n_threads=1"],
+            "args": ["-exp=mismatch_experiment"],
             "console": "integratedTerminal"
         },
         {

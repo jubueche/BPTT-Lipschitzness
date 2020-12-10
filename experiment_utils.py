@@ -25,6 +25,7 @@ from CNN.import_data import CNNDataLoader
 from copy import copy
 from loss_jax import attack_network
 from datajuicer import cachable
+from architectures import speech_lsnn, ecg_lsnn, cnn
 
 @cachable(dependencies = ["model:{architecture}_session_id", "mm_level", "model:architecture"])
 def get_mismatch_list(n_iterations, model, mm_level, data_dir):
@@ -78,10 +79,7 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
         attacked_total_accuracy = 0.0
     for i in range(0, set_size, FLAGS.batch_size):
         X, y = get_X_y(i)
-        logits = FLAGS.network.call(X, jnp.ones(shape=(1,FLAGS.network.units)), **theta_star)
-        if FLAGS.architecture in ["speech_lsnn", "ecg_lsnn"]:
-            logits, _ = logits
-        
+        logits, _ = FLAGS.network.call(X, jnp.ones(shape=(1,FLAGS.network.units)), **theta_star)
         if(ATTACK):
             _, logits_theta_star = attack_network(X, theta_star, logits, network, FLAGS, FLAGS.network._rng_key)
             FLAGS.network._rng_key, _ = jax_random.split(rnn._rng_key)
@@ -148,7 +146,8 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
     return axes
 
 def plot_mm_distributions(axes, data):
-    for i,(norm,rob) in enumerate(data):
+    test_acc_normal, test_acc_rob = data[0]
+    for i,(norm,rob) in enumerate(data[1:]):
         x = [0]*(len(norm)+len(rob))
         y = onp.hstack((norm,rob))
         hue = onp.hstack(([0] * len(norm), [1] * len(rob)))
@@ -163,8 +162,8 @@ def plot_mm_distributions(axes, data):
         axes[i].get_legend().remove()
 
 def get_data(id):
-    d = standard_defaults()
     if(id == "speech"):
+        d = speech_lsnn.default_hyperparameters()
         d["desired_samples"] = int(d["sample_rate"] * d["clip_duration_ms"] / 1000)
         d["window_size_samples"] = int(d["sample_rate"] * d["window_size_ms"] / 1000)
         d["length_minus_window"] = (d["desired_samples"] - d["window_size_samples"])
@@ -189,10 +188,12 @@ def get_data(id):
         X = X[[onp.where(y==2)[0][0],onp.where(y==3)[0][0]],:,:].transpose((0,2,1)) # - Yes and no
         y = [2,3]
     elif(id == "ecg"):
+        d = ecg_lsnn.default_hyperparameters()
         ecg_processor = ECGDataLoader(path="ECG/ecg_recordings", batch_size=100)
         _,y,X = ecg_processor.get_sequence(N_per_class=10, path="ECG/ecg_recordings")
         y = onp.array(y)
     elif(id == "cnn"):
+        d = cnn.default_hyperparameters()
         data_loader = CNNDataLoader(100)
         classes = {0 : "Shirt", 1 : "Trouser", 4: "Jacket", 5: "Shoe"}
         _, X, y = data_loader.get_n_images(5, list(classes.keys()))
