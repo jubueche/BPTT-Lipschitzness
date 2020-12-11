@@ -102,5 +102,6 @@ scatter_mm(ax22, weights_fast, color="#29a624", label=r"$W_\textnormal{NMDA}$")
 ax22.legend(frameon=False, loc=0, fontsize=7)
 ax22.text(x = 5, y = max(ax22.get_ylim()), s=r"$\textbf{d}$")
 
-plt.savefig(os.path.join(bp,"../Resources/Figures/figure_mismatch.png"))
+plt.savefig(os.path.join(bp,"../Resources/Figures/figure_mismatch.pdf"), dpi=1200)
+plt.savefig(os.path.join(bp,"../Resources/Figures/figure_mismatch.png"), dpi=1200)
 plt.show()

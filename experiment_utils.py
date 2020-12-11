@@ -34,12 +34,29 @@ def get_mismatch_list(n_iterations, model, mm_level, data_dir):
         l.append(get_mismatch_data(model,mm_level, data_dir, False))
     return l
 
+@cachable(dependencies = ["model:{architecture}_session_id", "n_iterations", "surface_dist", "model:architecture"])
+def get_surface_mean(n_iterations, model, surface_dist, data_dir):
+    l = []
+    for _ in range(n_iterations):
+        l.append(get_surface_data(model,surface_dist, data_dir, False))
+    return onp.mean(l)
+
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture"])
+def get_attacked_test_acc(model, data_dir):
+    return get_test_acc(model, model["theta"], data_dir, ATTACK=True)
 
 def get_mismatch_data(model, mm_level, data_dir, ATTACK=False):
     theta_star = {}
     theta = model["theta"]
     for key in theta:
         theta_star[key] = theta[key] * (1 + mm_level * onp.random.normal(loc=0.0, scale=1.0, size=theta[key].shape))
+    return get_test_acc(model, theta_star, data_dir, ATTACK)
+
+def get_surface_data(model, surface_dist, data_dir, ATTACK=False):
+    theta_star = {}
+    theta = model["theta"]
+    for key in theta:
+        theta_star[key] = theta[key] + surface_dist * onp.sign(onp.random.uniform(low=-1, high=1, size=theta[key].shape))
     return get_test_acc(model, theta_star, data_dir, ATTACK)
 
 def get_test_acc(model, theta_star, data_dir, ATTACK=False):
@@ -81,8 +98,8 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
         X, y = get_X_y(i)
         logits, _ = FLAGS.network.call(X, jnp.ones(shape=(1,FLAGS.network.units)), **theta_star)
         if(ATTACK):
-            _, logits_theta_star = attack_network(X, theta_star, logits, network, FLAGS, FLAGS.network._rng_key)
-            FLAGS.network._rng_key, _ = jax_random.split(rnn._rng_key)
+            _, logits_theta_star = attack_network(X, theta_star, logits, FLAGS.network, FLAGS, FLAGS.network._rng_key)
+            FLAGS.network._rng_key, _ = jax_random.split(FLAGS.network._rng_key)
             attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
             attacked_total_accuracy += (attacked_batched_validation_acc * FLAGS.batch_size) / set_size
         batched_test_acc = get_batched_accuracy(y, logits)
@@ -110,6 +127,74 @@ def remove_all_splines(ax):
         a.spines['right'].set_visible(False)
         a.spines['top'].set_visible(False)
         a.spines['bottom'].set_visible(False)
+    
+def remove_top_right_splines(ax):
+    if(not isinstance(ax, list)):
+        ax = [ax]
+    for a in ax:
+        a.spines['right'].set_visible(False)
+        a.spines['top'].set_visible(False)
+    
+def remove_all_ticks(ax):
+    if(not isinstance(ax, list)):
+        ax = [ax]
+    for a in ax:
+        a.set_yticks([])
+        a.set_xticks([])
+
+def get_axes_constant_attack_figure(fig, gridspec,betas):
+    top_axes = [fig.add_subplot(gridspec[0,i]) for i in range(3)]
+    remove_all_splines(top_axes[1:])
+    remove_all_ticks(top_axes[1:])
+    twin_axes = plt.twinx(top_axes[0])
+    remove_all_ticks(twin_axes)
+    remove_all_splines(twin_axes)
+    twin_axes.set_ylabel(str(betas[0])+r"[$\beta$]")
+    top_axes[1].yaxis.set_label_position("right")
+    top_axes[2].yaxis.set_label_position("right")
+    top_axes[0].set_title(r"$\textbf{a}$", x=0, fontdict={'fontsize':15})
+    top_axes[0].spines['right'].set_visible(False)
+    top_axes[0].spines['top'].set_visible(False)
+    top_axes[0].set_ylabel("Training accuracy")
+    bottom_axes = fig.add_subplot(gridspec[1,:])
+    bottom_axes.set_title(r"$\textbf{b}$", x=0, fontdict={'fontsize':15})
+    bottom_axes.spines['right'].set_visible(False)
+    bottom_axes.spines['top'].set_visible(False)
+    bottom_axes.set_xticks(onp.linspace(0,len(betas)-1, len(betas)))
+    bottom_axes.set_xticklabels(betas)
+    bottom_axes.set_ylim([0.2,1.0])
+    bottom_axes.set_xlim([-0.1,3.1])
+    bottom_axes.set_xlabel(r"$\beta$")
+    bottom_axes.set_ylabel("Test accuracy")
+    return top_axes,bottom_axes
+
+def get_axes_method_figure(fig, gridspec):
+    axes_top = fig.add_subplot(gridspec[0,:])
+    remove_all_splines(axes_top)
+    remove_all_ticks(axes_top)
+    axes_top.set_title(r"\textbf{a}", x=0, fontdict={"fontsize":13})
+    
+    axes_middle = [fig.add_subplot(gridspec[1,:3]),fig.add_subplot(gridspec[1,3:])]
+    remove_top_right_splines(axes_middle)
+    axes_middle[-1].spines['bottom'].set_visible(False)
+    axes_middle[-1].set_xticks([])
+    axes_middle[0].set_title(r"\textbf{b}", x=0, fontdict={"fontsize":13})
+    axes_middle[0].set_ylabel(r"$\mathcal{L}_\textnormal{KL}$")
+
+    axes_bottom = [fig.add_subplot(gridspec[2,i*2:(i+1)*2]) for i in range(3)]
+    axes_bottom[1].set_xticks([])
+    axes_bottom[-1].set_xticks([])
+    remove_top_right_splines(axes_bottom[1:])
+    axes_bottom[1].spines['bottom'].set_visible(False)
+    axes_bottom[-1].spines['bottom'].set_visible(False)
+    remove_top_right_splines(axes_bottom[0])
+    axes_bottom[0].set_title(r"\textbf{c}", x=0, fontdict={"fontsize":13})
+    axes_bottom[0].set_ylabel(r"$\mathcal{L}_\textnormal{KL}$")
+    axes_bottom[0].set_xticks([0,10])
+    axes_bottom[0].set_xticklabels(["0",r"$N_\textnormal{attack}$"])
+    axes_bottom[1].ticklabel_format(style="sci", scilimits=(0,0))
+    axes_bottom[-1].ticklabel_format(style="sci", scilimits=(0,0))
+    return axes_top,axes_middle,axes_bottom
 
 def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm_ylims):
     # - Get the top axes

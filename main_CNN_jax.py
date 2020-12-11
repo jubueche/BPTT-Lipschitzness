@@ -178,7 +178,7 @@ if __name__ == '__main__':
             if(len(llot) > 0):
                 mean_llot = onp.mean(onp.asarray(llot), axis=0)
             else:
-                mean_llot = 0.0
+                mean_llot = [0.0]
             log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
 
             # - Save the model
