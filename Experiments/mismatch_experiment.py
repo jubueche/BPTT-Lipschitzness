@@ -1,6 +1,7 @@
 from architectures import ecg_lsnn, speech_lsnn, cnn
 from datajuicer import dj, split, configure, query, djm
 from experiment_utils import *
+from matplotlib.lines import Line2D
 
 class mismatch_experiment:
     
@@ -95,4 +96,5 @@ class mismatch_experiment:
         axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
 
         plt.savefig("Resources/Figures/figure_main.png", dpi=1200)
+        plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
         plt.show()

@@ -232,6 +232,8 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
 
 def plot_mm_distributions(axes, data):
     test_acc_normal, test_acc_rob = data[0]
+    test_acc_normal = onp.mean(test_acc_normal)
+    test_acc_rob = onp.mean(test_acc_rob)
     for i,(norm,rob) in enumerate(data[1:]):
         x = [0]*(len(norm)+len(rob))
         y = onp.hstack((norm,rob))
@@ -245,6 +247,9 @@ def plot_mm_distributions(axes, data):
             scale = "width", palette = ["#4c84e6","#6ea3ff"], saturation=1.0, linewidth=1.0)
         axes[i].set_xticks([])
         axes[i].get_legend().remove()
+        # - Plot horizontal lines
+        axes[i].axhline(y=onp.mean(norm)/test_acc_normal, color="r")
+        axes[i].axhline(y=onp.mean(rob)/test_acc_rob, color="g")
 
 def get_data(id):
     if(id == "speech"):

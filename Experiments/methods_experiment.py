@@ -63,6 +63,6 @@ class methods_experiment:
         axes_middle[0].set_xticklabels(["t=0","t=T"])
         axes_middle[1].ticklabel_format(style="sci", scilimits=(0,0))
 
-        plt.savefig("Resources/Figures/methods_figure.pdf", dpi=1200)
         plt.savefig("Resources/Figures/methods_figure.png", dpi=1200)
+        plt.savefig("Resources/Figures/methods_figure.pdf", dpi=1200)
         plt.show()
