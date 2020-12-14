@@ -34,7 +34,7 @@ def help():
 
 launch_settings = {
     "direct":"python {code_file} {args}",
-    "bsub":"bsub -o ../logs/{{architecture}_session_id} -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
+    "bsub":"bsub -o ../logs/{session_id} -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
 }
 
 def mk_runner(architecture, env_vars):
@@ -51,7 +51,7 @@ def mk_runner(architecture, env_vars):
         except:
             mode = "direct"
         model["mode"] = mode
-        model["args"] = " ".join([f"-{key}={get(model, key)}" for key in list(architecture.default_hyperparameters().keys())+env_vars])
+        model["args"] = " ".join([f"-{key}={get(model, key)}" for key in list(architecture.default_hyperparameters().keys())+env_vars + ["session_id"]])
         command = format_template(model,launch_settings[mode])
         os.system(command)
         return None

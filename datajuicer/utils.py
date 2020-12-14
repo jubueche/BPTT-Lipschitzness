@@ -60,7 +60,7 @@ def dj(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir
                     raise Exception("No Sessions Found")
                 random.seed()
                 sid = random.randint(1000000000, 9999999999)
-                data[func.table_name+"_session_id"] = sid
+                data["session_id"] = sid
                 row = copy.copy(dependencies)
                 if cache_mode == "normal":
                     row["session_id"] = sid
