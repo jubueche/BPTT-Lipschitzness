@@ -232,6 +232,7 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
 
 def plot_mm_distributions(axes, data):
     test_acc_normal, test_acc_rob = data[0]
+    print("Normal test acc.", onp.mean(test_acc_normal),"Robust test acc.", onp.mean(test_acc_rob))
     test_acc_normal = onp.mean(test_acc_normal)
     test_acc_rob = onp.mean(test_acc_rob)
     for i,(norm,rob) in enumerate(data[1:]):
