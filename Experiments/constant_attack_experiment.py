@@ -78,3 +78,15 @@ class constant_attack_experiment:
         plt.savefig("Resources/Figures/constant_attack_figure.png", dpi=1200)
         plt.show()
         
+        def print_experiment_info(data, betas):
+            print("%s \t\t %s \t %s \t %s" % ("$\\beta$","Test acc. attack","Test acc. surface (0.01)","Test acc. surface (0.05)"))
+            for idx,beta in enumerate(betas):
+                am = onp.mean(data[0][idx])
+                astd = onp.std(data[0][idx])
+                ssm = onp.mean(data[1][idx])
+                sss = onp.std(data[1][idx])
+                slm = onp.mean(data[2][idx])
+                sls = onp.mean(data[2][idx])
+                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f" % (beta,am,astd,ssm,sss,slm,sls))
+
+        print_experiment_info((100*onp.array(attacked_test_acc_data),100*onp.array(surface_mean_short_data),100*onp.array(surface_mean_long_data)), betas)

@@ -1,6 +1,8 @@
 from architectures import ecg_lsnn, speech_lsnn, cnn
 from datajuicer import dj, split, configure, query, djm
 from experiment_utils import *
+from matplotlib.lines import Line2D
+from scipy import stats
 
 class mismatch_experiment:
     
@@ -73,14 +75,14 @@ class mismatch_experiment:
                     res[i].extend(list(arr[seed,i]))
             return res
 
-        def get_data_acc(architecture):
-            robust_data = onp.array(query(grid, "mismatch_list", where={"beta_robustness":1.0, "architecture":architecture})).reshape((len(seeds),-1))
+        def get_data_acc(architecture, beta):
+            robust_data = onp.array(query(grid, "mismatch_list", where={"beta_robustness":beta, "architecture":architecture})).reshape((len(seeds),-1))
             vanilla_data = onp.array(query(grid, "mismatch_list", where={"beta_robustness":0.0, "architecture":architecture})).reshape((len(seeds),-1))
             return list(zip(unravel(vanilla_data), unravel(robust_data)))
 
-        plot_mm_distributions(axes_speech["btm"], data=get_data_acc("speech_lsnn"))
-        plot_mm_distributions(axes_ecg["btm"], data=get_data_acc("ecg_lsnn"))
-        plot_mm_distributions(axes_cnn["btm"], data=get_data_acc("cnn"))
+        plot_mm_distributions(axes_speech["btm"], data=get_data_acc("speech_lsnn", 1.0))
+        plot_mm_distributions(axes_ecg["btm"], data=get_data_acc("ecg_lsnn", 1.0))
+        plot_mm_distributions(axes_cnn["btm"], data=get_data_acc("cnn", 1.0))
 
         # - Get the sample data for speech
         X_speech, y_speech = get_data("speech")
@@ -95,4 +97,29 @@ class mismatch_experiment:
         axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
 
         plt.savefig("Resources/Figures/figure_main.png", dpi=1200)
+        plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
         plt.show()
+
+        def print_experiment_info(data, mismatch_levels, beta):
+            print("%s \t\t %s \t %s \t %s \t %s" % ("Mismatch level","Test acc. ($\\beta=0$)",f"Test acc. ($\\beta={beta}$)","$\Delta$ Acc.","P-Value"))
+            for idx,mm in enumerate(mismatch_levels):
+                dn = 100*onp.array(data[idx][0])
+                dr = 100*onp.array(data[idx][1])
+                mn = onp.mean(dn)
+                mr = onp.mean(dr)
+                sn = onp.std(dn)
+                sr = onp.std(dr)
+                d = mr-mn
+                p = stats.mannwhitneyu(data[idx][0], data[idx][1])[1]
+                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f \t\t %.3E" % (mm,mn,sn,mr,sr,d,p))
+
+        beta_speech = onp.unique(query(grid, "beta_robustness", where={"architecture": "speech_lsnn"}))[1]
+        print_experiment_info(data_speech_lsnn, speech_mm_levels, beta_speech)
+
+        beta_ecg = onp.unique(query(grid, "beta_robustness", where={"architecture": "ecg_lsnn"}))[1]
+        print("---------------------------")
+        print_experiment_info(data_ecg_lsnn, ecg_mm_levels, beta_ecg)
+
+        beta_cnn = onp.unique(query(grid, "beta_robustness", where={"architecture": "cnn"}))[1]
+        print("---------------------------")
+        print_experiment_info(data_cnn, cnn_mm_levels, beta_cnn)
