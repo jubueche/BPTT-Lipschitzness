@@ -1,0 +1,75 @@
+# Adversarial Training yields Robustness to Component Mismatch
+## Deep Learning ETH Zürich 2020
+This repository contains the code to reproduce the experiments in our report.
+
+## Contact
+Julian Büchel, Fynn Faber and Maxime Fabre. \
+E-Mail: {jubueche,faberf,mfabre}@ethz.ch
+
+## Requirements
+```
+conda create -n MYENV python=3.7
+conda activate MYENV
+pip install jax==0.1.75 jaxlib==0.1.52 wfdb
+pip install tensorflow tensorflow-probability
+pip install python_speech_features
+pip install ujson
+pip install tensorflow-datasets
+pip install seaborn
+```
+## Data
+We use three datasets: ECG anomaly dataset, Fashion-MNIST and the Speech Command dataset. The Fashion-MNIST and the Speech Dataset will be downloaded automatically. You can download the ECG dataset from this link: \
+https://drive.google.com/drive/folders/1idNpubBEn36djYST3IIDTQoIp3Gjqd2v?usp=sharing \
+After you have downloaded ```ecg_recordings.zip```, unzip it in the ECG subdirectory in our repository. \
+If you want to run experiments on the Leonhard Cluster, you should move the datasets (Fashion-MNIST,ecg_recordings and Speech Command) to your ```$SCRATCH``` directory. \
+For this you can use the ```scp``` command. Your ```$SCRATCH``` folder should look like this: \
+```ecg_recordings fashion_mnist speech_dataset``` \
+But you can change the data directory in when you define your experiments.
+
+## Recreating the Figures
+After having setup the environment, you can create the Figures that are in the paper. For the main figures, you can simply run
+```
+python make_figures.py
+```
+This command will import any experiment that is present in the ```Experiments``` folder and execute the ```visualize()``` method. This is part of our own experiment manager that we developed for this project called ```datajuicer``` (see more info further down). \
+You should see Figures like this:
+
+<center>
+<img src=Resources/Figures/figure_main.png width="500">
+</center>
+
+<center>
+<img src=Resources/Figures/constant_attack_figure.png width="500">
+</center>
+
+<center>
+<img src=Resources/Figures/methods_figure.png width="500">
+</center>
+(The blank in the last figure is intentional. It is a placeholder for the flowchart of the algorithm).
+
+To generate the figure for the mismatch recordings, navigate to ```FigureMismatch/``` and execute ```python plot.py``` which should give you this figure:
+<center>
+<img src=Resources/Figures/figure_mismatch.png width="500">
+</center>
+
+## Retraining Models
+For each network that we used, we trained 10 copies with different random initialisations for statistical significance. To retrain all models, you can rename the ```Sessions``` folder (rather than deleting it) and simply execute
+```
+python train.py
+```
+If you want to train the models on Leonhard (and assuming that you are on Leonhard), execute
+```
+python train.py -mode=bsub
+```
+Note: On Leonhard, you need to install the pip packages with the ```--user``` option (e.g. ```pip install jax==0.1.75```).
+
+## Training individual models
+If you don't want to run the models via defining experiments, you can simply execute the individual scripts. The main scripts are:
+- ```main_speech_lsnn.py```
+- ```main_ecg_lsnn.py```
+- ```main_CNN_jax.py```
+
+You can execute ```python main_CNN_jax.py --help``` to view the command line arguments. You can also just run it using ```python main_CNN_jax.py``` with the default parameters. The default parameters for each architecture are defined in ```architectures.py```. \
+Note: This will not save an instance in the database, but it will save the model and the training logs under a specific session id (also the primary key for the database). This way you can use your model. More about how to do this with datajuicer in the following section. You can see the session id in the command line output. When the model is saved, it will say something like: Saved model under ```XXXXXX_model.json```.
+
+## Datajuicer
