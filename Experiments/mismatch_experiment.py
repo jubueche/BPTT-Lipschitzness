@@ -39,7 +39,7 @@ class mismatch_experiment:
         speech_mm_levels = [0.0,0.5,0.7,0.9,1.1,1.5]
         ecg_mm_levels = [0.0, 0.2,0.3,0.5,0.7,0.9]
         cnn_mm_levels = [0.0, 0.5,0.7,0.9,1.1,1.5]
-        seeds = [0,1,3,4,5,7]
+        seeds = [0,1,2,3,4,5,6,7,8,9]
 
         # - Per general column
         N_cols = 10 # - 10
@@ -54,6 +54,7 @@ class mismatch_experiment:
         axes_cnn = get_axes_main_figure(fig, gridspecs[2], N_cols, N_rows, "cnn", mismatch_levels=cnn_mm_levels[1:], btm_ylims=[0.0,1.0])
 
         grid = [model for model in mismatch_experiment.train_grid() if model["seed"] in seeds] 
+
         grid = djm(grid, "train", run_mode="load")("{*}")
 
         grid = split(grid, "mm_level", speech_mm_levels, where={"architecture":"speech_lsnn"})
@@ -80,9 +81,13 @@ class mismatch_experiment:
             vanilla_data = onp.array(query(grid, "mismatch_list", where={"beta_robustness":0.0, "architecture":architecture})).reshape((len(seeds),-1))
             return list(zip(unravel(vanilla_data), unravel(robust_data)))
 
-        plot_mm_distributions(axes_speech["btm"], data=get_data_acc("speech_lsnn", 1.0))
-        plot_mm_distributions(axes_ecg["btm"], data=get_data_acc("ecg_lsnn", 1.0))
-        plot_mm_distributions(axes_cnn["btm"], data=get_data_acc("cnn", 1.0))
+        data_speech_lsnn = get_data_acc("speech_lsnn", 1.0)
+        data_ecg_lsnn = get_data_acc("ecg_lsnn", 1.0)
+        data_cnn = get_data_acc("cnn", 1.0)
+
+        plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn)
+        plot_mm_distributions(axes_ecg["btm"], data=data_ecg_lsnn)
+        plot_mm_distributions(axes_cnn["btm"], data=data_cnn)
 
         # - Get the sample data for speech
         X_speech, y_speech = get_data("speech")

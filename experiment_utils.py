@@ -30,8 +30,9 @@ from architectures import speech_lsnn, ecg_lsnn, cnn
 @cachable(dependencies = ["model:{architecture}_session_id", "mm_level", "model:architecture"])
 def get_mismatch_list(n_iterations, model, mm_level, data_dir):
     l = []
-    for _ in range(n_iterations):
+    for i in range(n_iterations):
         l.append(get_mismatch_data(model,mm_level, data_dir, False))
+        print(i,"/",n_iterations)
     return l
 
 @cachable(dependencies = ["model:{architecture}_session_id", "n_iterations", "surface_dist", "model:architecture"])

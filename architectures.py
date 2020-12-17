@@ -241,7 +241,7 @@ class ecg_lsnn:
         try:
             data = ecg_lsnn.loader(sid, table, cache_dir)
         except Exception as er:
-            print(er)
+            print("Checker error",er)
             return False
         if "training_accuracies" in data:
             ta = data["training_accuracies"]
