@@ -24,7 +24,7 @@ After you have downloaded ```ecg_recordings.zip```, unzip it in the ECG subdirec
 If you want to run experiments on the Leonhard Cluster, you should move the datasets (Fashion-MNIST,ecg_recordings and Speech Command) to your ```$SCRATCH``` directory. \
 For this you can use the ```scp``` command. Your ```$SCRATCH``` folder should look like this: \
 ```ecg_recordings fashion_mnist speech_dataset``` \
-But you can change the data directory in when you define your experiments.
+But you can change the data directory when you define your experiments.
 
 ## Recreating the Figures
 After having setup the environment, you can create the Figures that are in the paper. For the main figures, you can simply run
@@ -61,7 +61,7 @@ If you want to train the models on Leonhard (and assuming that you are on Leonha
 ```
 python train.py -mode=bsub
 ```
-Note: On Leonhard, you need to install the pip packages with the ```--user``` option (e.g. ```pip install jax==0.1.75```).
+Note: On Leonhard, you need to install the pip packages with the ```--user``` option (e.g. ```pip install --user jax==0.1.75```).
 
 ## Training individual models
 If you don't want to run the models via defining experiments, you can simply execute the individual scripts. The main scripts are:
