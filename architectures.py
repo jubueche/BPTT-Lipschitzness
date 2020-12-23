@@ -145,6 +145,7 @@ class speech_lsnn:
         d["attack_size_mismatch"] = 2.0
         d["initial_std_mismatch"]=0.001
         d["n_epochs"] = "64,16"
+        d["optimizer"] = "adam"
         return d
     
     @staticmethod
