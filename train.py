@@ -1,6 +1,6 @@
 import argparse
 import importlib
-from datajuicer import dj, configure, make_unique
+from datajuicer import run, configure, make_unique
 import os.path
 import os
 
@@ -34,4 +34,4 @@ if flags.force:
     run_mode = "force"
 else:
     run_mode = "normal"
-dj(models, "train", n_threads=flags.n_threads, run_mode=run_mode)("{*}")
+run(models, "train", n_threads=flags.n_threads, run_mode=run_mode)("{*}")

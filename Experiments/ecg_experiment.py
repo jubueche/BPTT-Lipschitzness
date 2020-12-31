@@ -1,5 +1,5 @@
 from architectures import ecg_lsnn, speech_lsnn, cnn
-from datajuicer import dj, split, configure, query, djm
+from datajuicer import run, split, configure, query, run
 from experiment_utils import *
 
 class ecg_experiment:

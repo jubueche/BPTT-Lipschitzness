@@ -3,6 +3,7 @@ import os.path
 
 def make_dir(path):
     directory = os.path.dirname(path)
+    print(path, directory)
     if not os.path.isdir(directory):
         os.makedirs(directory)
 

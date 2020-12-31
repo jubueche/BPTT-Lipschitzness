@@ -31,6 +31,19 @@ def replace(string, func, open_b='{', close_b='}'):
             result+=func(part)
     return result
 
+def in_brackets(string,open_b="{", close_b="}"):
+    if string[0] != open_b or string[-1]!= close_b:
+        return False
+    depth=0
+    for char in string[1:-1]:
+        if char == open_b:
+            depth+=1
+        if char == close_b:
+            depth-=1
+        if depth<0:
+            return False
+    return True
+
 def get_arg_list(string):
     def p(string):
         end = None

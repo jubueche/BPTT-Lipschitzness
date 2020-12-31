@@ -12,7 +12,7 @@ import time
 
 #cache_mode in normal, no_save
 
-def dj(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir="Sessions/"):
+def run(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir="Sessions/", store_key=None):
     def _runner(grid, *args, **kwargs):
         def _run(data, func, args, kwargs):
             if type(func) == str:
@@ -67,15 +67,20 @@ def dj(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir
                     row["start_time"] = int(time.time()*1000)
                     database.insert(db_file = os.path.join(cache_dir, "sessions.db"), table = func.table_name, row = row, primary_key = "session_id")
                 ret = func(*args,**kwargs)
-                if cache_mode == "no_save" or func.saver is None:
-                    return ret
-                
-                func.saver(sid,func.table_name,cache_dir,ret)
-                
+                if cache_mode != "no_save" and not func.saver is None:
+                    func.saver(sid,func.table_name,cache_dir,ret)
+            
+            elif not func.loader is None:
+                ret = func.loader(sid, func.table_name, cache_dir)
+            
+            if store_key is None:
                 return ret
-            
-            if not func.loader is None: return func.loader(sid, func.table_name, cache_dir)
-            
+            elif store_key == "*":
+                data.update(ret)
+                return data
+            else:
+                data[store_key]=ret
+                return data
 
         if type(grid) is dict:
             grid = [grid]
@@ -89,21 +94,6 @@ def dj(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir
 
         return [f.result() for f in futures] 
     return lambda *args, **kwargs: _runner(grid, *args, **kwargs)
-
-def djm(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir="Sessions/", store_key=None):
-    runner = dj(grid, func, n_threads, run_mode,cache_mode,cache_dir)
-    def _run_and_merge(*args, **kwargs):
-        ret = runner(*args, **kwargs)
-        if store_key is None:
-            merged_grid = []
-            for data, retdata in zip(grid,ret):
-                copied = copy.copy(data)
-                copied.update(retdata)
-                merged_grid.append(copied)
-            return merged_grid
-        else:
-            return [{**data, **{store_key:retdata}} for data, retdata in zip(grid,ret)]
-    return _run_and_merge
         
 
 def cachable(dependencies=None, saver=in_out.easy_saver, loader=in_out.easy_loader, checker=in_out.easy_checker, table_name=None):
@@ -121,7 +111,7 @@ def cachable(dependencies=None, saver=in_out.easy_saver, loader=in_out.easy_load
     return lambda func: decorator(func, dependencies, saver, loader, checker, table_name)
 
 def format_template(data, template):
-        if template[0] == "{" and template[-1] == "}":
+        if parser.in_brackets(template):
             return get(data, template[1:-1])
         else:
             return parser.replace(template, lambda k: str(get(data, k)))

@@ -1,5 +1,5 @@
 from architectures import speech_lsnn
-from datajuicer import dj, split, configure, query, djm
+from datajuicer import run, split, configure, query
 from experiment_utils import *
 import numpy as onp
 
@@ -20,15 +20,15 @@ class constant_attack_experiment:
     def visualize():
 
         grid = [model for model in constant_attack_experiment.train_grid() if model["seed"] in [0,1,2,3,4,5,6,7,8,9]]
-        grid = djm(grid, "train", run_mode="load")("{*}")
+        grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"surface_dist_short": 0.01})
         grid = configure(grid, {"surface_dist_long": 0.05})
         grid = configure(grid, {"n_iterations": 2})
         grid = configure(grid, {"mode":"direct"})
 
-        grid = djm(grid, get_attacked_test_acc, n_threads=1, store_key="attacked_test_acc")("{*}", "{data_dir}")
-        grid = djm(grid, get_surface_mean, n_threads=1, store_key="surface_mean_short")("{n_iterations}", "{*}", "{surface_dist_short}", "{data_dir}")
-        grid = djm(grid, get_surface_mean, n_threads=1, store_key="surface_mean_long")("{n_iterations}", "{*}", "{surface_dist_long}", "{data_dir}")
+        grid = run(grid, get_attacked_test_acc, n_threads=1, store_key="attacked_test_acc")("{*}", "{data_dir}")
+        grid = run(grid, get_surface_mean, n_threads=1, store_key="surface_mean_short")("{n_iterations}", "{*}", "{surface_dist_short}", "{data_dir}")
+        grid = run(grid, get_surface_mean, n_threads=1, store_key="surface_mean_long")("{n_iterations}", "{*}", "{surface_dist_long}", "{data_dir}")
 
         # - Get the data
         betas = [0.0, 0.1, 1.0, 10.0]

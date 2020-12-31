@@ -1,5 +1,5 @@
 from architectures import ecg_lsnn, speech_lsnn, cnn
-from datajuicer import dj, split, configure, query, djm
+from datajuicer import run, split, configure, query, run
 from experiment_utils import *
 from matplotlib.lines import Line2D
 from scipy import stats
@@ -55,7 +55,7 @@ class mismatch_experiment:
 
         grid = [model for model in mismatch_experiment.train_grid() if model["seed"] in seeds] 
 
-        grid = djm(grid, "train", run_mode="load")("{*}")
+        grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
 
         grid = split(grid, "mm_level", speech_mm_levels, where={"architecture":"speech_lsnn"})
         grid = split(grid, "mm_level", ecg_mm_levels , where={"architecture":"ecg_lsnn"})
@@ -66,7 +66,7 @@ class mismatch_experiment:
 
         grid = configure(grid, {"mode":"direct"})
         
-        grid = djm(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
+        grid = run(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
         def unravel(arr):
             mm_lvls = arr.shape[1]

@@ -73,3 +73,97 @@ You can execute ```python main_CNN_jax.py --help``` to view the command line arg
 Note: This will not save an instance in the database, but it will save the model and the training logs under a specific session id (also the primary key for the database). This way you can use your model. More about how to do this with datajuicer in the following section. You can see the session id in the command line output. When the model is saved, it will say something like: Saved model under ```XXXXXX_model.json```.
 
 ## Datajuicer
+For running the experiments we use a custom module called datajuicer which takes care of caching intermediate results and figuring out which data is missing (needs to be calculated) vs which data is already present. Datajuicer manipulates lists of dictionaries which are referred to as grids. The run method takes a grid and a function and returns a decorated function with exactly the same signature except that the inputs are formatted according to the data in the grid. Here is an example where we decorate the inbuilt print function.
+
+```
+import datajuicer as dj
+
+grid = [{"text":"hi", "number":1}, {"text":"hello", "number":2}]
+
+dj.run(grid,print)("{text} {number}")
+```
+
+This outputs:
+```
+hi 1
+hello 2
+```
+
+and returns (because print returns None):
+```[None, None]```
+
+Instead of specifying a function directly we can also use a key. This is useful if each datapoint in the grid should run the function slightly differently. Here is an example:
+
+```
+import datajuicer as dj
+
+grid = [{"text":"hi", "number":1, "func":(lambda x: print("logging", x))}, {"text":"hello", "number":2, "func":print}]
+
+dj.run(grid,"func")("{text} {number}")
+```
+
+This outputs:
+```
+logging hi 1
+hello 2
+```
+
+As a special 'key', * gets replaced by the entire dictionary.
+
+By default, the decorated function returns a list of all the values returned by the original function, but we can change this by passing `store_key' to the run function. If store_key is set to * then it is assumed that the function returns a dictionary and this dictionary is merged with each data in the grid. Otherwise, if the store_key is set to some string, whatever the function returns is stored in the store_key and the decorated function returns a copy of the original grid that also contains the returned values.
+
+
+The formatting can get arbitrarily deep and even call functions. It is accessable via the ```format_template``` function. Here is an example:
+```
+import datajuicer as dj
+
+grid = [{"mood":"good", "topic":"food","fav_food":"cheese"}, {"mood":"lousy", "topic":"drink", "fav_drink":"juice"}]
+
+def say(mood, msg):
+    if mood == "good":
+        return "Today is a great day! I just want to say: " + msg
+    else:
+        return msg
+
+grid = dj.configure(grid, {"say": say, "favorites":"{say({mood},My favorite {topic} is {fav_{topic}}.)}"})
+
+dj.run(grid, print)("{favorites}")
+```
+
+This outputs:
+```
+Today is a great day! I just want to say: My favorite food is cheese.
+My favorite drink is juice.
+```
+
+One important feature of datajuicer is the ```@cachable()``` decorator. Whenever you declare a function, you can add ```@cachable()``` to the line above and then whenever this function is called using ```run``` it will not recalculate for inputs it has already seen. Here is an example:
+
+```
+import datajuicer as dj
+
+@dj.cachable()
+def add(a, b):
+    print("calculating...")
+    return a + b
+
+grid = [{}]
+
+grid = dj.split(grid, "a", [1,2,3])
+grid = dj.split(grid, "b", [10,20,30])
+
+print(dj.run(grid, add, cache_dir = "bla2")("{a}", "{b}"))
+
+grid.append({"a":1, "b":1})
+
+print(dj.run(grid, add)("{a}", "{b}"))
+```
+
+You can pass a custom saver or loader to cachable if you do not want to use the defaults. Also if some of the inputs to the function will not have an effect on the output, you can ignore them by passing a list of strings to cachable with the keyword ```dependencies```. You can also use the syntax ```arg_name:key_name``` if you pass a dictionary to a function and the output depends on a specific key of that dictionary. For example:
+
+```
+@cachable(dependencies=["a", "b", "my_dict:my_key"])
+def foo(a, b, my_dict, log_directory):
+    pass
+```
+
+In this example, the runner will not recalculate just because a different log_directory is used.

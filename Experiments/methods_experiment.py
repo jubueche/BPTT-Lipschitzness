@@ -1,5 +1,5 @@
 from architectures import speech_lsnn
-from datajuicer import dj, split, configure, query, djm
+from datajuicer import run, split, configure, query
 from experiment_utils import *
 import numpy as onp
 import matplotlib as mpl
@@ -21,7 +21,7 @@ class methods_experiment:
     def visualize():
         betas = [0.0, 0.1, 1.0]
         grid = [model for model in methods_experiment.train_grid() if model["seed"] in [0,1,2,3,4,5,6,7,8,9]]
-        grid = djm(grid, "train", run_mode="load")("{*}")
+        grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
 
         fig = plt.figure(figsize=(12, 9), constrained_layout=False)
