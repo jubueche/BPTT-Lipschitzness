@@ -167,7 +167,7 @@ class speech_lsnn:
         else:
             return False
             
-        return len(ta) >= 50
+        return True # len(ta) >= 50
 
     @staticmethod
     def loader(sid, table, cache_dir):
