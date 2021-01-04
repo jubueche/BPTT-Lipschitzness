@@ -12,6 +12,7 @@ import os.path
 from datajuicer import cachable, get, format_template
 import argparse
 import random
+import re
 
 def standard_defaults():
     return {
@@ -79,10 +80,7 @@ def log(session_id, key, value, save_dir = None):
         os.makedirs(directory)
     if exists:
         data = open(file).read()
-        try:
-            d = json.loads(data)
-        except:
-            d = {}
+        d = json.loads(data)
     else:
         d = {}
     with open(file,'w+') as f:
@@ -90,7 +88,8 @@ def log(session_id, key, value, save_dir = None):
             d[key] += [value]
         else:
             d[key]=[value]
-        json.dump(d,f)
+        out = re.sub('(?<!")NaN(?!")','"NaN"', json.dumps(d))
+        f.write(out)
 
 class speech_lsnn:
     @staticmethod
