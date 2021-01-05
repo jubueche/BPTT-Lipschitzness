@@ -41,5 +41,37 @@ class sgd_experiment:
         
         grid = djm(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}", 100)
 
+        def unravel(arr):
+            mm_lvls = arr.shape[1]
+            res = [[] for _ in range(mm_lvls)]
+            for seed in range(len(seeds)):
+                for i in range(mm_lvls):
+                    res[i].extend(list(arr[seed,i]))
+            return res
+
+        def get_data_acc(architecture):
+            robust_data = onp.array(query(grid, "mismatch_list", where={"batch_size":8, "architecture":architecture})).reshape((len(seeds),-1))
+            vanilla_data = onp.array(query(grid, "mismatch_list", where={"batch_size":128, "architecture":architecture})).reshape((len(seeds),-1))
+            return list(zip(unravel(vanilla_data), unravel(robust_data)))
+
+        data_speech_lsnn = get_data_acc("speech_lsnn")
+        fig = plt.figure(figsize=(7, 5), constrained_layout=False)
+        gridspec = fig.add_gridspec(1,10)
+        r = 5
+        axes = [fig.add_subplot(gridspec[0,int(i*2):int((i+1)*2)]) for i in range(r)]
+        for i,ax in enumerate(axes):
+            ax.spines['left'].set_visible(ax.is_first_col())
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.set_xlabel(speech_mm_levels[i+1])
+            ax.set_xticks([])
+            ax.set_ylim([0.0,1.0])
+            if(i>0): ax.set_yticks([])
+        plot_mm_distributions(axes, data=data_speech_lsnn)
+        plt.savefig("Resources/Figures/figure_sgd.png", dpi=1200)
+        plt.savefig("Resources/Figures/figure_sgd.pdf", dpi=1200)
+        plt.show()
+        plt.show()
 
 
