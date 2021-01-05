@@ -36,6 +36,6 @@ class sgd_experiment:
 
         grid = configure(grid, {"n_iterations":50})
         grid = configure(grid, {"n_iterations":1}, where={"mm_level":0.0})
-        grid = configure(grid, {"mode":"bsub"})
+        grid = configure(grid, {"mode":"direct"})
         
-        grid = djm(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}", 100)
+        grid = djm(grid, get_mismatch_list, n_threads=1, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}", 100)
