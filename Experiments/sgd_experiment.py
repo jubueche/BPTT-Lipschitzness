@@ -28,7 +28,7 @@ class sgd_experiment:
     @staticmethod
     def visualize():
         speech_mm_levels = [0.0,0.5,0.7,0.9,1.1,1.5]
-        seeds = [0]
+        seeds = [0,1,2,3,4]
         grid = [model for model in sgd_experiment.train_grid() if model["seed"] in seeds] 
         grid = djm(grid, "train", run_mode="load")("{*}")
 
@@ -37,5 +37,9 @@ class sgd_experiment:
         grid = configure(grid, {"n_iterations":50})
         grid = configure(grid, {"n_iterations":1}, where={"mm_level":0.0})
         grid = configure(grid, {"mode":"direct"})
+        grid = configure(grid, {"data_dir":"/cluster/scratch/jubueche/speech_dataset"})
         
-        grid = djm(grid, get_mismatch_list, n_threads=1, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}", 100)
+        grid = djm(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}", 100)
+
+
+
