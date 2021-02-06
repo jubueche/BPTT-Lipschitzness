@@ -151,7 +151,7 @@ grid = [{}]
 grid = dj.split(grid, "a", [1,2,3])
 grid = dj.split(grid, "b", [10,20,30])
 
-print(dj.run(grid, add, cache_dir = "bla2")("{a}", "{b}"))
+print(dj.run(grid, add)("{a}", "{b}"))
 
 grid.append({"a":1, "b":1})
 
