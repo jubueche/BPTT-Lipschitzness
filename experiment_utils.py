@@ -28,11 +28,13 @@ from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
 
 @cachable(dependencies = ["model:{architecture}_session_id", "mm_level", "model:architecture"])
-def get_mismatch_list(n_iterations, model, mm_level, data_dir):
+def get_mismatch_list(n_iterations, model, mm_level, data_dir, batch_size=None):
+    if(batch_size is not None):
+        model["batch_size"] = batch_size
     l = []
     for i in range(n_iterations):
         l.append(get_mismatch_data(model,mm_level, data_dir, False))
-        print(i,"/",n_iterations)
+        print(i,"/",n_iterations,flush=True)
     return l
 
 @cachable(dependencies = ["model:{architecture}_session_id", "n_iterations", "surface_dist", "model:architecture"])

@@ -127,7 +127,13 @@ if __name__ == '__main__':
     lrs = onp.array(FLAGS.learning_rate.split(","),float)
     color_range = onp.linspace(0,1,onp.sum(iteration))
     
-    opt_init, opt_update, get_params = optimizers.adam(get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
+    if(FLAGS.optimizer == "adam"):
+        opt_init, opt_update, get_params = optimizers.adam(get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
+    elif(FLAGS.optimizer == "sgd"):
+        opt_init, opt_update, get_params = optimizers.sgd(get_lr_schedule(iteration,lrs))
+    else:
+        print("Invalid optimizer")
+        sys.exit(0)
     opt_state = opt_init(init_params)
 
     best_val_acc = 0.0
