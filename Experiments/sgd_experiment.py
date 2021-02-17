@@ -15,10 +15,11 @@ class sgd_experiment:
         speech = split(speech, "initial_std_mismatch", [0.001])
         speech = split(speech, "beta_robustness", [0.0])
         speech = split(speech, "eval_step_interval", [1000])
-        speech = split(speech, "learning_rate", ["0.01,0.001"])
         speech = split(speech, "optimizer", ["sgd"])
         speech1 = split(speech, "batch_size", [8])
+        speech1 = split(speech1, "learning_rate", ["0.01,0.001"])
         speech2 = split(speech, "batch_size", [128])
+        speech2 = split(speech2, "learning_rate", ["0.1,0.01"])
         speech1 = split(speech1, "n_epochs",["200,56"])
         speech2 = split(speech2, "n_epochs", ["200,88"])
         speech = speech1 + speech2
@@ -28,7 +29,7 @@ class sgd_experiment:
     @staticmethod
     def visualize():
         speech_mm_levels = [0.0,0.5,0.7,0.9,1.1,1.5]
-        seeds = [0,1,2,3,4]
+        seeds = [0,1,2,3,4,5,6,7,8,9]
         grid = [model for model in sgd_experiment.train_grid() if model["seed"] in seeds] 
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
 
@@ -39,7 +40,7 @@ class sgd_experiment:
         grid = configure(grid, {"mode":"direct"})
         grid = configure(grid, {"data_dir":"/cluster/scratch/jubueche/speech_dataset"})
         
-        grid = run(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}", 100)
+        grid = run(grid, get_mismatch_list, run_mode="load", n_threads=1, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}", 100)
 
         def unravel(arr):
             mm_lvls = arr.shape[1]
@@ -71,7 +72,6 @@ class sgd_experiment:
         plot_mm_distributions(axes, data=data_speech_lsnn)
         plt.savefig("Resources/Figures/figure_sgd.png", dpi=1200)
         plt.savefig("Resources/Figures/figure_sgd.pdf", dpi=1200)
-        plt.show()
         plt.show()
 
 

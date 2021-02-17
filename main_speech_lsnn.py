@@ -167,7 +167,7 @@ if __name__ == '__main__':
             set_size = audio_processor.set_size('validation')
             llot = []
             total_accuracy = attacked_total_accuracy = 0
-            for i in xrange(0, set_size, FLAGS.batch_size):
+            for i in range(0, set_size // FLAGS.batch_size):
                 validation_fingerprints, validation_ground_truth = (
                     audio_processor.get_data(FLAGS.batch_size, i, vars(FLAGS), 0.0, 0.0, 0.0, 'validation'))
                 X = validation_fingerprints.numpy()
@@ -180,8 +180,11 @@ if __name__ == '__main__':
                 correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
                 batched_validation_acc = get_batched_accuracy(y, logits)
                 attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
-                total_accuracy += (batched_validation_acc * FLAGS.batch_size) / set_size
-                attacked_total_accuracy += (attacked_batched_validation_acc * FLAGS.batch_size) / set_size
+                total_accuracy += batched_validation_acc
+                attacked_total_accuracy += attacked_batched_validation_acc
+            
+            total_accuracy = total_accuracy / (set_size // FLAGS.batch_size)
+            attacked_total_accuracy = attacked_total_accuracy / (set_size // FLAGS.batch_size)
 
             # - Logging
             log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))

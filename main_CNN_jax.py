@@ -59,34 +59,6 @@ if __name__ == '__main__':
     FLAGS.Kernels = json.loads(FLAGS.Kernels)
     FLAGS.Dense = json.loads(FLAGS.Dense)
 
-    # def _next_power_of_two(x):
-    #     return 1 if x == 0 else 2**(int(x) - 1).bit_length()
-
-    # FLAGS.desired_samples = int(FLAGS.sample_rate * FLAGS.clip_duration_ms / 1000)
-    # FLAGS.window_size_samples = int(FLAGS.sample_rate * FLAGS.window_size_ms / 1000)
-    # FLAGS.window_stride_samples = int(FLAGS.sample_rate * FLAGS.window_stride_ms / 1000)
-    # FLAGS.length_minus_window = (FLAGS.desired_samples - FLAGS.window_size_samples)
-    # if FLAGS.length_minus_window < 0:
-    #     spectrogram_length = 0
-    # else:
-    #     FLAGS.spectrogram_length = 1 + int(FLAGS.length_minus_window / FLAGS.window_stride_samples)
-    # if FLAGS.preprocess == 'average':
-    #     fft_bin_count = 1 + (_next_power_of_two(FLAGS.window_size_samples) / 2)
-    #     FLAGS.average_window_width = int(math.floor(fft_bin_count / FLAGS.feature_bin_count))
-    #     FLAGS.fingerprint_width = int(math.ceil(fft_bin_count / FLAGS.average_window_width))
-    # elif FLAGS.preprocess in ['mfcc', 'fbank']:
-    #     FLAGS.average_window_width = -1
-    #     FLAGS.fingerprint_width = FLAGS.feature_bin_count
-    # elif FLAGS.preprocess == 'micro':
-    #     FLAGS.average_window_width = -1
-    #     FLAGS.fingerprint_width = FLAGS.feature_bin_count
-    # else:
-    #     raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
-    #                     ' "average", or "micro")' % (FLAGS.preprocess))
-    # FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
-    # FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
-    # FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
-
     data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
     flags_dict = vars(FLAGS)
     epochs_list = list(map(int, FLAGS.n_epochs.split(',')))
@@ -159,7 +131,7 @@ if __name__ == '__main__':
             llot = []
             total_accuracy = attacked_total_accuracy = 0
             val_bs = 200
-            for i in range(0, int(onp.ceil(set_size/val_bs))):
+            for i in range(0, set_size // val_bs):
                 X,y = data_loader.get_batch("val", batch_size=val_bs)
                 y = jnp.argmax(y, axis=1)
                 logits, _ = cnn.call(X, [[0]], **params)
@@ -169,9 +141,11 @@ if __name__ == '__main__':
                     llot.append(lip_loss_over_time)
                 batched_validation_acc = get_batched_accuracy(y, logits)
                 attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
-                total_accuracy += (batched_validation_acc * val_bs) / set_size
-                attacked_total_accuracy += (attacked_batched_validation_acc * val_bs) / set_size
+                total_accuracy += batched_validation_acc
+                attacked_total_accuracy += attacked_batched_validation_acc
 
+            total_accuracy = total_accuracy / (set_size // val_bs)
+            attacked_total_accuracy = attacked_total_accuracy / (set_size // val_bs)
             # - Logging
             log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
             log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))

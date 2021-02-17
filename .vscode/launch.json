@@ -6,7 +6,15 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-exp=mismatch_experiment"],
+            "args": [],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SGD",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-exp=sgd_experiment", "-force", "-n_threads=8"],
             "console": "integratedTerminal"
         },
         {

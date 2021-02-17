@@ -2,11 +2,14 @@ import os
 from TensorCommands import input_data
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
+from loss_jax import loss_normal
 from CNN_Jax import CNN
 from RNN_Jax import RNN
 import ujson as json
-import jax.numpy as jnp
 import numpy as onp
+from Hessian import hessian_computation, lanczos
+from Hessian import density as density_lib
+import jax.numpy as jnp
 import jax.random as jax_random
 import matplotlib
 import numpy as onp
@@ -62,7 +65,76 @@ def get_surface_data(model, surface_dist, data_dir, ATTACK=False):
         theta_star[key] = theta[key] + surface_dist * onp.sign(onp.random.uniform(low=-1, high=1, size=theta[key].shape))
     return get_test_acc(model, theta_star, data_dir, ATTACK)
 
+
+@cachable(dependencies = ["model:{architecture}_session_id", "order", "model:architecture"])
+def compute_hessian(model, data_dir, order=90, batch_size=None):
+    if(batch_size is not None):
+        model["batch_size"] = batch_size
+    theta = model["theta"]
+    FLAGS = Namespace(model)
+    loader, set_size = get_loader(FLAGS, data_dir)
+    if(FLAGS.architecture == "cnn"):
+        dropout_mask = [[0]]
+    else:
+        dropout_mask = jnp.ones(shape=(1,FLAGS.network.units))
+    key = jax_random.PRNGKey(0)
+    def training_loss(X, y, params, l2_reg, dropout_mask):
+        logits, spikes = FLAGS.network.call(X, dropout_mask, **params)
+        avg_firing = jnp.mean(spikes, axis=1) 
+        return loss_normal(y, logits, avg_firing, l2_reg)
+
+    batch_list = [get_X_y_pair(i, FLAGS, loader) for i in range(10)]
+    if(FLAGS.architecture == "cnn"):
+        batch_list = list(map(lambda a : (a[0],onp.argmax(a[1],axis=1)), batch_list))
+    def batches():
+        for b in batch_list:
+            yield b
+    def loss_fn(params, batch):
+        return training_loss(batch[0], batch[1], params, FLAGS.reg, dropout_mask)
+
+    hvp, _, num_params = hessian_computation.get_hvp_fn(loss_fn, theta,
+                                                        batches)
+    hvp_cl = lambda x: hvp(theta, x)  # match the API expected by lanczos_alg
+    def get_tridiag(key):
+      return lanczos.lanczos_alg(hvp_cl, num_params, order, key)
+    tridiag, vecs = get_tridiag(key)
+    return tridiag, vecs
+
+class Namespace:
+    def __init__(self,d):
+        self.__dict__.update(d)
+
+def get_loader(FLAGS, data_dir):
+    if FLAGS.architecture=="speech_lsnn":
+        loader = input_data.AudioProcessor(
+            data_url=FLAGS.data_url, data_dir=data_dir,
+            silence_percentage=FLAGS.silence_percentage, unknown_percentage=FLAGS.unknown_percentage,
+            wanted_words=FLAGS.wanted_words.split(','), validation_percentage=FLAGS.validation_percentage,
+            testing_percentage=FLAGS.testing_percentage, 
+            n_thr_spikes=FLAGS.n_thr_spikes, n_repeat=FLAGS.in_repeat
+        )
+        set_size = loader.set_size('testing')
+    elif FLAGS.architecture=="ecg_lsnn":
+        loader = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
+        set_size = loader.N_test
+    elif FLAGS.architecture=="cnn":
+        loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+        set_size = loader.N_test
+    return loader, set_size
+
+def get_X_y_pair(i, FLAGS, loader):
+    if FLAGS.architecture=="speech_lsnn":
+        validation_fingerprints, validation_ground_truth = loader.get_data(FLAGS.batch_size, i, FLAGS.network.model_settings ,0.0, 0.0, 0.0, 'testing')
+        X = validation_fingerprints.numpy()
+        y = validation_ground_truth.numpy()
+    elif FLAGS.architecture=="ecg_lsnn":
+        X,y = loader.get_batch("test")
+    elif FLAGS.architecture=="cnn":
+        X,y= loader.get_batch("test")
+    return onp.array(X), onp.array(y)
+
 def get_test_acc(model, theta_star, data_dir, ATTACK=False):
+    # - TODO can be replaced by functions above, but needs testing
     class Namespace:
         def __init__(self,d):
             self.__dict__.update(d)
@@ -97,20 +169,20 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
     total_accuracy = 0.0
     if(ATTACK):
         attacked_total_accuracy = 0.0
-    for i in range(0, set_size, FLAGS.batch_size):
+    for i in range(0, set_size // FLAGS.batch_size):
         X, y = get_X_y(i)
         logits, _ = FLAGS.network.call(X, jnp.ones(shape=(1,FLAGS.network.units)), **theta_star)
         if(ATTACK):
             _, logits_theta_star = attack_network(X, theta_star, logits, FLAGS.network, FLAGS, FLAGS.network._rng_key)
             FLAGS.network._rng_key, _ = jax_random.split(FLAGS.network._rng_key)
             attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
-            attacked_total_accuracy += (attacked_batched_validation_acc * FLAGS.batch_size) / set_size
+            attacked_total_accuracy += attacked_batched_validation_acc
         batched_test_acc = get_batched_accuracy(y, logits)
-        total_accuracy += (batched_test_acc * FLAGS.batch_size) / set_size
+        total_accuracy += batched_test_acc
     if(ATTACK):
-        return onp.float64(attacked_total_accuracy)
+        return onp.float64(attacked_total_accuracy / (set_size // FLAGS.batch_size))
     else:
-        return onp.float64(total_accuracy)
+        return onp.float64(total_accuracy / (set_size // FLAGS.batch_size))
 
 def get_batched_accuracy(y, logits):
     y =onp.array(y)
@@ -130,6 +202,13 @@ def remove_all_splines(ax):
         a.spines['right'].set_visible(False)
         a.spines['top'].set_visible(False)
         a.spines['bottom'].set_visible(False)
+
+def remove_all_but_left_btm(ax):
+    if(not isinstance(ax, list)):
+        ax = [ax]
+    for a in ax:
+        a.spines['right'].set_visible(False)
+        a.spines['top'].set_visible(False)
     
 def remove_top_right_splines(ax):
     if(not isinstance(ax, list)):
@@ -231,6 +310,28 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
     for i,ax in enumerate(top_axes):
         ax.set(xticks=[], yticks=[])
     axes = {"top": top_axes, "btm": btm_axes}
+    return axes
+
+def get_axes_hessian(fig, architectures):
+    Nc = 9
+    gridspec = fig.add_gridspec(2, Nc, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
+    axes_top = [fig.add_subplot(gridspec[0,:int(Nc / 3)]), fig.add_subplot(gridspec[0,int(Nc / 3):2*int(Nc / 3)]), fig.add_subplot(gridspec[0,2*int(Nc / 3):])]
+    axes_btm = [fig.add_subplot(gridspec[1,:int(Nc / 3)]), fig.add_subplot(gridspec[1,int(Nc / 3):2*int(Nc / 3)]), fig.add_subplot(gridspec[1,2*int(Nc / 3):])]
+    for ax in (axes_top+axes_btm):
+        ax.spines['left'].set_visible(True)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+    axes_top[0].set_ylabel(r"Normal")
+    axes_btm[0].set_ylabel(r"Robust")
+    for i,ax in enumerate(axes_top):
+        ax.set_title(architectures[i])
+    return axes_top, axes_btm
+
+def get_axes_weight_scale_exp(fig, N_rows, N_cols):
+    gridspec = fig.add_gridspec(N_rows, N_cols, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
+    axes = [fig.add_subplot(gridspec[i,j]) for i in range(N_rows) for j in range(N_cols)]
+    remove_all_but_left_btm(axes)
     return axes
 
 def plot_mm_distributions(axes, data):

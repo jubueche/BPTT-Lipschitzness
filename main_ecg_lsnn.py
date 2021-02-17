@@ -152,7 +152,7 @@ if __name__ == '__main__':
             llot = []
             total_accuracy = attacked_total_accuracy = 0
             val_bs = 200
-            for i in range(0, int(onp.ceil(set_size/val_bs))):
+            for i in range(0, set_size // val_bs):
                 X,y = ecg_processor.get_batch("val", batch_size=val_bs)
                 logits, _ = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
                 lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
@@ -162,9 +162,11 @@ if __name__ == '__main__':
                 correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
                 batched_validation_acc = get_batched_accuracy(y, logits)
                 attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
-                total_accuracy += (batched_validation_acc * val_bs) / set_size
-                attacked_total_accuracy += (attacked_batched_validation_acc * val_bs) / set_size
+                total_accuracy += batched_validation_acc
+                attacked_total_accuracy += attacked_batched_validation_acc
 
+            total_accuracy = total_accuracy / (set_size // val_bs)
+            attacked_total_accuracy = attacked_total_accuracy / (set_size // val_bs)
             # - Logging
             log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
             log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
