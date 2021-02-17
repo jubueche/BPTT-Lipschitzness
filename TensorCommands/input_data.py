@@ -108,6 +108,8 @@ class AudioProcessor(object):
         self.n_repeat = max(1, n_repeat)
 
     def maybe_download_and_extract_dataset(self, data_url, dest_directory):
+        if "cluster" in dest_directory:
+            return
         if not data_url:
             return
         if not os.path.exists(dest_directory):
