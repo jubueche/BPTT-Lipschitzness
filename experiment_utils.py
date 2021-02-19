@@ -30,6 +30,25 @@ from loss_jax import attack_network
 from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
 
+def quantise(M, bits):
+    if(bits == -1):
+        return M
+    else:
+        # - Include 0 in number of possible states
+        base_weight = (onp.max(M)-onp.min(M)) / (2**bits - 1)
+        if(base_weight == 0):
+            return M
+        else:
+            return base_weight * onp.round(M / base_weight)
+
+@cachable(dependencies= ["model:{architecture}_session_id", "bits", "model:architecture"])
+def get_quantized_acc(bits, model, data_dir):
+    theta_star = {}
+    theta = model["theta"]
+    for key in theta:
+        theta_star[key] = quantise(theta[key], bits)
+    return get_test_acc(model, theta_star, data_dir, ATTACK=False)
+
 @cachable(dependencies = ["model:{architecture}_session_id", "mm_level", "model:architecture"])
 def get_mismatch_list(n_iterations, model, mm_level, data_dir, batch_size=None):
     if(batch_size is not None):
@@ -156,9 +175,9 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
         set_size = cnn_data_loader.N_test
     def get_X_y(i):
         if FLAGS.architecture=="speech_lsnn":
-            validation_fingerprints, validation_ground_truth = (audio_processor.get_data(FLAGS.batch_size, i, FLAGS.network.model_settings ,0.0, 0.0, 0.0, 'testing'))
-            X = validation_fingerprints.numpy()
-            y = validation_ground_truth.numpy()
+            test_fingerprints, test_ground_truth = (audio_processor.get_data(FLAGS.batch_size, i, FLAGS.network.model_settings ,0.0, 0.0, 0.0, 'testing'))
+            X = test_fingerprints.numpy()
+            y = test_ground_truth.numpy()
             return X, y
         elif FLAGS.architecture=="ecg_lsnn":
             X,y = ecg_processor.get_batch("test")
@@ -385,7 +404,7 @@ def get_data(id):
     elif(id == "ecg"):
         d = ecg_lsnn.default_hyperparameters()
         ecg_processor = ECGDataLoader(path="ECG/ecg_recordings", batch_size=100)
-        _,y,X = ecg_processor.get_sequence(N_per_class=10, path="ECG/ecg_recordings")
+        _,y,X = ecg_processor.get_sequence()
         y = onp.array(y)
     elif(id == "cnn"):
         d = cnn.default_hyperparameters()
