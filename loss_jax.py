@@ -51,10 +51,14 @@ def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
 
     def lip_loss(X, theta_star, theta, logits, dropout_mask):
         logits_theta_star, _ = rnn.call(X, dropout_mask, **theta_star)
-        return loss_kl(logits, logits_theta_star)
+        if FLAGS.boundary_loss == "kl":
+            return loss_kl(logits, logits_theta_star)
+        if FLAGS.boundary_loss == "reverse_kl":
+            return loss_kl(logits_theta_star, logits)
+        if FLAGS.boundary_loss == "l2":
+            return jnp.mean(jnp.linalg.norm(logits-logits_theta_star,axis=1))
 
-    def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask):
-        
+    def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits):
         step_size = {}
         theta_star = {}
         # - Initialize theta_star randomly 
@@ -64,22 +68,33 @@ def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
             theta_star[key] = params[key] * (1 + FLAGS.initial_std_mismatch*random_normal_var1)+FLAGS.initial_std_constant*random_normal_var2
             step_size[key] = (FLAGS.attack_size_mismatch * params[key] + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
 
-        logits, _ = rnn.call(X, dropout_mask, **params)
+        
         for _ in range(FLAGS.n_attack_steps):
             grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, params, logits, dropout_mask)
             for key in theta_star.keys():
                 theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
-        loss_kl = lip_loss(X, theta_star, params, logits, dropout_mask)
-        return loss_kl
+        return theta_star
+    
+    def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
+        logits, _ = rnn.call(X, dropout_mask, **params)
+        if theta_star is None:
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits)
+        
+        return lip_loss(X, theta_star, params, logits, dropout_mask)
 
-    def loss_general(X, y, params, FLAGS, rand_key, dropout_mask):
+    def loss_general(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
         loss_n = training_loss(X, y, params, FLAGS.reg, dropout_mask)
-        loss_r = robust_loss(X, y, params, FLAGS, rand_key, dropout_mask)
+        loss_r = robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star)
         return loss_n + FLAGS.beta_robustness*loss_r
 
     # - Differentiate w.r.t. element at argnums (deault 0, so first element)
     if(FLAGS.beta_robustness!=0):
-        grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask)
+        if FLAGS.treat_as_constant:
+            logits, _ = rnn.call(X, dropout_mask, **params)
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits)
+        else:
+            theta_star=None
+        grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask, theta_star)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
     if("W_rec" in grads.keys()):

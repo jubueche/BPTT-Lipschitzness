@@ -25,7 +25,9 @@ def standard_defaults():
         "seed":0,
         "n_hidden":256,
         "n_layer":1,
-        "batch_size":100
+        "batch_size":100,
+        "boundary_loss":"kl",
+        "treat_as_constant":False
         }
 
 def help():

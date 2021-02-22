@@ -49,6 +49,14 @@
             "program": "${file}",
             "args": ["-optimizer=esgd", "-beta_robustness=0.0", "-learning_rate=0.1,0.01"],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "l2 boundary test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-boundary_loss=l2"],
+            "console": "integratedTerminal"
         }
     ]
 }
