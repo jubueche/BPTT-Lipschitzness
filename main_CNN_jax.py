@@ -12,8 +12,9 @@ from six.moves import xrange
 from CNN_Jax import CNN
 from jax import random
 import jax.numpy as jnp
-from loss_jax import categorical_cross_entropy, compute_gradient_and_update, attack_network
+from loss_jax import categorical_cross_entropy, compute_gradient_and_update, attack_network, compute_gradients
 from jax.experimental import optimizers
+from EntropySGD.entropy_sgd import EntropySGD_Jax
 import ujson as json
 import matplotlib.pyplot as plt 
 from datetime import datetime
@@ -96,7 +97,16 @@ if __name__ == '__main__':
     iteration = onp.array(steps_list, int)
     lrs = onp.array(FLAGS.learning_rate.split(","),float)
     
-    opt_init, opt_update, get_params = optimizers.adam(get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
+    if(FLAGS.optimizer == "adam"):
+        opt_init, opt_update, get_params = optimizers.adam(get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
+    elif(FLAGS.optimizer == "sgd"):
+        opt_init, opt_update, get_params = optimizers.sgd(get_lr_schedule(iteration,lrs))
+    elif(FLAGS.optimizer == "esgd"):
+        config = dict(momentum=0.9, damp=0.0, nesterov=True, weight_decay=0.0, L=10, eps=1e-4, g0=1e-2, g1=1e-3, langevin_lr=0.1, langevin_beta1=0.75)
+        opt_init, opt_update, get_params = EntropySGD_Jax(get_lr_schedule(iteration,lrs), config)
+    else:
+        print("Invalid optimizer")
+        sys.exit(0)
     opt_state = opt_init(init_params)
     best_val_acc = 0.0
     for i in range(sum(iteration)):
@@ -106,7 +116,15 @@ if __name__ == '__main__':
 
         if(X.shape[0] == 0):
             continue
-        opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, cnn, FLAGS, cnn._rng_key)
+
+        def get_grads(params):
+            grads = compute_gradients(X, y, params, cnn, FLAGS, cnn._rng_key)
+            return grads
+
+        if(FLAGS.optimizer == "esgd"):
+            opt_state = opt_update(i, get_params(opt_state), opt_state, get_grads)
+        else:
+            opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, cnn, FLAGS, cnn._rng_key)
         cnn._rng_key, _ = random.split(cnn._rng_key)
 
         if((i+1) % 10 == 0):

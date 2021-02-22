@@ -143,8 +143,8 @@ class speech_lsnn:
         d["initial_std_constant"]=0.0
         d["attack_size_mismatch"] = 2.0
         d["initial_std_mismatch"]=0.001
-        d["n_epochs"] = "64,16"
-        d["optimizer"] = "adam"
+        d["n_epochs"]="64,16"
+        d["optimizer"]="adam"
         return d
     
     @staticmethod
@@ -212,7 +212,8 @@ class ecg_lsnn:
         d["preprocess"]="mfcc"
         d["feature_bin_count"]=40 
         d["in_repeat"]=1 
-        d["n_thr_spikes"]=-1 
+        d["n_thr_spikes"]=-1
+        d["optimizer"]="adam"
         return d
     
     @staticmethod
@@ -277,6 +278,7 @@ class cnn:
         d["initial_std_mismatch"]=0.001
         d["Kernels"]="[[64,1,4,4],[64,64,4,4]]"
         d["Dense"]="[[1600,256],[256,64],[64,10]]"
+        d["optimizer"]="adam"
         return d
 
     @staticmethod

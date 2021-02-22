@@ -13,7 +13,7 @@ class mismatch_experiment:
         ecg = split(ecg, "attack_size_mismatch", [2.0])
         ecg = split(ecg, "initial_std_constant", [0.0])
         ecg = split(ecg, "initial_std_mismatch", [0.001])
-        ecg = split(ecg, "beta_robustness", [1.0])
+        ecg = split(ecg, "beta_robustness", [0.0, 1.0])
         ecg = split(ecg, "seed", [0,1,2,3,4,5,6,7,8,9])
 
         speech = speech_lsnn.make()

@@ -7,6 +7,8 @@ import ujson as json
 import jax
 import os
 import errno
+from copy import deepcopy
+
 class RNN:
 
     def __init__(self,params):
@@ -54,13 +56,14 @@ class RNN:
         return rnn_out, spikes
 
     def save(self,fn,theta):
+        theta_tmp = deepcopy(theta)
         save_dict = {}
         save_dict["params"] = self.model_settings
         save_dict["rng_key"] = onp.array(list(self._rng_key),onp.int64).tolist()
-        for key in theta.keys():
-            if(not type(theta[key]) is list):
-                theta[key] = theta[key].tolist()
-        save_dict["theta"] = theta
+        for key in theta_tmp.keys():
+            if(not type(theta_tmp[key]) is list):
+                theta_tmp[key] = theta_tmp[key].tolist()
+        save_dict["theta"] = theta_tmp
         try:
             os.makedirs(os.path.dirname(fn))
         except OSError as exc: # Python >2.5
