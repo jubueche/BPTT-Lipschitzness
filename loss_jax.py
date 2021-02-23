@@ -68,7 +68,6 @@ def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
             theta_star[key] = params[key] * (1 + FLAGS.initial_std_mismatch*random_normal_var1)+FLAGS.initial_std_constant*random_normal_var2
             step_size[key] = (FLAGS.attack_size_mismatch * params[key] + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
 
-        
         for _ in range(FLAGS.n_attack_steps):
             grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, params, logits, dropout_mask)
             for key in theta_star.keys():
@@ -95,6 +94,7 @@ def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
         else:
             theta_star=None
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask, theta_star)
+        print(theta_star) # Set breakpoint here and jnp.sum(grad(lambda x,y : jnp.sum(x), argnums=1)(theta_star["W_in"], params["W_in"]))
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
     if("W_rec" in grads.keys()):

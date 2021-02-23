@@ -1,5 +1,6 @@
 from jax import config
 config.FLAGS.jax_log_compiles=True
+config.update('jax_disable_jit', True)
 
 import numpy as onp
 import sys
