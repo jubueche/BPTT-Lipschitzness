@@ -94,7 +94,6 @@ def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
         else:
             theta_star=None
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask, theta_star)
-        print(theta_star) # Set breakpoint here and jnp.sum(grad(lambda x,y : jnp.sum(x), argnums=1)(theta_star["W_in"], params["W_in"]))
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
     if("W_rec" in grads.keys()):

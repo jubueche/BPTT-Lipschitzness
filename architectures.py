@@ -54,8 +54,17 @@ def mk_runner(architecture, env_vars):
         except:
             mode = "direct"
         model["mode"] = mode
-        model["args"] = " ".join([f"-{key}={get(model, key)}" for key in list(architecture.default_hyperparameters().keys())+env_vars + ["session_id"]])
+        def _format(key, value):
+            if type(value) is bool:
+                if value==True:
+                    return f"-{key}"
+                else:
+                    return ""
+            else: return f"-{key}={value}"
+
+        model["args"] = " ".join([_format(key, get(model,key)) for key in list(architecture.default_hyperparameters().keys())+env_vars + ["session_id"]])
         command = format_template(model,launch_settings[mode])
+        print(command)
         os.system(command)
         return None
 
@@ -64,12 +73,16 @@ def mk_runner(architecture, env_vars):
 def _get_flags(default_dict, help_dict):
     parser = argparse.ArgumentParser()
     for key, value in default_dict.items():
-        parser.add_argument("-" + key,type=type(value),default=value,help=help_dict.get(key,""))
+        if type(value) is bool:
+            parser.add_argument("-"+key, action="store_true",help=help_dict.get(key,""))
+        else:
+            parser.add_argument("-" + key,type=type(value),default=value,help=help_dict.get(key,""))
     parser.add_argument("-session_id", type=int, default = 0)
     
     flags = parser.parse_args()
     if flags.session_id==0:
         flags.session_id = random.randint(1000000000, 9999999999)
+    
     return flags
 
 def log(session_id, key, value, save_dir = None):
@@ -333,4 +346,3 @@ class cnn:
         data["cnn_session_id"] = sid
         #data["cnn_data_loader"] = CNNDataLoader(data["batch_size"],model["data_dir"])
         return data
-
