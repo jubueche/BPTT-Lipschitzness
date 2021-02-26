@@ -10,8 +10,11 @@ def f(theta):
     x = theta[0]; y = theta[1]
     return _f(x,y)
 
+# def _f(x,y):
+#     return 3*(1-x)**2*jnp.exp(-(x**2)-(y+1)**2)-10*(x/5 - x**3 - y**5)*jnp.exp(-x**2-y**2) - 1/3*jnp.exp(-(x+1)**2 - y**2)
+
 def _f(x,y):
-    return 3*(1-x)**2*jnp.exp(-(x**2)-(y+1)**2)-10*(x/5 - x**3 - y**5)*jnp.exp(-x**2-y**2) - 1/3*jnp.exp(-(x+1)**2 - y**2)
+    return jnp.sin(x**2 + y**2)
 
     # GeoGebra: 3*(1-x)^2*exp(-(x^2)-(y+1)^2)-10*(x/5 - x^3 - y^5)*exp(-x^2-y^2) - 1/3*exp(-(x+1)^2 - y^2)
 
@@ -45,8 +48,8 @@ def compute_gradients(theta, num_steps, eps_ball, treat_as_constant=False):
         loss = f(theta) + robust_loss(theta, theta_star, num_steps, eps_ball)
         return loss
 
-    grads = grad(loss_general, argnums=0)(theta)
-    return grads
+    value,grads = value_and_grad(loss_general, argnums=0)(theta)
+    return value,grads
 
 def compute_gradients_rob(theta, num_steps, eps_ball, treat_as_constant):
     theta_star = None
@@ -86,7 +89,7 @@ def single_scatter(x,y,z,color="(0,0,0)"):
         opacity=1.0
     ))
 
-def get_trajectory(eps_ball, x0, y0, z0):
+def get_trajectory(eps_ball, x0, y0, z0, mode="normal", treat_as_constant=False):
     plot_objs = []
     plot_objs.append(get_surf())
     plot_objs.append(single_scatter(x0,y0,z0, color="(0,0,0)"))
@@ -100,14 +103,17 @@ def get_trajectory(eps_ball, x0, y0, z0):
         x1,y1 = vec2xy(theta_star)
         z1 = f(theta_star)
         plot_objs.append(single_scatter(x1,y1,z1, color="(0,255,0)"))
-    
-    treat_as_constant = False
 
-    for i in range(100):
-        # theta = theta - 0.001*compute_gradients(theta, num_steps=10, eps_ball=eps_ball, treat_as_constant)
-        rob_loss, grads = compute_gradients_rob(theta, 10, eps_ball, treat_as_constant)
-        theta = theta - 0.001*grads
-        print("Loss",f(theta),"Rob Loss",rob_loss)
+    for i in range(200):
+        if(mode == "rob"):
+            loss, grads = compute_gradients_rob(theta, 10, eps_ball, treat_as_constant)
+        elif(mode == "sgd"):
+            loss, grads = value_and_grad(f, argnums=0)(theta)
+        elif(mode == "normal"):
+            loss, grads = compute_gradients(theta, 10, eps_ball, treat_as_constant)
+        
+        theta = theta - 0.01*grads
+        print("f(theta)",f(theta),"Rob Loss",loss)
         if(i % 5 == 0):
             xi,yi = vec2xy(theta)
             zi = f(theta)
@@ -128,6 +134,10 @@ x0 = -0.8
 y0 = 1.0
 z0 = _f(x0,y0)
 
-fig = go.Figure(data=get_trajectory(eps_ball, x0, y0, z0))
-
+fig = go.Figure(data=get_trajectory(eps_ball, x0, y0, z0, mode="normal", treat_as_constant=True))
+fig.write_html("Resources/Figures/vis_3d_sinxsqysq_normal_constantTrue.html")
 fig.show()
+
+# fig = go.Figure(data=get_trajectory(eps_ball, x0, y0, z0, treat_as_constant=True, rob_only=True))
+# fig.write_html("Resources/Figures/vis_3d_peaks_constantTrue_robOnlyTrue.html")
+# fig.show()

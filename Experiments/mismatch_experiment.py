@@ -39,7 +39,7 @@ class mismatch_experiment:
         speech_mm_levels = [0.0,0.5,0.7,0.9,1.1,1.5]
         ecg_mm_levels = [0.0, 0.2,0.3,0.5,0.7,0.9]
         cnn_mm_levels = [0.0, 0.5,0.7,0.9,1.1,1.5]
-        seeds = [1,2,3,4,5,6,7,8,9]
+        seeds = [0,1,2,3,4,5,6,7,8,9]
 
         # - Per general column
         N_cols = 10 # - 10
