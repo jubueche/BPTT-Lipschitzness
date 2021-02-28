@@ -40,10 +40,7 @@ def split_and_get_dropout_mask(key, shape, dp):
     val = (random.uniform(subkey, shape=shape) > dp).astype(jnp.float32)
     return key, val
 
-@partial(jit, static_argnums=(4,5,6,7))
-def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rand_key):
-    params = get_params(opt_state)
-
+def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
     _, subkey = random.split(rand_key)
     subkey, dropout_mask = split_and_get_dropout_mask(subkey, (1,rnn.units), rnn.dropout_prob)
 
@@ -54,11 +51,14 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
 
     def lip_loss(X, theta_star, theta, logits, dropout_mask):
         logits_theta_star, _ = rnn.call(X, dropout_mask, **theta_star)
-        return loss_kl(logits, logits_theta_star)
+        if FLAGS.boundary_loss == "kl":
+            return loss_kl(logits, logits_theta_star)
+        if FLAGS.boundary_loss == "reverse_kl":
+            return loss_kl(logits_theta_star, logits)
+        if FLAGS.boundary_loss == "l2":
+            return jnp.mean(jnp.linalg.norm(logits-logits_theta_star,axis=1))
 
-
-    def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask):
-        
+    def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits):
         step_size = {}
         theta_star = {}
         # - Initialize theta_star randomly 
@@ -68,31 +68,46 @@ def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_param
             theta_star[key] = params[key] * (1 + FLAGS.initial_std_mismatch*random_normal_var1)+FLAGS.initial_std_constant*random_normal_var2
             step_size[key] = (FLAGS.attack_size_mismatch * params[key] + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
 
-        logits, _ = rnn.call(X, dropout_mask, **params)
         for _ in range(FLAGS.n_attack_steps):
             grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, params, logits, dropout_mask)
             for key in theta_star.keys():
                 theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
-        loss_kl = lip_loss(X, theta_star, params, logits, dropout_mask)
-        return loss_kl
+        return theta_star
+    
+    def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
+        logits, _ = rnn.call(X, dropout_mask, **params)
+        if theta_star is None:
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits)
+        
+        return lip_loss(X, theta_star, params, logits, dropout_mask)
 
-    def loss_general(X, y, params, FLAGS, rand_key, dropout_mask):
+    def loss_general(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
         loss_n = training_loss(X, y, params, FLAGS.reg, dropout_mask)
-        loss_r = robust_loss(X, y, params, FLAGS, rand_key, dropout_mask)
+        loss_r = robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star)
         return loss_n + FLAGS.beta_robustness*loss_r
 
     # - Differentiate w.r.t. element at argnums (deault 0, so first element)
     if(FLAGS.beta_robustness!=0):
-        grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask)
+        if FLAGS.treat_as_constant:
+            logits, _ = rnn.call(X, dropout_mask, **params)
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits)
+        else:
+            theta_star=None
+        grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask, theta_star)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
     if("W_rec" in grads.keys()):
         diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
         # - Remove the diagonal of W_rec from the gradient
-        grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0) 
+        grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0)
+    return grads
+
+@partial(jit, static_argnums=(4,5,6,7))
+def compute_gradient_and_update(batch_id, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rand_key):
+    params = get_params(opt_state)
+    grads = compute_gradients(X,y,params,rnn,FLAGS,rand_key)
     return opt_update(batch_id, grads, opt_state)
 
-# @partial(jit, static_argnums=(3,4))
 def attack_network(X, params, logits, rnn, FLAGS, rand_key):
     #In contrast to the training attacker this attackers epsilon is deterministic (equal to the mean epsilon)
     dropout_mask = jnp.ones(shape=(1,rnn.units))

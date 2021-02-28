@@ -10,3 +10,4 @@
 **/fashion_mnist
 /tmp.py
 **/Sessions/compute_hessian_*
+**/.vscode/settings.json

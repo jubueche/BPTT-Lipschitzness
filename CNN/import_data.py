@@ -68,7 +68,6 @@ def preprocess_data(images, targets, name, use_augmentation=False, nb_of_augment
                 y.append(y_)
         X.append(x_)
         y.append(y_)
-    print('*Preprocessing completed: %i samples\n' % len(X))
     return np.array(X), tf.keras.utils.to_categorical(y)
 
 

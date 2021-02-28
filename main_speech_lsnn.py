@@ -1,5 +1,6 @@
 from jax import config
 config.FLAGS.jax_log_compiles=True
+config.update('jax_disable_jit', False)
 
 import numpy as onp
 import sys
@@ -8,9 +9,9 @@ sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 from TensorCommands import input_data
 from six.moves import xrange
 from RNN_Jax import RNN
-from jax import random
+from jax import random, jit, partial
 import jax.numpy as jnp
-from loss_jax import loss_normal, compute_gradient_and_update, attack_network
+from loss_jax import loss_normal, compute_gradient_and_update, attack_network, compute_gradients
 from jax.experimental import optimizers
 import ujson as json
 import matplotlib.pyplot as plt 
@@ -23,6 +24,7 @@ import math
 import sqlite3
 from architectures import speech_lsnn as arch
 from architectures import log
+from EntropySGD.entropy_sgd import EntropySGD_Jax
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -131,6 +133,9 @@ if __name__ == '__main__':
         opt_init, opt_update, get_params = optimizers.adam(get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
     elif(FLAGS.optimizer == "sgd"):
         opt_init, opt_update, get_params = optimizers.sgd(get_lr_schedule(iteration,lrs))
+    elif(FLAGS.optimizer == "esgd"):
+        config = dict(momentum=0.9, damp=0.0, nesterov=True, weight_decay=0.0, L=10, eps=1e-4, g0=1e-2, g1=1e-3, langevin_lr=0.1, langevin_beta1=0.75)
+        opt_init, opt_update, get_params = EntropySGD_Jax(get_lr_schedule(iteration,lrs), config)
     else:
         print("Invalid optimizer")
         sys.exit(0)
@@ -143,7 +148,14 @@ if __name__ == '__main__':
         X = train_fingerprints.numpy()
         y = train_ground_truth.numpy()
 
-        opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
+        def get_grads(params):
+            grads = compute_gradients(X, y, params, rnn, FLAGS, rnn._rng_key)
+            return grads
+
+        if(FLAGS.optimizer == "esgd"):
+            opt_state = opt_update(i, get_params(opt_state), opt_state, get_grads)
+        else:
+            opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
         rnn._rng_key, _ = random.split(rnn._rng_key)
 
         if((i+1) % 10 == 0):
