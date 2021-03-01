@@ -17,6 +17,10 @@ import re
 def standard_defaults():
     return {
         "dropout_prob":0.0,
+        "l2_weight_decay":0.0,
+        "l2_weight_decay_params":"[]",
+        "l1_weight_decay":0.0,
+        "l1_weight_decay_params":"[]",
         "reg":0.001,
         "learning_rate":"0.001,0.0001",
         "n_epochs":"32,8",

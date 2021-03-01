@@ -31,7 +31,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-beta_robustness=0.0"],
+            "args": ["-beta_robustness=0.0", "-optimizer=esgd", "-learning_rate=0.1,0.01"],
             "console": "integratedTerminal"
         },
         {
@@ -39,7 +39,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-optimizer=sgd", "-beta_robustness=0.0", "-learning_rate=0.1,0.01"],
+            "args": ["-beta_robustness=0.0", "-l2_weight_decay=0.1", "-l2_weight_decay_params=[W_rec]"],
             "console": "integratedTerminal"
         },
         {
@@ -47,7 +47,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-optimizer=esgd", "-beta_robustness=0.0", "-learning_rate=0.1,0.01"],
+            "args": ["-beta_robustness=0.0", "-l2_weight_decay=0.1", "-l2_weight_decay_params=[W2]"],
             "console": "integratedTerminal"
         },
         {
