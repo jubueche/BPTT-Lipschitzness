@@ -46,7 +46,7 @@ class regularization_comparison_experiment:
         # - L1 decay
         l1 = split(top, "l1_weight_decay", [0.01,0.001,0.0001])
         l1 = split(l1, "n_epochs",["200,56"])
-        l1 = split(l1, "l1_weight_decay_params", ["[]"])
+        l1 = split(l1, "l1_weight_decay_params", ["['W_rec']"])
         l1 = split(l1, "seed", seeds)
 
         # - Entropy SGD
