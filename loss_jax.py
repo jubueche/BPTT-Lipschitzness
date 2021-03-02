@@ -67,8 +67,8 @@ def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
         for key in params.keys():
             rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
             rand_key, random_normal_var2 = split_and_sample(rand_key, params[key].shape)
-            theta_star[key] = params[key] * (1 + FLAGS.initial_std_mismatch*random_normal_var1)+FLAGS.initial_std_constant*random_normal_var2
-            step_size[key] = (FLAGS.attack_size_mismatch * params[key] + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
+            theta_star[key] = params[key] + jnp.abs(params[key]) * FLAGS.initial_std_mismatch*random_normal_var1 + FLAGS.initial_std_constant*random_normal_var2
+            step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key]) + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
 
         for _ in range(FLAGS.n_attack_steps):
             grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, params, logits, dropout_mask)
