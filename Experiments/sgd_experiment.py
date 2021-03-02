@@ -29,6 +29,7 @@ class sgd_experiment:
     @staticmethod
     def visualize():
         speech_mm_levels = [0.0,0.5,0.7,0.9,1.1,1.5]
+        # speech_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         seeds = [0,1,2,3,4,5,6,7,8,9]
         grid = [model for model in sgd_experiment.train_grid() if model["seed"] in seeds] 
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
