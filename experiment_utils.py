@@ -1,5 +1,7 @@
 import os
 from TensorCommands import input_data
+from TensorCommands.data_loader import SpeechDataLoader
+from TensorCommands.extract_data import prepare_npy
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
 from loss_jax import loss_normal
@@ -49,7 +51,7 @@ def get_quantized_acc(bits, model, data_dir):
         theta_star[key] = quantise(theta[key], bits)
     return get_test_acc(model, theta_star, data_dir, ATTACK=False)
 
-@cachable(dependencies = ["model:{architecture}_session_id", "mm_level", "model:architecture"])
+@cachable(dependencies = ["model:{architecture}_session_id", "n_iterations", "mm_level", "model:architecture"])
 def get_mismatch_list(n_iterations, model, mm_level, data_dir, batch_size=None):
     if(batch_size is not None):
         model["batch_size"] = batch_size
@@ -125,71 +127,28 @@ class Namespace:
 
 def get_loader(FLAGS, data_dir):
     if FLAGS.architecture=="speech_lsnn":
-        loader = input_data.AudioProcessor(
-            data_url=FLAGS.data_url, data_dir=data_dir,
-            silence_percentage=FLAGS.silence_percentage, unknown_percentage=FLAGS.unknown_percentage,
-            wanted_words=FLAGS.wanted_words.split(','), validation_percentage=FLAGS.validation_percentage,
-            testing_percentage=FLAGS.testing_percentage, 
-            n_thr_spikes=FLAGS.n_thr_spikes, n_repeat=FLAGS.in_repeat
-        )
-        set_size = loader.set_size('testing')
+        loader = SpeechDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
     elif FLAGS.architecture=="ecg_lsnn":
         loader = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
-        set_size = loader.N_test
     elif FLAGS.architecture=="cnn":
         loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
-        set_size = loader.N_test
-    return loader, set_size
+    return loader, loader.N_test
 
-def get_X_y_pair(i, FLAGS, loader):
-    if FLAGS.architecture=="speech_lsnn":
-        validation_fingerprints, validation_ground_truth = loader.get_data(FLAGS.batch_size, i, FLAGS.network.model_settings ,0.0, 0.0, 0.0, 'testing')
-        X = validation_fingerprints.numpy()
-        y = validation_ground_truth.numpy()
-    elif FLAGS.architecture=="ecg_lsnn":
-        X,y = loader.get_batch("test")
-    elif FLAGS.architecture=="cnn":
-        X,y= loader.get_batch("test")
+def get_X_y_pair(loader):
+    X,y= loader.get_batch("test")
     return onp.array(X), onp.array(y)
 
 def get_test_acc(model, theta_star, data_dir, ATTACK=False):
-    # - TODO can be replaced by functions above, but needs testing
     class Namespace:
         def __init__(self,d):
             self.__dict__.update(d)
     FLAGS = Namespace(model)
-    if FLAGS.architecture=="speech_lsnn":
-        audio_processor = input_data.AudioProcessor(
-            data_url=FLAGS.data_url, data_dir=data_dir,
-            silence_percentage=FLAGS.silence_percentage, unknown_percentage=FLAGS.unknown_percentage,
-            wanted_words=FLAGS.wanted_words.split(','), validation_percentage=FLAGS.validation_percentage,
-            testing_percentage=FLAGS.testing_percentage, 
-            n_thr_spikes=FLAGS.n_thr_spikes, n_repeat=FLAGS.in_repeat
-        )
-        set_size = audio_processor.set_size('testing')
-    elif FLAGS.architecture=="ecg_lsnn":
-        ecg_processor = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
-        set_size = ecg_processor.N_test
-    elif FLAGS.architecture=="cnn":
-        cnn_data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
-        set_size = cnn_data_loader.N_test
-    def get_X_y(i):
-        if FLAGS.architecture=="speech_lsnn":
-            test_fingerprints, test_ground_truth = (audio_processor.get_data(FLAGS.batch_size, i, FLAGS.network.model_settings ,0.0, 0.0, 0.0, 'testing'))
-            X = test_fingerprints.numpy()
-            y = test_ground_truth.numpy()
-            return X, y
-        elif FLAGS.architecture=="ecg_lsnn":
-            X,y = ecg_processor.get_batch("test")
-            return onp.array(X), onp.array(y)
-        elif FLAGS.architecture=="cnn":
-            X,y= cnn_data_loader.get_batch("test")
-            return onp.array(X), onp.array(y)
+    loader, set_size = get_loader(FLAGS, data_dir)
     total_accuracy = 0.0
     if(ATTACK):
         attacked_total_accuracy = 0.0
     for i in range(0, set_size // FLAGS.batch_size):
-        X, y = get_X_y(i)
+        X, y = get_X_y_pair(loader)
         logits, _ = FLAGS.network.call(X, jnp.ones(shape=(1,FLAGS.network.units)), **theta_star)
         if(ATTACK):
             _, logits_theta_star = attack_network(X, theta_star, logits, FLAGS.network, FLAGS, FLAGS.network._rng_key)

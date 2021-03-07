@@ -197,13 +197,6 @@ class speech_lsnn:
         data["network"] = rnn
         data["theta"] = theta
         data["speech_lsnn_session_id"] = sid
-        # data["audio_processor"] =  input_data.AudioProcessor(
-        #     data["data_url"], model["data_dir"],
-        #     data["silence_percentage"], data["unknown_percentage"],
-        #     data["wanted_words"].split(','), data["validation_percentage"],
-        #     data["testing_percentage"],
-        #     data["n_thr_spikes"], data["in_repeat"], data["seed"]
-        # )
         return data
 
 class ecg_lsnn:
@@ -223,7 +216,7 @@ class ecg_lsnn:
         d["eval_step_interval"]=400
         d["attack_size_constant"]=0.0
         d["initial_std_constant"]=0.0
-        d["attack_size_mismatch"]=2.0
+        d["attack_size_mismatch"]=0.2
         d["initial_std_mismatch"]=0.001
         d["clip_duration_ms"]=1000
         d["window_size_ms"]=30.0
@@ -232,6 +225,8 @@ class ecg_lsnn:
         d["feature_bin_count"]=40 
         d["in_repeat"]=1 
         d["n_thr_spikes"]=-1
+        d["beta_robustness"]=0.125
+        d["n_epochs"]="80,20"
         d["optimizer"]="adam"
         return d
     

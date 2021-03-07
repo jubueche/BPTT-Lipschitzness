@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 from ipywidgets import interact, interactive, fixed, interact_manual
 import ipywidgets as widgets
 import time
-
 #%%
 
 onp.random.seed(42)
@@ -27,7 +26,7 @@ def f(theta):
 
 @jit
 def _f(x,y):
-    return jnp.sin(x**2 + y**2)
+    return jnp.sin(1*(x**2 + y**2))
 
     # GeoGebra: 3*(1-x)^2*exp(-(x^2)-(y+1)^2)-10*(x/5 - x^3 - y^5)*exp(-x^2-y^2) - 1/3*exp(-(x+1)^2 - y^2)
 
@@ -53,7 +52,7 @@ def make_theta_star(theta, num_steps, eps_ball):
     step_size = eps_ball / num_steps
     for i in range(num_steps):
         grads_theta_star = grad(lip_loss, argnums=0)(theta_star, theta)
-        theta_star = theta_star + step_size[i] * jnp.sign(grads_theta_star)
+        theta_star = theta_star + step_size * jnp.sign(grads_theta_star)
     return theta_star
 
 def lip_loss(theta, theta_star):
@@ -168,53 +167,41 @@ fig.show()
 # %%
 
 # @partial(jit, static_argnums=(0,2,3))
-def get_grid(resolution,beta_decay,beta_rob,n_attack_steps,attack_size):
+def get_Z(X,Y,beta_decay,beta_rob,n_attack_steps,attack_size,offset,constant):
     t0 = time.time()
-    x = jnp.linspace(-1, 1, resolution)
-    y = jnp.linspace(-0.5, 3.0, resolution)
-
-    X, Y = jnp.meshgrid(x, y)
-    Z = jnp.zeros((resolution, resolution))
+    Z = 0*X
     if beta_rob !=0:
-        for i in range(resolution):
-            for j in range(resolution):
+        for i in range(X.shape[0]):
+            for j in range(X.shape[1]):
                 theta = xy2vec(x=X[i][j],y=Y[i][j])
-                effective_attack_size = xy2vec(x=attack_size * abs(X[i][j]), y=attack_size * abs(Y[i][j]))
+                if(constant):
+                    effective_attack_size = xy2vec(x=attack_size, y=attack_size)
+                else:   
+                    effective_attack_size = xy2vec(x=attack_size * abs(X[i][j]), y=attack_size * abs(Y[i][j]))
                 Z = ops.index_update(Z, ops.index[i,j], beta_rob * _robust_loss(theta, n_attack_steps, effective_attack_size))
     
     Z += beta_decay * 0.5*(X**2 + Y**2)
     Z += _f(X,Y)
+    Z += 1
     t1 = time.time()
     total = t1-t0
-    return X,Y,Z,total
+    return Z,total
 
 #%%
-def plot(beta_decay=0.0,beta_rob=0.1,n_attack_steps=3, attack_size= 0.1, view_1 = 50, view_2=195):
-    resolution=90
-    x_scale=3.5
-    y_scale=7
-    z_scale=1
-    
-    X,Y,Z,total = get_grid(resolution,beta_decay,beta_rob,n_attack_steps,attack_size)
+resolution=50
+x_scale=3.5
+y_scale=7
+z_scale=1
+x = jnp.linspace(-1, 1, resolution)
+y = jnp.linspace(-0.5, 3.0, resolution)
+X, Y = jnp.meshgrid(x, y)
+fig = go.FigureWidget()
+fig.add_trace(go.Surface(x=X, y=Y, z=0*X))
+
+@interact_manual(beta_decay=(0,2,0.1), beta_rob=(0, 10, 0.1), n_attack_steps=(1,10,1), attack_size=(0.1,3.0,0.1), offset=(0,4,2),constant=False)
+def update(beta_decay=0.0,beta_rob=0.1,n_attack_steps=3, attack_size= 0.1, view_1 = 50, view_2=195,offset=2,constant=False):
+    Z,total = get_Z(X,Y,beta_decay,beta_rob,n_attack_steps,attack_size,offset,constant)
     print(f"Done creating grid in {total}")
-    fig = go.Figure(data=[go.Surface(x=X, y=Y, z=Z)])
-    fig.show()
-
-    fig=plt.figure(figsize=(16,10))
-    ax = fig.add_subplot(projection='3d')
-
-    scale=onp.diag([x_scale, y_scale, z_scale, 1.0])
-    scale=scale*(1.0/scale.max())
-    scale[3,3]=1.0
-
-    def short_proj():
-        return onp.dot(Axes3D.get_proj(ax), scale)
-
-    ax.set_zticks([-1, 0, 1, 4])
-    ax.get_proj=short_proj
-    ax.plot_surface(X, Y, Z, rstride=1, cstride=1,)
-    ax.view_init(view_1, view_2)
-
-#%%
-interact_manual(plot,beta_decay=(0,2,0.1), beta_rob=(0, 2, 0.1), n_attack_steps=(1,10,1), attack_size=(0.1,3.0,0.1))
+    fig['data'][0]['z'] = Z
+fig
 # %%

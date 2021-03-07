@@ -31,7 +31,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-beta_robustness=0.0", "-optimizer=esgd", "-learning_rate=0.1,0.01"],
+            "args": ["-beta_robustness=0.0", "-attack_size_mismatch=0.5", "-initial_std_mismatch=0.001"],
             "console": "integratedTerminal"
         },
         {

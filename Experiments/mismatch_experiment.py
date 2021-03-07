@@ -8,21 +8,19 @@ class mismatch_experiment:
     
     @staticmethod
     def train_grid():
+        seeds = [0]
+
         ecg = ecg_lsnn.make()
-        ecg = split(ecg, "attack_size_constant", [0.0])
-        ecg = split(ecg, "attack_size_mismatch", [2.0])
-        ecg = split(ecg, "initial_std_constant", [0.0])
-        ecg = split(ecg, "initial_std_mismatch", [0.001])
-        ecg = split(ecg, "beta_robustness", [0.0, 1.0])
-        ecg = split(ecg, "seed", [0,1,2,3,4,5,6,7,8,9])
+        ecg = configure([ecg], dictionary={"attack_size_constant": 0.0, "initial_std_constant":0.0, "initial_std_mismatch":0.001, "seed":0})
+        ecg0 = configure(ecg, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "n_epochs":"80,20"})
+        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch":0.2, "n_epochs":"80,20"})
+        ecg = ecg0 + ecg1
 
         speech = speech_lsnn.make()
-        speech = split(speech, "attack_size_constant", [0.0])
-        speech = split(speech, "attack_size_mismatch", [2.0])
-        speech = split(speech, "initial_std_constant", [0.0])
-        speech = split(speech, "initial_std_mismatch", [0.001])
-        speech = split(speech, "beta_robustness", [0.0, 1.0])
-        speech = split(speech, "seed", [0,1,2,3,4,5,6,7,8,9])
+        speech = configure([speech], dictionary={"attack_size_constant": 0.0, "initial_std_constant":0.0, "initial_std_mismatch":0.001, "seed":0})
+        speech0 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "n_epochs":"80,20", "dropout_prob":0.0})
+        speech1 = configure(speech, {"beta_robustness": 0.125, "attack_size_mismatch":0.3, "n_epochs":"80,20", "dropout_prob":0.3})
+        speech = speech0 + speech1
 
         cnn_grid = cnn.make()
         cnn_grid = split(cnn_grid, "attack_size_constant", [0.0])
@@ -30,16 +28,17 @@ class mismatch_experiment:
         cnn_grid = split(cnn_grid, "initial_std_constant", [0.0])
         cnn_grid = split(cnn_grid, "initial_std_mismatch", [0.001])
         cnn_grid = split(cnn_grid, "beta_robustness", [0.0, 1.0])
-        cnn_grid = split(cnn_grid, "seed", [0,1,2,3,4,5,6,7,8,9])
+        cnn_grid = split(cnn_grid, "seed", seeds)
 
-        return ecg + speech + cnn_grid
+        return ecg + speech
+        # return ecg + speech + cnn_grid
 
     @staticmethod
     def visualize():
-        speech_mm_levels = [0.0,0.5,0.7,0.9,1.1,1.5]
+        speech_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
         ecg_mm_levels = [0.0, 0.2,0.3,0.5,0.7,0.9]
         cnn_mm_levels = [0.0, 0.5,0.7,0.9,1.1,1.5]
-        seeds = [0,1,2,3,4,5,6,7,8,9]
+        seeds = [0]
 
         # - Per general column
         N_cols = 10 # - 10
@@ -61,7 +60,7 @@ class mismatch_experiment:
         grid = split(grid, "mm_level", ecg_mm_levels , where={"architecture":"ecg_lsnn"})
         grid = split(grid, "mm_level", cnn_mm_levels , where={"architecture":"cnn"})
 
-        grid = configure(grid, {"n_iterations":50})
+        grid = configure(grid, {"n_iterations":100})
         grid = configure(grid, {"n_iterations":1}, where={"mm_level":0.0})
 
         grid = configure(grid, {"mode":"direct"})
@@ -81,13 +80,13 @@ class mismatch_experiment:
             vanilla_data = onp.array(query(grid, "mismatch_list", where={"beta_robustness":0.0, "architecture":architecture})).reshape((len(seeds),-1))
             return list(zip(unravel(vanilla_data), unravel(robust_data)))
 
-        data_speech_lsnn = get_data_acc("speech_lsnn", 1.0)
-        data_ecg_lsnn = get_data_acc("ecg_lsnn", 1.0)
-        data_cnn = get_data_acc("cnn", 1.0)
+        data_speech_lsnn = get_data_acc("speech_lsnn", 0.125)
+        data_ecg_lsnn = get_data_acc("ecg_lsnn", 0.125)
+        # data_cnn = get_data_acc("cnn", 1.0)
 
         plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn)
         plot_mm_distributions(axes_ecg["btm"], data=data_ecg_lsnn)
-        plot_mm_distributions(axes_cnn["btm"], data=data_cnn)
+        # plot_mm_distributions(axes_cnn["btm"], data=data_cnn)
 
         # - Get the sample data for speech
         X_speech, y_speech = get_data("speech")
@@ -125,6 +124,6 @@ class mismatch_experiment:
         print("---------------------------")
         print_experiment_info(data_ecg_lsnn, ecg_mm_levels, beta_ecg)
 
-        beta_cnn = onp.unique(query(grid, "beta_robustness", where={"architecture": "cnn"}))[1]
-        print("---------------------------")
-        print_experiment_info(data_cnn, cnn_mm_levels, beta_cnn)
+        # beta_cnn = onp.unique(query(grid, "beta_robustness", where={"architecture": "cnn"}))[1]
+        # print("---------------------------")
+        # print_experiment_info(data_cnn, cnn_mm_levels, beta_cnn)

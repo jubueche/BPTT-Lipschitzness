@@ -7,6 +7,8 @@ import sys
 import os.path as path
 sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 from TensorCommands import input_data
+from TensorCommands.extract_data import prepare_npy
+from TensorCommands.data_loader import SpeechDataLoader
 from six.moves import xrange
 from RNN_Jax import RNN
 from jax import random, jit, partial
@@ -101,9 +103,13 @@ if __name__ == '__main__':
     )
 
     FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
-
     FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
 
+    # - Extract the data if needed
+    prepare_npy(FLAGS, audio_processor)
+
+    # - Create the data loader
+    speech_processor = SpeechDataLoader(path=FLAGS.data_dir, batch_size=FLAGS.batch_size)
 
     epochs_list = list(map(int, FLAGS.n_epochs.split(',')))
     learning_rates_list = list(map(float, FLAGS.learning_rate.split(',')))
@@ -151,9 +157,7 @@ if __name__ == '__main__':
     best_val_acc = 0.0
     for i in range(sum(iteration)):
         # - Get training data
-        train_fingerprints, train_ground_truth = audio_processor.get_data(FLAGS.batch_size, 0, vars(FLAGS), FLAGS.background_frequency,FLAGS.background_volume, FLAGS.time_shift_samples, 'training')
-        X = train_fingerprints.numpy()
-        y = train_ground_truth.numpy()
+        X,y = speech_processor.get_batch(dset="train", batch_size=FLAGS.batch_size)
 
         def get_grads(params):
             grads = compute_gradients(X, y, params, rnn, FLAGS, rnn._rng_key)
@@ -183,14 +187,11 @@ if __name__ == '__main__':
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
-            set_size = audio_processor.set_size('validation')
+            set_size = speech_processor.N_val
             llot = []
             total_accuracy = attacked_total_accuracy = 0
             for i in range(0, set_size // FLAGS.batch_size):
-                validation_fingerprints, validation_ground_truth = (
-                    audio_processor.get_data(FLAGS.batch_size, i, vars(FLAGS), 0.0, 0.0, 0.0, 'validation'))
-                X = validation_fingerprints.numpy()
-                y = validation_ground_truth.numpy()
+                X,y = speech_processor.get_batch(dset="val", batch_size=FLAGS.batch_size)
                 logits, _ = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
                 lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
                 rnn._rng_key, _ = random.split(rnn._rng_key)
