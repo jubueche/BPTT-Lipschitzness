@@ -25,6 +25,8 @@ import sqlite3
 import math
 from architectures import ecg_lsnn as arch
 from architectures import log
+from concurrent.futures import ThreadPoolExecutor
+from experiment_utils import get_mismatch_accuracy
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -137,7 +139,7 @@ if __name__ == '__main__':
         sys.exit(0)
     opt_state = opt_init(init_params)
 
-    best_val_acc = 0.0
+    best_val_acc = best_mean_mm_val_acc = 0.0
 
     pp = lambda x : ("%.3f" % x)
     ppl = lambda x : [pp(xx) for xx in x]
@@ -170,6 +172,20 @@ if __name__ == '__main__':
             log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
             log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
 
+        if((i+1) % (2*FLAGS.eval_step_interval) == 0):
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                # Start the load operations and mark each future with its URL
+                futures = [executor.submit(get_mismatch_accuracy, 0.3, params, FLAGS, ecg_processor, rnn) for i in range(100)]
+                mismatch_accuracies = onp.array([f.result() for f in futures])
+                mean_mm_val_acc = onp.mean(mismatch_accuracies)
+                log(FLAGS.session_id,"mm_val_robustness",list(mismatch_accuracies))
+                print(f"MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
+                # - Save the model
+                if(mean_mm_val_acc > best_mean_mm_val_acc):
+                    best_mean_mm_val_acc = mean_mm_val_acc
+                    rnn.save(model_save_path, params)
+                    print(f"Saved model under {model_save_path}")
+
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
             set_size = ecg_processor.N_val
@@ -188,6 +204,8 @@ if __name__ == '__main__':
                 attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
                 total_accuracy += batched_validation_acc
                 attacked_total_accuracy += attacked_batched_validation_acc
+            
+            ecg_processor.reset("val")
 
             total_accuracy = total_accuracy / (set_size // val_bs)
             attacked_total_accuracy = attacked_total_accuracy / (set_size // val_bs)
@@ -197,10 +215,10 @@ if __name__ == '__main__':
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
             log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
 
-            # - Save the model
-            if(total_accuracy > best_val_acc):
-                best_val_acc = total_accuracy
-                rnn.save(model_save_path, params)
-                print(f"Saved model under {model_save_path}")
+            # # - Save the model
+            # if(total_accuracy > best_val_acc):
+            #     best_val_acc = total_accuracy
+            #     rnn.save(model_save_path, params)
+            #     print(f"Saved model under {model_save_path}")
 
             print(f"Validation accuracy {total_accuracy} Attacked val. accuracy {attacked_total_accuracy}")

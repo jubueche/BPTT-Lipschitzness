@@ -27,6 +27,11 @@ import sqlite3
 from architectures import speech_lsnn as arch
 from architectures import log
 from EntropySGD.entropy_sgd import EntropySGD_Jax
+from concurrent.futures import ThreadPoolExecutor
+from experiment_utils import get_mismatch_accuracy
+import threading
+import gc
+from copy import deepcopy
 
 def get_batched_accuracy(y, logits):
     predicted_labels = jnp.argmax(logits, axis=1)
@@ -154,7 +159,7 @@ if __name__ == '__main__':
         sys.exit(0)
     opt_state = opt_init(init_params)
 
-    best_val_acc = 0.0
+    best_val_acc = best_mean_mm_val_acc = 0.0
     for i in range(sum(iteration)):
         # - Get training data
         X,y = speech_processor.get_batch(dset="train", batch_size=FLAGS.batch_size)
@@ -179,11 +184,26 @@ if __name__ == '__main__':
             lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
             training_accuracy = get_batched_accuracy(y, logits)
             attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
-            print(f"Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
+            print(f"T-ID({threading.get_ident()}) Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
             log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
             log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
             log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
 
+        if((i+1) % (2*FLAGS.eval_step_interval) == 0):
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                # Start the load operations and mark each future with its URL
+                futures = [executor.submit(get_mismatch_accuracy, 0.3, params, FLAGS, speech_processor, rnn) for i in range(100)]
+                mismatch_accuracies = onp.array(deepcopy([f.result() for f in futures]))
+                mean_mm_val_acc = onp.mean(mismatch_accuracies)
+                log(FLAGS.session_id,"mm_val_robustness",list(mismatch_accuracies))
+                print(f"MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
+                # - Save the model
+                if(mean_mm_val_acc > best_mean_mm_val_acc):
+                    best_mean_mm_val_acc = mean_mm_val_acc
+                    rnn.save(model_save_path, params)
+                    print(f"Saved model under {model_save_path}")
+                for f in futures:
+                    f._result = None
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
@@ -202,6 +222,7 @@ if __name__ == '__main__':
                 attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
                 total_accuracy += batched_validation_acc
                 attacked_total_accuracy += attacked_batched_validation_acc
+            speech_processor.reset("val")
             
             total_accuracy = total_accuracy / (set_size // FLAGS.batch_size)
             attacked_total_accuracy = attacked_total_accuracy / (set_size // FLAGS.batch_size)
@@ -212,11 +233,11 @@ if __name__ == '__main__':
             mean_llot = onp.mean(onp.asarray(llot), axis=0)
             log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
 
-            # - Save the model
-            if(total_accuracy > best_val_acc):
-                best_val_acc = total_accuracy
-                rnn.save(model_save_path, params)
-                print(f"Saved model under {model_save_path}")
+            # # - Save the model
+            # if(total_accuracy > best_val_acc):
+            #     best_val_acc = total_accuracy
+            #     rnn.save(model_save_path, params)
+            #     print(f"Saved model under {model_save_path}")
 
             print(f"Validation accuracy {total_accuracy} Attacked val. accuracy {attacked_total_accuracy}")
 

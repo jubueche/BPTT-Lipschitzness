@@ -27,10 +27,11 @@ from architectures import standard_defaults
 from TensorCommands import input_data
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
-from copy import copy
+from copy import copy, deepcopy
 from loss_jax import attack_network
 from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
+import threading
 
 def quantise(M, bits):
     if(bits == -1):
@@ -157,10 +158,31 @@ def get_test_acc(model, theta_star, data_dir, ATTACK=False):
             attacked_total_accuracy += attacked_batched_validation_acc
         batched_test_acc = get_batched_accuracy(y, logits)
         total_accuracy += batched_test_acc
+    loader.reset("test")
     if(ATTACK):
         return onp.float64(attacked_total_accuracy / (set_size // FLAGS.batch_size))
     else:
         return onp.float64(total_accuracy / (set_size // FLAGS.batch_size))
+
+def get_mismatch_accuracy(mismatch_level, params, FLAGS, loader, model, mode="rnn"):
+    # print(f"Started {threading.current_thread().name}")
+    params_local = deepcopy(params)
+    for key in params_local:
+        params_local[key] = params_local[key] * (1 + mismatch_level * onp.random.normal(loc=0.0, scale=1.0, size=params_local[key].shape))
+    total_accuracy = 0
+    set_size = loader.N_val
+    for i in range(0, set_size // FLAGS.batch_size):
+        X,y = loader.get_batch(dset="val", batch_size=FLAGS.batch_size)
+        if(mode == "cnn"):
+            logits, _ = model.call(X, [[0]], **params_local)
+        else:
+            logits, _ = model.call(X, jnp.ones(shape=(1,model.units)), **params_local)
+        predicted_labels = jnp.argmax(logits, axis=1)
+        batched_validation_acc = get_batched_accuracy(y, logits)
+        total_accuracy += batched_validation_acc
+    total_accuracy = total_accuracy / (set_size // FLAGS.batch_size)
+    loader.reset("val")
+    return onp.float64(total_accuracy)
 
 def get_batched_accuracy(y, logits):
     y =onp.array(y)

@@ -23,9 +23,9 @@ def standard_defaults():
         "l1_weight_decay_params":"[]",
         "reg":0.001,
         "learning_rate":"0.001,0.0001",
-        "n_epochs":"32,8",
+        "n_epochs":"80,20",
         "n_attack_steps": 10,
-        "beta_robustness": 1.0,
+        "beta_robustness": 0.125,
         "seed":0,
         "n_hidden":256,
         "n_layer":1,
@@ -160,9 +160,9 @@ class speech_lsnn:
         d["wanted_words"] = "yes,no"
         d["attack_size_constant"]=0.0
         d["initial_std_constant"]=0.0
-        d["attack_size_mismatch"] = 2.0
+        d["attack_size_mismatch"] = 0.3
         d["initial_std_mismatch"]=0.001
-        d["n_epochs"]="64,16"
+        d["n_epochs"]="80,20"
         d["optimizer"]="adam"
         return d
     

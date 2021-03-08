@@ -69,3 +69,13 @@ class SpeechDataLoader:
             if(self.i_test >= self.N_test):
                 self.i_test = 0
         return (X,y)
+
+    def reset(self,mode):
+        if(mode == "train"):
+            self.i_train = 0
+        elif(mode == "val"):
+            self.i_val = 0
+        elif(mode == "test"):
+            self.i_test = 0
+        else:
+            raise Exception

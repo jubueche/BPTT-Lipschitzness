@@ -15,5 +15,7 @@ mismatch_experiment.mismatch_experiment.visualize()
 # ecg_loader = ECGDataLoader(path = "/home/julian/Documents/BPTT-Lipschitzness/ECG/ecg_recordings", batch_size=100)
 # X,y,seq = ecg_loader.get_sequence()
 # print(seq.shape)
+
+
 # plt.plot(seq)
 # plt.show()
