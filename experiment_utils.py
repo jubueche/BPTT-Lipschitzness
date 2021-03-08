@@ -13,6 +13,8 @@ from Hessian import hessian_computation, lanczos
 from Hessian import density as density_lib
 import jax.numpy as jnp
 import jax.random as jax_random
+from jax import grad
+from loss_jax import loss_kl
 import matplotlib
 import numpy as onp
 import matplotlib
@@ -32,6 +34,7 @@ from loss_jax import attack_network
 from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 def quantise(M, bits):
     if(bits == -1):
@@ -87,6 +90,20 @@ def get_surface_data(model, surface_dist, data_dir, ATTACK=False):
         theta_star[key] = theta[key] + surface_dist * onp.sign(onp.random.uniform(low=-1, high=1, size=theta[key].shape))
     return get_test_acc(model, theta_star, data_dir, ATTACK)
 
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
+def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
+    with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(get_whole_attacked_test_acc, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant) for i in range(num)]
+            min_attacked_acc = onp.min(deepcopy([f.result() for f in futures]))
+    return min_attacked_acc
+
+def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
+    FLAGS = Namespace(model)
+    loader, set_size = get_loader(FLAGS, data_dir)
+    logits, _ = FLAGS.network.call(loader.X_test, jnp.ones(shape=(1,FLAGS.network.units)), **model["theta"])
+    _, logits_theta_star = attack_network(loader.X_test, model["theta"], logits, FLAGS.network, FLAGS, jax_random.PRNGKey(0))
+    attacked_test_acc = get_batched_accuracy(loader.y_test, logits_theta_star)
+    return attacked_test_acc
 
 @cachable(dependencies = ["model:{architecture}_session_id", "order", "model:architecture"])
 def compute_hessian(model, data_dir, order=90, batch_size=None):

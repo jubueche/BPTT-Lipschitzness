@@ -24,6 +24,8 @@ class mismatch_experiment:
         speech2 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
         speech = speech0 + speech1 + speech2
 
+        speech_tmp = configure([speech_lsnn.make()], dictionary={"attack_size_constant": 0.0, "attack_size_mimsatch":0.3, "beta_robustness":0.0, "initial_std_constant":0.0, "n_epochs":"100,50", "learning_rate":"0.001,0.0001", "initial_std_mismatch":0.001, "seed":0, "wanted_words":"yes,no,up,down,left,right"})
+
         cnn_grid = cnn.make()
         cnn_grid = split(cnn_grid, "attack_size_constant", [0.0])
         cnn_grid = split(cnn_grid, "attack_size_mismatch", [1.0])
@@ -32,7 +34,7 @@ class mismatch_experiment:
         cnn_grid = split(cnn_grid, "beta_robustness", [0.0, 1.0])
         cnn_grid = split(cnn_grid, "seed", seeds)
 
-        return speech
+        return speech_tmp
         # return ecg + speech + cnn_grid
 
     @staticmethod
@@ -64,9 +66,12 @@ class mismatch_experiment:
 
         grid = configure(grid, {"n_iterations":100})
         grid = configure(grid, {"n_iterations":1}, where={"mm_level":0.0})
-
         grid = configure(grid, {"mode":"direct"})
         
+        # # - Example usage get min test accuracy: Computes the attacked test acc over the whole test set.
+        # # - Caches on ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
+        # # grid = run(grid, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(5, "{*}", "{data_dir}", 10, 0.3, 0.0, 0.001, 0.0)
+
         grid = run(grid, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
         def unravel(arr):

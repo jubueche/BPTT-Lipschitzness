@@ -158,7 +158,6 @@ if __name__ == '__main__':
 
         if((i+1) % (2*FLAGS.eval_step_interval) == 0):
             with ThreadPoolExecutor(max_workers=10) as executor:
-                # Start the load operations and mark each future with its URL
                 futures = [executor.submit(get_mismatch_accuracy, 0.3, params, FLAGS, data_loader, cnn, "cnn") for i in range(100)]
                 mismatch_accuracies = onp.array([f.result() for f in futures])
                 mean_mm_val_acc = onp.mean(mismatch_accuracies)
