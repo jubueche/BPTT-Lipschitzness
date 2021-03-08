@@ -42,8 +42,8 @@ def help():
         }
 
 launch_settings = {
-    "direct":"python {code_file} {args}",
-    "bsub":"bsub -o ../logs/{session_id} -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
+    "direct":"mkdir -p Resources/Logs; python {code_file} {args} &> Resources/Logs/{session_id}.log",
+    "bsub":"mkdir -p Resources/Logs; bsub -o Resources/Logs/{session_id}.log -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
 }
 
 def mk_runner(architecture, env_vars):
