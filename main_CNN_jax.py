@@ -65,10 +65,13 @@ if __name__ == '__main__':
 
     FLAGS.l2_weight_decay_params = str(FLAGS.l2_weight_decay_params[1:-1]).split(",")
     FLAGS.l1_weight_decay_params = str(FLAGS.l1_weight_decay_params[1:-1]).split(",")
+    FLAGS.contractive_params = str(FLAGS.contractive_params[1:-1]).split(",")
     if(FLAGS.l1_weight_decay_params == ['']):
         FLAGS.l1_weight_decay_params = []
     if(FLAGS.l2_weight_decay_params == ['']):
         FLAGS.l2_weight_decay_params = []
+    if(FLAGS.contractive_params == ['']):
+        FLAGS.contractive_params = []
 
     data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
     flags_dict = vars(FLAGS)

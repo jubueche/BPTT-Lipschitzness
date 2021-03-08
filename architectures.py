@@ -21,6 +21,8 @@ def standard_defaults():
         "l2_weight_decay_params":"[]",
         "l1_weight_decay":0.0,
         "l1_weight_decay_params":"[]",
+        "contractive":0.0,
+        "contractive_params":"[]",
         "reg":0.001,
         "learning_rate":"0.001,0.0001",
         "n_epochs":"80,20",
@@ -287,7 +289,7 @@ class cnn:
         d = standard_defaults()
         d["eval_step_interval"]=1000
         d["attack_size_constant"]=0.0
-        d["attack_size_mismatch"]=1.0
+        d["attack_size_mismatch"]=0.3
         d["initial_std_constant"]=0.0
         d["initial_std_mismatch"]=0.001
         d["Kernels"]="[[64,1,4,4],[64,64,4,4]]"

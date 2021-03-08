@@ -44,12 +44,17 @@ def compute_gradients(X, y, params, rnn, FLAGS, rand_key):
     _, subkey = random.split(rand_key)
     subkey, dropout_mask = split_and_get_dropout_mask(subkey, (1,rnn.units), rnn.dropout_prob)
 
-    def training_loss(X, y, params, l2_reg, dropout_mask):
+    def _training_loss(X, y, params, l2_reg, dropout_mask):
         logits, spikes = rnn.call(X, dropout_mask, **params)
         avg_firing = jnp.mean(spikes, axis=1) 
         l2 = FLAGS.l2_weight_decay * jnp.sum(jnp.array([jnp.linalg.norm(params[el],'fro') for el in FLAGS.l2_weight_decay_params]))
         l1 = FLAGS.l1_weight_decay * jnp.sum(jnp.array([jnp.sum(jnp.abs(params[el])) for el in FLAGS.l1_weight_decay_params]))
         return loss_normal(y, logits, avg_firing, l2_reg) + l2 + l1
+
+    def training_loss(X, y, params, l2_reg, dropout_mask):
+        grads = grad(_training_loss, argnums=2)(X, y, params, FLAGS.reg, jnp.ones_like(dropout_mask))
+        loss_contractive = FLAGS.contractive * jnp.sum(jnp.array([jnp.linalg.norm(jnp.ravel(grads[el]), ord=jnp.inf) for el in FLAGS.contractive_params]))
+        return _training_loss(X, y, params, l2_reg, dropout_mask) + loss_contractive
 
     def lip_loss(X, theta_star, theta, logits, dropout_mask):
         logits_theta_star, _ = rnn.call(X, dropout_mask, **theta_star)

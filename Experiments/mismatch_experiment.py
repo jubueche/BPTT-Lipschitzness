@@ -18,7 +18,7 @@ class mismatch_experiment:
         ecg = ecg0 + ecg1 + ecg2
 
         speech = speech_lsnn.make()
-        speech = configure([speech], dictionary={"attack_size_constant": 0.0, "initial_std_constant":0.0, "n_epochs":"10,100,50", "learning_rate":"0.01,0.001,0.0001", "initial_std_mismatch":0.001, "seed":0, "wanted_words":"yes,no,up,down,left,right"})
+        speech = configure([speech], dictionary={"attack_size_constant": 0.0, "initial_std_constant":0.0, "n_epochs":"100,50", "learning_rate":"0.001,0.0001", "initial_std_mismatch":0.001, "seed":0, "wanted_words":"yes,no,up,down,left,right"})
         speech0 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3})
         speech1 = configure(speech, {"beta_robustness": 0.125, "attack_size_mismatch":0.3})
         speech2 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
