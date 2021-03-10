@@ -92,8 +92,12 @@ class CNNDataLoader():
             Data = np.array([X_train_shaped, y_train_shaped, X_test, y_test])
             save(data_path, Data, allow_pickle=True)
 
+        self.d_out = y_train_shaped.shape[1]
+        X_train_shaped = np.transpose(X_train_shaped, (0,3,1,2)) # -> (N,1,28,28)
+        y_train_shaped = np.argmax(y_train_shaped, axis=1)
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(X_train_shaped, y_train_shaped, test_size=0.2, random_state=42)
-        self.X_test, self.y_test = preprocess_data(X_test,  y_test, "test")
+        self.X_test, self.y_test = preprocess_data(X_test, y_test, "test")
+        self.X_test = np.transpose(self.X_test, (0,3,1,2))
 
         self.batch_size = batch_size
         self.N_train = self.X_train.shape[0]
@@ -114,12 +118,11 @@ class CNNDataLoader():
             return_dict[str(c)] = []
         found_all = False
         final_batch = np.zeros((n_per_class*len(classes),1,28,28))
-        final_labels = np.zeros((n_per_class*len(classes),10))
+        final_labels = np.zeros((n_per_class*len(classes),))
         i = 0
         while(not found_all):
             batch, labels_vec = self.get_batch("train", batch_size=100)
-            labels = np.argmax(labels_vec, axis=1)
-            for j,(b,l) in enumerate(zip(batch,labels)):
+            for j,(b,l) in enumerate(zip(batch,labels_vec)):
                 if(l in classes and len(return_dict[str(l)]) < n_per_class):
                     return_dict[str(l)].append(b)
                     final_batch[i] = b
@@ -151,8 +154,8 @@ class CNNDataLoader():
             i = self.i_test
         if(num_samples > bs):
             num_samples = bs
-        X = np.transpose(X[i:i+num_samples,:,:,:], (0,3,1,2))
-        y = y[i:i+num_samples,:]
+        X = X[i:i+num_samples,:,:,:]
+        y = y[i:i+num_samples]
         if(dset=="train"):
             self.i_train += num_samples
             if(self.i_train >= self.N_train):

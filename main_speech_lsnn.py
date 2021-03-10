@@ -9,56 +9,18 @@ sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 from TensorCommands import input_data
 from TensorCommands.extract_data import prepare_npy
 from TensorCommands.data_loader import SpeechDataLoader
-from six.moves import xrange
 from RNN_Jax import RNN
-from jax import random, jit, partial
+from jax import random
 import jax.numpy as jnp
-from loss_jax import loss_normal, compute_gradient_and_update, attack_network, compute_gradients
+from loss_jax import loss_normal, compute_gradient_and_update, compute_gradients
 from jax.experimental import optimizers
-import ujson as json
-import matplotlib.pyplot as plt 
-from datetime import datetime
-import jax.nn.initializers as jini
-from random import randint
 import time
-import string
 import math
-import sqlite3
 from architectures import speech_lsnn as arch
 from architectures import log
 from EntropySGD.entropy_sgd import EntropySGD_Jax
-from concurrent.futures import ThreadPoolExecutor
-from experiment_utils import get_mismatch_accuracy
-import threading
-import gc
-from copy import deepcopy
-
-def get_batched_accuracy(y, logits):
-    predicted_labels = jnp.argmax(logits, axis=1)
-    correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
-    batch_acc = jnp.mean(correct_prediction)
-    return batch_acc
-
-def get_lr_schedule(iteration, lrs):
-
-    ts = onp.arange(1,sum(iteration),1)
-    lr_sched = onp.zeros((len(ts),))
-    for i in range(1,len(iteration)):
-        iteration[i] += iteration[i-1]
-    def get_lr(t):
-        if(t < iteration[0]):
-            return lrs[0]
-        for i in range(1,len(iteration)):
-            if(t < iteration[i] and t >= iteration[i-1]):
-                return lrs[i]
-
-    for idx,t in enumerate(ts):
-        lr_sched[idx] = get_lr(t)
-    lr_sched = jnp.array(lr_sched)
-    def lr_schedule(t):
-        return lr_sched[t]
-    
-    return lr_schedule
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from experiment_utils import get_batched_accuracy, _get_acc_batch, get_val_acc, _get_mismatch_data, get_val_acc, get_lr_schedule
 
 if __name__ == '__main__':
 
@@ -144,12 +106,13 @@ if __name__ == '__main__':
 
     # - Create the model
     rnn = RNN(vars(FLAGS))
+    FLAGS.network = rnn # TODO changing this would require additional methods for get_acc etc. is there a better way?
+    FLAGS.architecture = "speech_lsnn" # - . -
 
     init_params = {"W_in": W_in, "W_rec": W_rec, "W_out": W_out, "b_out": b_out}
     iteration = onp.array(steps_list, int)
     lrs = onp.array(FLAGS.learning_rate.split(","),float)
-    color_range = onp.linspace(0,1,onp.sum(iteration))
-    
+     
     if(FLAGS.optimizer == "adam"):
         opt_init, opt_update, get_params = optimizers.adam(get_lr_schedule(iteration,lrs), 0.9, 0.999, 1e-08)
     elif(FLAGS.optimizer == "sgd"):
@@ -179,68 +142,33 @@ if __name__ == '__main__':
 
         if((i+1) % 10 == 0):
             params = get_params(opt_state)
-            logits, spikes = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
-            avg_firing = jnp.mean(spikes, axis=1)
-            loss = loss_normal(y, logits, avg_firing, FLAGS.reg)
-            lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
-            rnn._rng_key, _ = random.split(rnn._rng_key)
-            lip_loss_over_time = list(onp.array(lip_loss_over_time, dtype=onp.float64))
-            training_accuracy = get_batched_accuracy(y, logits)
-            attacked_accuracy = get_batched_accuracy(y, logits_theta_star)
-            print(f"T-ID({threading.get_ident()}) Loss is {loss} Lipschitzness loss over time {lip_loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_accuracy}",flush=True)
-            log(FLAGS.session_id,"training_accuracy",onp.float64(training_accuracy))
-            log(FLAGS.session_id,"attacked_training_accuracy",onp.float64(attacked_accuracy))
-            log(FLAGS.session_id,"kl_over_time",lip_loss_over_time)
+            training_accuracy, attacked_training_accuracy, loss_over_time, loss = _get_acc_batch(X, y, params, FLAGS, ATTACK=True)
+            print(f"Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
+            log(FLAGS.session_id,"training_accuracy",training_accuracy)
+            log(FLAGS.session_id,"attacked_training_accuracy",attacked_training_accuracy)
+            log(FLAGS.session_id,"kl_over_time",loss_over_time)
 
         if((i+1) % (2*FLAGS.eval_step_interval) == 0):
+            params = get_params(opt_state)
+            mismatch_accuracies = []
             with ThreadPoolExecutor(max_workers=10) as executor:
-                futures = [executor.submit(get_mismatch_accuracy, 0.3, params, FLAGS, speech_processor, rnn) for i in range(100)]
-                mismatch_accuracies = onp.array(deepcopy([f.result() for f in futures]))
-                mean_mm_val_acc = onp.mean(mismatch_accuracies)
-                log(FLAGS.session_id,"mm_val_robustness",list(mismatch_accuracies))
-                print(f"MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
-                # - Save the model
-                if(mean_mm_val_acc > best_mean_mm_val_acc):
-                    best_mean_mm_val_acc = mean_mm_val_acc
-                    rnn.save(model_save_path, params)
-                    print(f"Saved model under {model_save_path}")
-                for f in futures:
-                    f._result = None
+                futures = [executor.submit(_get_mismatch_data, vars(FLAGS), params, 0.3, FLAGS.data_dir, "val") for i in range(50)]
+                for future in as_completed(futures):
+                    mismatch_accuracies.append(future.result())
+            mismatch_accuracies = onp.array(mismatch_accuracies, dtype=onp.float64)
+            
+            mean_mm_val_acc = onp.mean(mismatch_accuracies)
+            log(FLAGS.session_id,"mm_val_robustness",list(mismatch_accuracies))
+            print(f"MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
+            if(mean_mm_val_acc > best_mean_mm_val_acc):
+                best_mean_mm_val_acc = mean_mm_val_acc
+                rnn.save(model_save_path, params)
+                print(f"Saved model under {model_save_path}")
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
-            set_size = speech_processor.N_val
-            llot = []
-            total_accuracy = attacked_total_accuracy = 0
-            for i in range(0, set_size // FLAGS.batch_size):
-                X,y = speech_processor.get_batch(dset="val", batch_size=FLAGS.batch_size)
-                logits, _ = rnn.call(X, jnp.ones(shape=(1,rnn.units)), **params)
-                lip_loss_over_time, logits_theta_star = attack_network(X, params, logits, rnn, FLAGS, rnn._rng_key)
-                rnn._rng_key, _ = random.split(rnn._rng_key)
-                llot.append(lip_loss_over_time)
-                predicted_labels = jnp.argmax(logits, axis=1)
-                correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
-                batched_validation_acc = get_batched_accuracy(y, logits)
-                attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
-                total_accuracy += batched_validation_acc
-                attacked_total_accuracy += attacked_batched_validation_acc
-            speech_processor.reset("val")
-            
-            total_accuracy = total_accuracy / (set_size // FLAGS.batch_size)
-            attacked_total_accuracy = attacked_total_accuracy / (set_size // FLAGS.batch_size)
-
-            # - Logging
-            log(FLAGS.session_id,"validation_accuracy",onp.float64(total_accuracy))
-            log(FLAGS.session_id,"attacked_validation_accuracies",onp.float64(attacked_total_accuracy))
-            mean_llot = onp.mean(onp.asarray(llot), axis=0)
-            log(FLAGS.session_id,"validation_kl_over_time",list(onp.array(mean_llot, dtype=onp.float64)))
-
-            # # - Save the model
-            # if(total_accuracy > best_val_acc):
-            #     best_val_acc = total_accuracy
-            #     rnn.save(model_save_path, params)
-            #     print(f"Saved model under {model_save_path}")
-
-            print(f"Validation accuracy {total_accuracy} Attacked val. accuracy {attacked_total_accuracy}")
-
-        
+            val_acc, attacked_val_acc, loss_over_time, loss = get_val_acc(vars(FLAGS), params, FLAGS.data_dir, ATTACK=True)
+            log(FLAGS.session_id,"validation_accuracy",val_acc)
+            log(FLAGS.session_id,"attacked_validation_accuracies",attacked_val_acc)
+            log(FLAGS.session_id,"validation_kl_over_time",list(loss_over_time))
+            print(f"Validation accuracy {val_acc} Attacked val. accuracy {attacked_val_acc}")

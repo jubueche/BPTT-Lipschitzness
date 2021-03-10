@@ -25,7 +25,7 @@ def standard_defaults():
         "contractive_params":"[]",
         "reg":0.001,
         "learning_rate":"0.001,0.0001",
-        "n_epochs":"80,20",
+        "n_epochs":"150,50",
         "n_attack_steps": 10,
         "beta_robustness": 0.125,
         "seed":0,
@@ -133,6 +133,7 @@ class speech_lsnn:
     @staticmethod
     def default_hyperparameters():
         d = standard_defaults()
+        d["eval_step_interval"]=400
         d["dt"]=1.
         d["tau"]=20. 
         d["beta"]=2. 
@@ -153,18 +154,17 @@ class speech_lsnn:
         d["data_url"]="https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz"
         d["silence_percentage"]=10.0 
         d["unknown_percentage"]=10.0 
-        d["validation_percentage"]=10.0 
+        d["validation_percentage"]=10.0
         d["testing_percentage"]=10.0 
         d["n_thr_spikes"]=-1 
         d["background_volume"]=0.1 
         d["background_frequency"]=0.8 
         d["time_shift_ms"]=100.0
-        d["wanted_words"] = "yes,no"
+        d["wanted_words"] ="yes,no,up,down,left,right"
         d["attack_size_constant"]=0.0
         d["initial_std_constant"]=0.0
         d["attack_size_mismatch"] = 0.3
         d["initial_std_mismatch"]=0.001
-        d["n_epochs"]="80,20"
         d["optimizer"]="adam"
         return d
     
@@ -206,6 +206,7 @@ class ecg_lsnn:
     @staticmethod
     def default_hyperparameters():
         d = standard_defaults()
+        d["eval_step_interval"]=400
         d["dt"]=1.
         d["tau"]=20. 
         d["beta"]=2. 
@@ -227,8 +228,6 @@ class ecg_lsnn:
         d["feature_bin_count"]=40 
         d["in_repeat"]=1 
         d["n_thr_spikes"]=-1
-        d["beta_robustness"]=0.125
-        d["n_epochs"]="80,20"
         d["optimizer"]="adam"
         return d
     
@@ -268,7 +267,6 @@ class ecg_lsnn:
             return False
 
         return len(ta) > 50
-
     
     @staticmethod
     def loader(sid, table, cache_dir):
@@ -280,7 +278,6 @@ class ecg_lsnn:
         data["network"] = rnn
         data["theta"] = theta
         data["ecg_lsnn_session_id"] = sid
-        #data["ecg_data_loader"] = ECGDataLoader(path=model["data_dir"], batch_size=data["batch_size"])
         return data
 
 class cnn:
@@ -338,12 +335,10 @@ class cnn:
     @staticmethod
     def loader(sid, table, cache_dir):
         data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
-        
         base_path = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
         cnnmodel, theta = CNN.load(model_path)
         data["theta"] = theta
         data["network"] = cnnmodel
         data["cnn_session_id"] = sid
-        #data["cnn_data_loader"] = CNNDataLoader(data["batch_size"],model["data_dir"])
         return data

@@ -9,23 +9,14 @@ class treat_as_constant_experiment:
     @staticmethod
     def train_grid():
         speech = speech_lsnn.make()
-        speech = split(speech, "attack_size_constant", [0.0])
-        speech = split(speech, "attack_size_mismatch", [2.0])
-        speech = split(speech, "initial_std_constant", [0.0])
-        speech = split(speech, "initial_std_mismatch", [0.001])
-        speech = split(speech, "seed", [0])
-        speech_beta0 = split(speech, "beta_robustness", [0.0])
-        speech_beta1 = split(speech, "beta_robustness", [1.0])
-        speech_beta1 = split(speech_beta1, "treat_as_constant", [True,False])
-        speech_beta1 = split(speech_beta1, "boundary_loss", ["kl","reverse_kl","l2"])
-        speech = speech_beta1
-        
+        speech = configure([speech], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.3,"initial_std_constant":0.0, "initial_std_mismatch":0.001, "beta_robustness":0.125, "seed":0})
+        speech = split(speech, "treat_as_constant", [True,False])
+        speech = split(speech, "boundary_loss", ["kl","reverse_kl","l2"])
         return speech
 
     @staticmethod
     def visualize():
-        seeds = [0]
-        grid = [model for model in treat_as_constant_experiment.train_grid() if model["seed"] in seeds] 
+        grid = treat_as_constant_experiment.train_grid()
         grid = run(grid, "train", n_threads=8, run_mode="load", store_key="*")("{*}")
 
         treat_as_constant = [True, False]

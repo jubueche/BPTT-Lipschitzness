@@ -4,7 +4,6 @@ from TensorCommands.data_loader import SpeechDataLoader
 from TensorCommands.extract_data import prepare_npy
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
-from loss_jax import loss_normal
 from CNN_Jax import CNN
 from RNN_Jax import RNN
 import ujson as json
@@ -14,7 +13,7 @@ from Hessian import density as density_lib
 import jax.numpy as jnp
 import jax.random as jax_random
 from jax import grad
-from loss_jax import loss_kl
+from loss_jax import loss_kl, categorical_cross_entropy, loss_normal, _get_logits
 import matplotlib
 import numpy as onp
 import matplotlib
@@ -34,7 +33,19 @@ from loss_jax import attack_network
 from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+class Namespace:
+    def __init__(self,d):
+        self.__dict__.update(d)
+
+def get_batched_accuracy(y, logits):
+    y = onp.array(y)
+    logits = onp.array(logits)
+    if(y.ndim > 1):
+        y = onp.argmax(y, axis=1)
+    correct_prediction = jnp.array(jnp.argmax(logits, axis=1) == y, dtype=jnp.float32)
+    return jnp.mean(correct_prediction)
 
 def quantise(M, bits):
     if(bits == -1):
@@ -47,21 +58,136 @@ def quantise(M, bits):
         else:
             return base_weight * onp.round(M / base_weight)
 
+def get_lr_schedule(iteration, lrs):
+    ts = onp.arange(1,sum(iteration),1)
+    lr_sched = onp.zeros((len(ts),))
+    for i in range(1,len(iteration)):
+        iteration[i] += iteration[i-1]
+    def get_lr(t):
+        if(t < iteration[0]):
+            return lrs[0]
+        for i in range(1,len(iteration)):
+            if(t < iteration[i] and t >= iteration[i-1]):
+                return lrs[i]
+    for idx,t in enumerate(ts):
+        lr_sched[idx] = get_lr(t)
+    lr_sched = jnp.array(lr_sched)
+    def lr_schedule(t):
+        return lr_sched[t]
+    return lr_schedule
+
+def get_loader(FLAGS, data_dir):
+    if FLAGS.architecture=="speech_lsnn":
+        loader = SpeechDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
+    elif FLAGS.architecture=="ecg_lsnn":
+        loader = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
+    elif FLAGS.architecture=="cnn":
+        loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+    return loader, loader.N_test
+
+def get_X_y_pair(loader):
+    X,y = loader.get_batch("test")
+    return onp.array(X), onp.array(y)
+
+def get_surface_data(model, surface_dist, data_dir):
+    theta_star = {}
+    theta = model["theta"]
+    for key in theta:
+        theta_star[key] = theta[key] + surface_dist * onp.sign(onp.random.uniform(low=-1, high=1, size=theta[key].shape))
+    test_acc, _ = get_test_acc(model, theta_star, data_dir, ATTACK=False) 
+    return test_acc
+
+def _get_mismatch_data(model, theta, mm_level, data_dir, mode):
+    theta_star = {}
+    for key in theta:
+        theta_star[key] = theta[key] * (1 + mm_level * onp.random.normal(loc=0.0, scale=1.0, size=theta[key].shape))
+    acc, _, _, _ = _get_acc(model, theta_star, data_dir, False, mode)
+    return acc
+
+def get_mismatch_data(model, mm_level, data_dir, mode):
+    theta = model["theta"]
+    return _get_mismatch_data(model, theta, mm_level, data_dir, mode)
+
+def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
+    FLAGS = Namespace(model)
+    max_size = 1000
+
+    FLAGS.n_attack_steps = n_attack_steps
+    FLAGS.attack_size_mismatch = attack_size_mismatch
+    FLAGS.attack_size_constant = attack_size_constant
+    FLAGS.initial_std_mismatch = initial_std_mismatch
+    FLAGS.initial_std_constant = initial_std_constant
+
+    loader, set_size = get_loader(FLAGS, data_dir)
+    logits = _get_logits(max_size, FLAGS.network, loader.X_test, FLAGS.network.unmasked(), model["theta"])
+    _, logits_theta_star = attack_network(loader.X_test, model["theta"], logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
+    attacked_test_acc = get_batched_accuracy(loader.y_test, logits_theta_star)
+    return attacked_test_acc
+
+def _get_acc(model, theta, data_dir, ATTACK, mode):
+    """ Returns (test_acc, attacked_test_acc, loss_over_time, loss) where attacked_test_acc and loss_over_time is None if ATTACK=False  """
+    class Namespace:
+        def __init__(self,d):
+            self.__dict__.update(d)
+    FLAGS = Namespace(model)
+    loader, set_size = get_loader(FLAGS, data_dir)
+    if(mode == "train"):
+        X = loader.X_train; y = loader.y_train
+    elif(mode == "val"):
+        X = loader.X_val; y = loader.y_val
+    elif(mode == "test"):
+        X = loader.X_test; y = loader.y_test
+    else:
+        print(f"Unknown mode {mode}"); raise Exception
+    return _get_acc_batch(X, y, theta, FLAGS, ATTACK)
+
+def _get_acc_batch(X, y, theta, FLAGS, ATTACK):
+    max_size = 1000
+    dropout_mask = FLAGS.network.unmasked()
+    logits = _get_logits(max_size, FLAGS.network, X, dropout_mask, theta)
+    loss = categorical_cross_entropy(y, logits)
+    acc = onp.float64(get_batched_accuracy(y, logits))
+    attacked_acc = loss_over_time = None
+    if(ATTACK):
+        loss_over_time, logits_theta_star = attack_network(X, theta, logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
+        attacked_acc = onp.float64(get_batched_accuracy(y, logits_theta_star))
+        loss_over_time = list(onp.array(loss_over_time, dtype=onp.float64))
+    return acc, attacked_acc, loss_over_time, onp.float64(loss)
+
+def get_train_acc(model, theta, data_dir, ATTACK=False):
+    return _get_acc(model, theta, data_dir, ATTACK, mode="train")
+
+def get_val_acc(model, theta, data_dir, ATTACK=False):
+    return _get_acc(model, theta, data_dir, ATTACK, mode="val")
+
+def get_test_acc(model, theta, data_dir, ATTACK=False):
+    return _get_acc(model, theta, data_dir, ATTACK, mode="test")
+
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
+def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        parallel_results = []
+        futures = [executor.submit(get_whole_attacked_test_acc, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant) for i in range(num)]
+        for future in as_completed(futures):
+            result = future.result()
+            parallel_results.append(result)
+    min_attacked_acc = onp.min(onp.array(parallel_results))
+    return min_attacked_acc
+
 @cachable(dependencies= ["model:{architecture}_session_id", "bits", "model:architecture"])
 def get_quantized_acc(bits, model, data_dir):
     theta_star = {}
     theta = model["theta"]
     for key in theta:
         theta_star[key] = quantise(theta[key], bits)
-    return get_test_acc(model, theta_star, data_dir, ATTACK=False)
+    test_acc, _ = get_test_acc(model, theta_star, data_dir, ATTACK=False)
+    return test_acc
 
 @cachable(dependencies = ["model:{architecture}_session_id", "n_iterations", "mm_level", "model:architecture"])
-def get_mismatch_list(n_iterations, model, mm_level, data_dir, batch_size=None):
-    if(batch_size is not None):
-        model["batch_size"] = batch_size
+def get_mismatch_list(n_iterations, model, mm_level, data_dir):
     l = []
     for i in range(n_iterations):
-        l.append(get_mismatch_data(model,mm_level, data_dir, False))
+        l.append(get_mismatch_data(model,mm_level, data_dir, "test"))
         print(i,"/",n_iterations,flush=True)
     return l
 
@@ -74,142 +200,10 @@ def get_surface_mean(n_iterations, model, surface_dist, data_dir):
 
 @cachable(dependencies = ["model:{architecture}_session_id", "model:architecture"])
 def get_attacked_test_acc(model, data_dir):
-    return get_test_acc(model, model["theta"], data_dir, ATTACK=True)
+    _, attacked_test_acc = get_test_acc(model, model["theta"], data_dir, ATTACK=True)
+    return get_attacked_test_acc
 
-def get_mismatch_data(model, mm_level, data_dir, ATTACK=False):
-    theta_star = {}
-    theta = model["theta"]
-    for key in theta:
-        theta_star[key] = theta[key] * (1 + mm_level * onp.random.normal(loc=0.0, scale=1.0, size=theta[key].shape))
-    return get_test_acc(model, theta_star, data_dir, ATTACK)
-
-def get_surface_data(model, surface_dist, data_dir, ATTACK=False):
-    theta_star = {}
-    theta = model["theta"]
-    for key in theta:
-        theta_star[key] = theta[key] + surface_dist * onp.sign(onp.random.uniform(low=-1, high=1, size=theta[key].shape))
-    return get_test_acc(model, theta_star, data_dir, ATTACK)
-
-@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
-def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
-    with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [executor.submit(get_whole_attacked_test_acc, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant) for i in range(num)]
-            min_attacked_acc = onp.min(deepcopy([f.result() for f in futures]))
-    return min_attacked_acc
-
-def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
-    FLAGS = Namespace(model)
-    loader, set_size = get_loader(FLAGS, data_dir)
-    logits, _ = FLAGS.network.call(loader.X_test, jnp.ones(shape=(1,FLAGS.network.units)), **model["theta"])
-    _, logits_theta_star = attack_network(loader.X_test, model["theta"], logits, FLAGS.network, FLAGS, jax_random.PRNGKey(0))
-    attacked_test_acc = get_batched_accuracy(loader.y_test, logits_theta_star)
-    return attacked_test_acc
-
-@cachable(dependencies = ["model:{architecture}_session_id", "order", "model:architecture"])
-def compute_hessian(model, data_dir, order=90, batch_size=None):
-    if(batch_size is not None):
-        model["batch_size"] = batch_size
-    theta = model["theta"]
-    FLAGS = Namespace(model)
-    loader, set_size = get_loader(FLAGS, data_dir)
-    if(FLAGS.architecture == "cnn"):
-        dropout_mask = [[0]]
-    else:
-        dropout_mask = jnp.ones(shape=(1,FLAGS.network.units))
-    key = jax_random.PRNGKey(0)
-    def training_loss(X, y, params, l2_reg, dropout_mask):
-        logits, spikes = FLAGS.network.call(X, dropout_mask, **params)
-        avg_firing = jnp.mean(spikes, axis=1) 
-        return loss_normal(y, logits, avg_firing, l2_reg)
-
-    batch_list = [get_X_y_pair(i, FLAGS, loader) for i in range(10)]
-    if(FLAGS.architecture == "cnn"):
-        batch_list = list(map(lambda a : (a[0],onp.argmax(a[1],axis=1)), batch_list))
-    def batches():
-        for b in batch_list:
-            yield b
-    def loss_fn(params, batch):
-        return training_loss(batch[0], batch[1], params, FLAGS.reg, dropout_mask)
-
-    hvp, _, num_params = hessian_computation.get_hvp_fn(loss_fn, theta,
-                                                        batches)
-    hvp_cl = lambda x: hvp(theta, x)  # match the API expected by lanczos_alg
-    def get_tridiag(key):
-      return lanczos.lanczos_alg(hvp_cl, num_params, order, key)
-    tridiag, vecs = get_tridiag(key)
-    return tridiag, vecs
-
-class Namespace:
-    def __init__(self,d):
-        self.__dict__.update(d)
-
-def get_loader(FLAGS, data_dir):
-    if FLAGS.architecture=="speech_lsnn":
-        loader = SpeechDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
-    elif FLAGS.architecture=="ecg_lsnn":
-        loader = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
-    elif FLAGS.architecture=="cnn":
-        loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
-    return loader, loader.N_test
-
-def get_X_y_pair(loader):
-    X,y= loader.get_batch("test")
-    return onp.array(X), onp.array(y)
-
-def get_test_acc(model, theta_star, data_dir, ATTACK=False):
-    class Namespace:
-        def __init__(self,d):
-            self.__dict__.update(d)
-    FLAGS = Namespace(model)
-    loader, set_size = get_loader(FLAGS, data_dir)
-    total_accuracy = 0.0
-    if(ATTACK):
-        attacked_total_accuracy = 0.0
-    for i in range(0, set_size // FLAGS.batch_size):
-        X, y = get_X_y_pair(loader)
-        logits, _ = FLAGS.network.call(X, jnp.ones(shape=(1,FLAGS.network.units)), **theta_star)
-        if(ATTACK):
-            _, logits_theta_star = attack_network(X, theta_star, logits, FLAGS.network, FLAGS, FLAGS.network._rng_key)
-            FLAGS.network._rng_key, _ = jax_random.split(FLAGS.network._rng_key)
-            attacked_batched_validation_acc = get_batched_accuracy(y, logits_theta_star)
-            attacked_total_accuracy += attacked_batched_validation_acc
-        batched_test_acc = get_batched_accuracy(y, logits)
-        total_accuracy += batched_test_acc
-    loader.reset("test")
-    if(ATTACK):
-        return onp.float64(attacked_total_accuracy / (set_size // FLAGS.batch_size))
-    else:
-        return onp.float64(total_accuracy / (set_size // FLAGS.batch_size))
-
-def get_mismatch_accuracy(mismatch_level, params, FLAGS, loader, model, mode="rnn"):
-    # print(f"Started {threading.current_thread().name}")
-    params_local = deepcopy(params)
-    for key in params_local:
-        params_local[key] = params_local[key] * (1 + mismatch_level * onp.random.normal(loc=0.0, scale=1.0, size=params_local[key].shape))
-    total_accuracy = 0
-    set_size = loader.N_val
-    for i in range(0, set_size // FLAGS.batch_size):
-        X,y = loader.get_batch(dset="val", batch_size=FLAGS.batch_size)
-        if(mode == "cnn"):
-            logits, _ = model.call(X, [[0]], **params_local)
-        else:
-            logits, _ = model.call(X, jnp.ones(shape=(1,model.units)), **params_local)
-        predicted_labels = jnp.argmax(logits, axis=1)
-        batched_validation_acc = get_batched_accuracy(y, logits)
-        total_accuracy += batched_validation_acc
-    total_accuracy = total_accuracy / (set_size // FLAGS.batch_size)
-    loader.reset("val")
-    return onp.float64(total_accuracy)
-
-def get_batched_accuracy(y, logits):
-    y =onp.array(y)
-    logits = onp.array(logits)
-    if(y.ndim > 1):
-        y = onp.argmax(y, axis=1)
-    predicted_labels = jnp.argmax(logits, axis=1)
-    correct_prediction = jnp.array(predicted_labels == y, dtype=jnp.float32)
-    batch_acc = jnp.mean(correct_prediction)
-    return batch_acc
+######################## Plotting ########################
 
 def remove_all_splines(ax):
     if(not isinstance(ax, list)):

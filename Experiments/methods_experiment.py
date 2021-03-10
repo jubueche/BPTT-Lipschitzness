@@ -9,18 +9,16 @@ class methods_experiment:
     @staticmethod
     def train_grid():
         grid = speech_lsnn.make()
-        grid = split(grid, "attack_size_constant", [0.01])
-        grid = split(grid, "attack_size_mismatch", [0.0])
-        grid = split(grid, "initial_std_constant", [0.001])
-        grid = split(grid, "initial_std_mismatch", [0.0])
-        grid = split(grid, "beta_robustness", [0.0, 0.1, 1.0, 10.0])
-        grid = split(grid, "seed", [0,1,2,3,4,5,6,7,8,9])
+        grid = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.3,"initial_std_constant":0.0, "initial_std_mismatch":0.001})
+        grid = split(grid, "beta_robustness", [0.0, 0.1, 1.0])
+        grid = split(grid, "seed", [0,1,2,3])
         return grid
 
     @staticmethod
     def visualize():
         betas = [0.0, 0.1, 1.0]
-        grid = [model for model in methods_experiment.train_grid() if model["seed"] in [0,1,2,3,4,5,6,7,8,9]]
+        seeds = [0,1,2,3]
+        grid = [model for model in methods_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
 

@@ -1,8 +1,7 @@
-from jax import vmap, jit, custom_gradient
+from jax import vmap, jit, custom_gradient, random, partial
 from jax.lax import scan
 import numpy as onp
 import jax.numpy as jnp
-from jax import random as rand
 import ujson as json
 import jax
 import os
@@ -32,8 +31,17 @@ class RNN:
         self.thr_min = params["thr_min"]
         self.model_settings = params
         self.noise_std = 0.0
-        self._rng_key = rand.PRNGKey(params["seed"])
+        self._rng_key = random.PRNGKey(params["seed"])
         self.dropout_prob = params["dropout_prob"]
+
+    @partial(jit, static_argnums=(0,2))
+    def split_and_get_dropout_mask(self, rand_key, dropout_prob):
+        key, subkey = random.split(rand_key)
+        val = (random.uniform(subkey, shape=(1,self.units)) > dropout_prob).astype(jnp.float32)
+        return key, val
+
+    def unmasked(self):
+        return jnp.ones(shape=(1,self.units))
 
     def call(self,
                 fingerprint_input,
@@ -58,12 +66,16 @@ class RNN:
     def save(self,fn,theta):
         theta_tmp = deepcopy(theta)
         save_dict = {}
-        save_dict["params"] = self.model_settings
+        save_dict["params"] = deepcopy(self.model_settings)
         save_dict["rng_key"] = onp.array(list(self._rng_key),onp.int64).tolist()
         for key in theta_tmp.keys():
             if(not type(theta_tmp[key]) is list):
                 theta_tmp[key] = theta_tmp[key].tolist()
         save_dict["theta"] = theta_tmp
+        if(save_dict["params"]["architecture"] is not None):
+            save_dict["params"].pop("architecture")
+        if(save_dict["params"]["network"] is not None):
+            save_dict["params"].pop("network")
         try:
             os.makedirs(os.path.dirname(fn))
         except OSError as exc: # Python >2.5
