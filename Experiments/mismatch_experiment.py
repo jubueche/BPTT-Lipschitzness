@@ -50,7 +50,7 @@ class mismatch_experiment:
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
 
         return ecg
-        # return cnn
+        # return cnn_grid
         # return speech
 
     @staticmethod
