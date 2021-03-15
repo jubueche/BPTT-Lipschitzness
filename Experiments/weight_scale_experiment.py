@@ -10,7 +10,7 @@ class weight_scale_experiment:
     @staticmethod
     def train_grid():
         seeds = [0,1,2,3,4]
-        beta_robustness = [0.0,0.1,1.0,10.0]
+        beta_robustness = [0.0,0.125,1.0,10.0]
 
         grid = speech_lsnn.make()
         grid1 = configure([grid], dictionary={"attack_size_constant":0.01,"attack_size_mismatch":0.0,"initial_std_constant":0.001, "initial_std_mismatch":0.0})

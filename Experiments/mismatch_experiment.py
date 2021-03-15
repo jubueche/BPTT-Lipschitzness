@@ -49,7 +49,7 @@ class mismatch_experiment:
         cnn_grid3 = split(cnn_grid3, "attack_size_mismatch", [0.2,0.3])        
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
 
-        return ecg
+        return ecg + speech
         # return cnn_grid
         # return speech
 
@@ -59,7 +59,7 @@ class mismatch_experiment:
         ecg_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         cnn_mm_levels = [0.0, 0.5,0.7,0.9,1.1,1.5]
 
-        ecg_attack_sizes = [0.0,0.005,0.01,0.05,0.1,0.2,0.3,0.5]
+        attack_sizes = [0.0,0.005,0.01,0.05,0.1,0.2,0.3,0.5]
         seeds = [0]
 
         # - Per general column
@@ -86,7 +86,7 @@ class mismatch_experiment:
         grid_mm = configure(grid_mm, {"mode":"direct"})
 
         grid_worst_case = configure(grid, {"mode":"direct"})
-        grid_worst_case = split(grid_worst_case, "attack_size", ecg_attack_sizes)
+        grid_worst_case = split(grid_worst_case, "attack_size", attack_sizes)
         
         grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(5, "{*}", "{data_dir}", 10, "{attack_size}", 0.0, 0.001, 0.0)
         grid_mm = run(grid_mm, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
@@ -100,21 +100,22 @@ class mismatch_experiment:
             return res
 
         def _get_data_acc(architecture, beta, identifier, grid):
-            robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "architecture":architecture})).reshape((len(seeds),-1))
-            vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "architecture":architecture})).reshape((len(seeds),-1))
+            robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":0.2, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
+            vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
             return vanilla_data, robust_data
 
         def get_data_acc(architecture, beta, identifier, grid):
             vanilla_data, robust_data = _get_data_acc(architecture, beta, identifier, grid)
             return list(zip(unravel(vanilla_data), unravel(robust_data)))
 
-        # data_speech_lsnn = get_data_acc("speech_lsnn", 0.125, "mismatch_list", grid_mm)
+        data_speech_lsnn = get_data_acc("speech_lsnn", 0.125, "mismatch_list", grid_mm)
         data_ecg_lsnn = get_data_acc("ecg_lsnn", 0.125, "mismatch_list", grid_mm)
         # data_cnn = get_data_acc("cnn", 1.0, "mismatch_list", grid_mm)
 
         data_ecg_worst_case = _get_data_acc("ecg_lsnn", 0.125, "min_acc_test_set_acc", grid_worst_case)
+        data_speech_worst_case = _get_data_acc("speech_lsnn", 0.125, "min_acc_test_set_acc", grid_worst_case)
 
-        # plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn)
+        plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn)
         plot_mm_distributions(axes_ecg["btm"], data=data_ecg_lsnn)
         # plot_mm_distributions(axes_cnn["btm"], data=data_cnn)
 
@@ -155,8 +156,8 @@ class mismatch_experiment:
                 print("%.3f \t\t\t %.2f \t\t\t %.2f" % (attack_size,dn,dr))
 
 
-        # beta_speech = onp.unique(query(grid_mm, "beta_robustness", where={"architecture": "speech_lsnn"}))[1]
-        # print_experiment_info(data_speech_lsnn, speech_mm_levels, beta_speech)
+        beta_speech = onp.unique(query(grid_mm, "beta_robustness", where={"architecture": "speech_lsnn"}))[1]
+        print_experiment_info(data_speech_lsnn, speech_mm_levels, beta_speech)
 
         beta_ecg = onp.unique(query(grid_mm, "beta_robustness", where={"architecture": "ecg_lsnn"}))[1]
         print("---------------------------")
@@ -167,6 +168,9 @@ class mismatch_experiment:
         # print_experiment_info(data_cnn, cnn_mm_levels, beta_cnn)
 
         print("---------------------------")
-        print_worst_case_test(data_ecg_worst_case, ecg_attack_sizes, beta_ecg)
+        print_worst_case_test(data_ecg_worst_case, attack_sizes, beta_ecg)
+
+        print("---------------------------")
+        print_worst_case_test(data_speech_worst_case, attack_sizes, beta_ecg)
 
         
