@@ -17,7 +17,7 @@ class weight_scale_experiment:
         grid1 = split(grid1, "beta_robustness", beta_robustness)
         grid1 = split(grid1, "seed", seeds)
 
-        grid2 = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.3,"initial_std_constant":0.0, "initial_std_mismatch":0.001})
+        grid2 = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.2,"initial_std_constant":0.0, "initial_std_mismatch":0.001})
         grid2 = split(grid2, "beta_robustness", beta_robustness)
         grid2 = split(grid2, "seed", seeds)
 
@@ -25,7 +25,7 @@ class weight_scale_experiment:
 
     @staticmethod
     def visualize():
-        betas = [0.0, 0.1, 1.0, 10.0]
+        betas = [0.0,0.125,1.0,10.0]
         seeds = [0,1,2,3,4]
         grid = [model for model in weight_scale_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
