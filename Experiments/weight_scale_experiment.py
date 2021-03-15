@@ -13,11 +13,11 @@ class weight_scale_experiment:
         beta_robustness = [0.0,0.125,1.0,10.0]
 
         grid = speech_lsnn.make()
-        grid1 = configure([grid], dictionary={"attack_size_constant":0.01,"attack_size_mismatch":0.0,"initial_std_constant":0.001, "initial_std_mismatch":0.0})
+        grid1 = configure([grid], dictionary={"attack_size_constant":0.01,"attack_size_mismatch":0.0,"initial_std_constant":0.001, "n_epochs":"80,20", "initial_std_mismatch":0.0})
         grid1 = split(grid1, "beta_robustness", beta_robustness)
         grid1 = split(grid1, "seed", seeds)
 
-        grid2 = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.2,"initial_std_constant":0.0, "initial_std_mismatch":0.001})
+        grid2 = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.2,"initial_std_constant":0.0, , "n_epochs":"80,20", "initial_std_mismatch":0.001})
         grid2 = split(grid2, "beta_robustness", beta_robustness)
         grid2 = split(grid2, "seed", seeds)
 
