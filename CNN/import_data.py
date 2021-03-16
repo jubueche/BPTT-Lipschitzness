@@ -98,6 +98,10 @@ class CNNDataLoader():
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(X_train_shaped, y_train_shaped, test_size=0.2, random_state=42)
         self.X_test, self.y_test = preprocess_data(X_test, y_test, "test")
         self.X_test = np.transpose(self.X_test, (0,3,1,2))
+        self.y_test = np.argmax(self.y_test, axis=1)
+
+        # self.X_test = self.X_test[:1000]
+        # self.y_test = self.y_test[:1000]
 
         self.batch_size = batch_size
         self.N_train = self.X_train.shape[0]

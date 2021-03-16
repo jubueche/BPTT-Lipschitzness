@@ -1,3 +1,6 @@
+from jax import config
+config.update('jax_disable_jit', False)
+
 import os
 from TensorCommands import input_data
 from TensorCommands.data_loader import SpeechDataLoader
@@ -23,6 +26,7 @@ matplotlib.rcParams['lines.markersize'] = 4.0
 matplotlib.rcParams['image.cmap']='RdBu'
 matplotlib.rcParams['axes.xmargin'] = 0
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import seaborn as sns
 from architectures import standard_defaults
 from TensorCommands import input_data
@@ -165,12 +169,13 @@ def get_test_acc(model, theta, data_dir, ATTACK=False):
 
 @cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
 def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         parallel_results = []
         futures = [executor.submit(get_whole_attacked_test_acc, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant) for i in range(num)]
         for future in as_completed(futures):
             result = future.result()
             parallel_results.append(result)
+    print("Done")
     min_attacked_acc = onp.min(onp.array(parallel_results))
     return min_attacked_acc
 
@@ -345,28 +350,48 @@ def get_axes_weight_scale_exp(fig, N_rows, N_cols):
     remove_all_but_left_btm(axes)
     return axes
 
-def plot_mm_distributions(axes, data):
-    test_acc_normal, test_acc_rob = data[0]
-    print("Normal test acc.", onp.mean(test_acc_normal),"Robust test acc.", onp.mean(test_acc_rob))
-    test_acc_normal = onp.mean(test_acc_normal)
-    test_acc_rob = onp.mean(test_acc_rob)
-    for i,(norm,rob) in enumerate(data[1:]):
-        x = [0]*(len(norm)+len(rob))
-        y = onp.hstack((norm,rob))
-        hue = onp.hstack(([0] * len(norm), [1] * len(rob)))
+def get_axes_worst_case(fig, N_rows, N_cols, attack_sizes):
+    gridspec = fig.add_gridspec(N_rows, N_cols, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
+    axes = [fig.add_subplot(gridspec[i,j]) for i in range(N_rows) for j in range(N_cols)]
+    remove_all_but_left_btm(axes)
+    for ax in axes:
+        # ax.set_xlim([-0.1,len(attack_sizes)])
+        ax.set_xticks(range(len(attack_sizes)))
+        ax.set_xticklabels(attack_sizes)
+        ax.set_xlabel(r"$\epsilon$")
+    return axes
+
+def plot_mm_distributions(axes, data, labels, legend=False):
+    N = len(labels)
+    colors = ["#4c84e6","#fc033d","#03fc35"]
+    test_accs = [onp.mean(el) for el in data[0]]
+    for i in range(N):
+        print(f"Test acc {labels[i]} is {test_accs[i]}")
+
+    for i,el in enumerate(data[1:]):
+        x = []
+        y = []
+        hue = []
+        for j in range(len(el)):
+            x = onp.hstack([x, [j] * len(el[j])])
+            y = onp.hstack([y, el[j]])
+            hue = onp.hstack([hue, [j] * len(el[j])])
         sns.violinplot(ax = axes[i],
             x = x,
             y = y,
-            split = True,
+            split = False,
             hue = hue,
             inner = 'quartile', cut=0,
-            scale = "width", palette = ["#4c84e6","#6ea3ff"], saturation=1.0, linewidth=1.0)
+            scale = "width", palette = colors, saturation=1.0, linewidth=0.5)
         axes[i].set_xticks([])
-        axes[i].get_legend().remove()
-        # - Plot horizontal lines
-        axes[i].axhline(y=onp.mean(norm)/test_acc_normal, color="r")
-        axes[i].axhline(y=onp.mean(rob)/test_acc_rob, color="g")
+        if(i < len(data[1:])-1 or not legend):
+            axes[i].get_legend().remove()
 
+    if(legend):
+        a = axes[i]
+        lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
+        a.legend(lines, labels, frameon=False, loc=3, prop={'size': 7})
+        
 def get_data(id):
     if(id == "speech"):
         d = speech_lsnn.default_hyperparameters()

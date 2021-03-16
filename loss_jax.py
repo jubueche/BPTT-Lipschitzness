@@ -27,7 +27,7 @@ def loss_kl(logits, logits_theta_star):
     logits_s = softmax(logits)
     logits_theta_star_s = softmax(logits_theta_star)
     # - Assumes [BatchSize,Output] shape
-    kl = jnp.mean(jnp.sum(logits_s * jnp.log(logits_s / logits_theta_star_s), axis=1))
+    kl = jnp.mean(jnp.sum(logits_s * jnp.log(logits_s / jnp.where(logits_theta_star_s >= 1e-6, logits_theta_star_s, 1e-6) ), axis=1))
     return kl
 
 @partial(jit, static_argnums=(1))
@@ -202,4 +202,5 @@ def attack_network(X, params, logits, model, FLAGS, rand_key):
 
     loss_over_time.append(lip_loss(X, theta_star, logits, dropout_mask))
     logits_theta_star = _get_logits(max_size, model, X, dropout_mask, theta_star)
+    print("Done attack")
     return loss_over_time, logits_theta_star

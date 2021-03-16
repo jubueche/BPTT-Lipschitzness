@@ -163,7 +163,7 @@ class speech_lsnn:
         d["wanted_words"] ="yes,no,up,down,left,right"
         d["attack_size_constant"]=0.0
         d["initial_std_constant"]=0.0
-        d["attack_size_mismatch"] = 0.3
+        d["attack_size_mismatch"] = 0.2
         d["initial_std_mismatch"]=0.001
         d["optimizer"]="adam"
         return d
