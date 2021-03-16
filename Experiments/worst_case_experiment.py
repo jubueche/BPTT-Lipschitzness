@@ -15,6 +15,7 @@ class worst_case_experiment(mismatch_experiment):
     def visualize():
 
         attack_sizes = [0.0,0.005,0.01,0.05,0.1,0.2,0.3,0.5]
+        n_attack_steps = [5,10,15]
         seeds = [0]
         beta = 0.125
         dropout = 0.3
@@ -24,14 +25,17 @@ class worst_case_experiment(mismatch_experiment):
 
         grid_worst_case = configure(grid, {"mode":"direct"})
         grid_worst_case = split(grid_worst_case, "attack_size", attack_sizes)
+        grid_worst_case = split(grid_worst_case, "n_attack_steps", n_attack_steps)
         
         if(config.FLAGS.jax_enable_x64):
             for g in grid_worst_case:
                 for p in g["theta"]:
                     g["theta"][p] = g["theta"][p].astype(jnp.float64)
 
-        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(5, "{*}", "{data_dir}", 10, "{attack_size}", 0.0, 0.001, 0.0)
+        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0)
         
+        raise Exception
+
         def _get_data_acc(architecture, beta, identifier, grid):
             robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":0.2, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
             vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))

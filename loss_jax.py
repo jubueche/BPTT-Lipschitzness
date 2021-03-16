@@ -202,5 +202,4 @@ def attack_network(X, params, logits, model, FLAGS, rand_key):
 
     loss_over_time.append(lip_loss(X, theta_star, logits, dropout_mask))
     logits_theta_star = _get_logits(max_size, model, X, dropout_mask, theta_star)
-    print("Done attack")
     return loss_over_time, logits_theta_star

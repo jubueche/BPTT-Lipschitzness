@@ -32,10 +32,12 @@ class ECGDataLoader:
         self.i_train = 0
         self.i_val = 0
         self.i_test = 0
+        self.n_epochs = 0
 
     def shuffle(self):
         self.X_train, self.y_train = shuffle(self.X_train, self.y_train)
         self.i_train = 0
+        self.n_epochs += 1
         return
 
     def get_batch(self, dset, batch_size=None):

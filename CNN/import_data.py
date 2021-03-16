@@ -99,10 +99,6 @@ class CNNDataLoader():
         self.X_test, self.y_test = preprocess_data(X_test, y_test, "test")
         self.X_test = np.transpose(self.X_test, (0,3,1,2))
         self.y_test = np.argmax(self.y_test, axis=1)
-
-        # self.X_test = self.X_test[:1000]
-        # self.y_test = self.y_test[:1000]
-
         self.batch_size = batch_size
         self.N_train = self.X_train.shape[0]
         self.N_val = self.X_val.shape[0]
@@ -110,10 +106,12 @@ class CNNDataLoader():
         self.i_train = 0
         self.i_val = 0
         self.i_test = 0
+        self.n_epochs = 0
 
     def shuffle(self):
         self.X_train, self.y_train = shuffle(self.X_train, self.y_train)
         self.i_train = 0
+        self.n_epochs += 1
         return
 
     def get_n_images(self, n_per_class, classes):

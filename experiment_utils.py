@@ -124,9 +124,9 @@ def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mis
 
     loader, set_size = get_loader(FLAGS, data_dir)
     logits = _get_logits(max_size, FLAGS.network, loader.X_test, FLAGS.network.unmasked(), model["theta"])
-    _, logits_theta_star = attack_network(loader.X_test, model["theta"], logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
+    loss_over_time, logits_theta_star = attack_network(loader.X_test, model["theta"], logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
     attacked_test_acc = get_batched_accuracy(loader.y_test, logits_theta_star)
-    return attacked_test_acc
+    return attacked_test_acc, loss_over_time[-1]
 
 def _get_acc(model, theta, data_dir, ATTACK, mode):
     """ Returns (test_acc, attacked_test_acc, loss_over_time, loss) where attacked_test_acc and loss_over_time is None if ATTACK=False  """
@@ -169,15 +169,15 @@ def get_test_acc(model, theta, data_dir, ATTACK=False):
 
 @cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
 def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         parallel_results = []
         futures = [executor.submit(get_whole_attacked_test_acc, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant) for i in range(num)]
         for future in as_completed(futures):
             result = future.result()
             parallel_results.append(result)
-    print("Done")
-    min_attacked_acc = onp.min(onp.array(parallel_results))
-    return min_attacked_acc
+    parallel_results = sorted(parallel_results, key=lambda k: k[0])
+    min_acc, loss = parallel_results[0]
+    return float(min_acc), float(loss)
 
 @cachable(dependencies= ["model:{architecture}_session_id", "bits", "model:architecture"])
 def get_quantized_acc(bits, model, data_dir):

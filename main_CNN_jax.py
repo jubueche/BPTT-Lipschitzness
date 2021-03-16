@@ -109,7 +109,7 @@ if __name__ == '__main__':
         if((i+1) % 10 == 0):
             params = get_params(opt_state)
             training_accuracy, attacked_training_accuracy, loss_over_time, loss = _get_acc_batch(X, y, params, FLAGS, ATTACK=True)
-            print(f"Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
+            print(f"Epoch {data_loader.n_epochs} i {i} Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
             log(FLAGS.session_id,"training_accuracy",training_accuracy)
             log(FLAGS.session_id,"attacked_training_accuracy",attacked_training_accuracy)
             log(FLAGS.session_id,"kl_over_time",loss_over_time)
@@ -125,7 +125,7 @@ if __name__ == '__main__':
             
             mean_mm_val_acc = onp.mean(mismatch_accuracies)
             log(FLAGS.session_id,"mm_val_robustness",list(mismatch_accuracies))
-            print(f"MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
+            print(f"Epoch {data_loader.n_epochs} i {i} MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
             if(mean_mm_val_acc > best_mean_mm_val_acc):
                 best_mean_mm_val_acc = mean_mm_val_acc
                 cnn.save(model_save_path, params)
@@ -137,4 +137,4 @@ if __name__ == '__main__':
             log(FLAGS.session_id,"validation_accuracy",val_acc)
             log(FLAGS.session_id,"attacked_validation_accuracies",attacked_val_acc)
             log(FLAGS.session_id,"validation_kl_over_time",list(loss_over_time))
-            print(f"Validation accuracy {val_acc} Attacked val. accuracy {attacked_val_acc}")
+            print(f"Epoch {data_loader.n_epochs} i {i} Validation accuracy {val_acc} Attacked val. accuracy {attacked_val_acc}")
