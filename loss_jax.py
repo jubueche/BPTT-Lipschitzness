@@ -30,6 +30,14 @@ def loss_kl(logits, logits_theta_star):
     kl = jnp.mean(jnp.sum(logits_s * jnp.log(logits_s / jnp.where(logits_theta_star_s >= 1e-6, logits_theta_star_s, 1e-6) ), axis=1))
     return kl
 
+@jit
+def loss_js(logits_1, logits_2):
+    logits_1 = softmax(logits_1)
+    logits_2 = softmax(logits_2)
+    M = (logits_1 + logits_2) * 0.5 
+    kl = lambda p, q: jnp.mean(jnp.sum(p * jnp.log(p / jnp.where(q >= 1e-6, q, 1e-6) ), axis=1))
+    return 0.5 * (kl(logits_1, M) + kl(logits_2, M))
+
 @partial(jit, static_argnums=(1))
 def split_and_sample(key, shape):
   key, subkey = random.split(key)
@@ -60,8 +68,14 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key):
             return loss_kl(logits_theta_star, logits)
         if FLAGS.boundary_loss == "l2":
             return jnp.mean(jnp.linalg.norm(logits-logits_theta_star,axis=1))
+        if FLAGS.boundary_loss == "js":
+            return loss_js(logits_theta_star, logits)
 
     def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits):
+        make_step = {
+            "inf": jnp.sign,
+            "2": lambda grad: grad/jnp.linalg.norm(grad)
+        }
         step_size = {}
         theta_star = {}
         # - Initialize theta_star randomly 
@@ -74,7 +88,7 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key):
         for _ in range(FLAGS.n_attack_steps):
             grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, logits, dropout_mask)
             for key in theta_star.keys():
-                theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
+                theta_star[key] = theta_star[key] + step_size[key] * make_step[FLAGS.p_norm](grads_theta_star[key])
         return theta_star
     
     def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
@@ -144,6 +158,8 @@ def attack_network(X, params, logits, model, FLAGS, rand_key):
             return loss_kl(logits_theta_star, logits)
         if FLAGS.boundary_loss == "l2":
             return jnp.mean(jnp.linalg.norm(logits-logits_theta_star,axis=1))
+        if FLAGS.boundary_loss == "js":
+            return loss_js(logits_theta_star, logits)
 
     step_size = {}
     theta_star = {}

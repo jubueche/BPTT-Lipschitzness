@@ -33,7 +33,8 @@ def standard_defaults():
         "n_layer":1,
         "batch_size":100,
         "boundary_loss":"kl",
-        "treat_as_constant":False
+        "treat_as_constant":False,
+        "p_norm":"inf"
         }
 
 def help():
@@ -133,7 +134,6 @@ class speech_lsnn:
     @staticmethod
     def default_hyperparameters():
         d = standard_defaults()
-        d["eval_step_interval"]=400
         d["dt"]=1.
         d["tau"]=20. 
         d["beta"]=2. 
@@ -143,7 +143,7 @@ class speech_lsnn:
         d["refr"]=2
         d["dampening_factor"]=0.3
         d["sample_rate"]=16000 
-        d["eval_step_interval"]=200
+        d["eval_step_interval"]=400
         d["clip_duration_ms"]=1000
         d["window_size_ms"]=30.0
         d["window_stride_ms"]=10.0 
@@ -206,7 +206,6 @@ class ecg_lsnn:
     @staticmethod
     def default_hyperparameters():
         d = standard_defaults()
-        d["eval_step_interval"]=400
         d["dt"]=1.
         d["tau"]=20. 
         d["beta"]=2. 
