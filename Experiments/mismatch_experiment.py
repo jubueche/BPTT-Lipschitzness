@@ -10,30 +10,23 @@ class mismatch_experiment:
     def train_grid():
         seeds = [0]
 
-        ecg = ecg_lsnn.make()
-        ecg = configure([ecg], dictionary={"initial_std_mismatch":0.001, "seed":0})
-        ecg0 = configure(ecg, {"beta_robustness": 0.0, "attack_size_mismatch":0.3}) # - TODO Change to 0.2 attack_size_mismatch
-        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
-        ecg2 = configure(ecg, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob": 0.3}) # - TODO Change to 0.2 attack_size_mismatch
-        ecg3 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch":0.2, "dropout_prob": 0.3})
-        ecg = ecg0 + ecg1 + ecg2 + ecg3
+        ecg = [ecg_lsnn.make()]
+        ecg0 = configure(ecg, {"beta_robustness": 0.0) 
+        ecg1 = configure(ecg, {"beta_robustness": 0.125})
+        ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
+        ecg = ecg0 + ecg1 + ecg2
 
-        speech = speech_lsnn.make()
-        speech = configure([speech], dictionary={"initial_std_mismatch":0.001, "seed":0})
-        speech0 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3})
+        speech = [speech_lsnn.make()]
+        speech0 = configure(speech, {"beta_robustness": 0.0})
+        speech1 = configure(speech, {"beta_robustness": 0.125})
+        speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        speech = speech0 + speech1 + speech2
 
-        speech1 = configure(speech, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
-        speech2 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
-        speech3 = configure(speech, {"beta_robustness": 0.125, "attack_size_mismatch":0.2, "dropout_prob": 0.3})
-        speech = speech0 + speech1 + speech2 + speech3
-
-        cnn_grid = cnn.make()
-        cnn_grid = configure([cnn_grid], dictionary={"initial_std_mismatch":0.001, "seed":0})
-        cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch":0.3})
-        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
-        cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
-        cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.125, "attack_size_mismatch":0.2, "dropout_prob": 0.3})
-        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
+        cnn_grid = [cnn.make()]
+        cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
+        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125})
+        cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2
 
         return speech + ecg + cnn_grid
         # return cnn_grid
