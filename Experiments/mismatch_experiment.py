@@ -11,7 +11,7 @@ class mismatch_experiment:
         seeds = [0]
 
         ecg = [ecg_lsnn.make()]
-        ecg0 = configure(ecg, {"beta_robustness": 0.0) 
+        ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
         ecg1 = configure(ecg, {"beta_robustness": 0.125})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg = ecg0 + ecg1 + ecg2
