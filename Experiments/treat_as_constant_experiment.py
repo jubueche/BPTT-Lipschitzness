@@ -9,9 +9,8 @@ class treat_as_constant_experiment:
     @staticmethod
     def train_grid():
         speech = speech_lsnn.make()
-        speech = configure([speech], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.3,"initial_std_constant":0.0, "initial_std_mismatch":0.001, "beta_robustness":0.125, "seed":0})
+        speech = configure([speech], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.2,"initial_std_constant":0.0, "initial_std_mismatch":0.001, "n_epochs":"80,20", "beta_robustness":0.125, "seed":0})
         speech = split(speech, "treat_as_constant", [True,False])
-        speech = split(speech, "boundary_loss", ["kl","reverse_kl","l2"])
         return speech
 
     @staticmethod
@@ -20,8 +19,8 @@ class treat_as_constant_experiment:
         grid = run(grid, "train", n_threads=8, run_mode="load", store_key="*")("{*}")
 
         treat_as_constant = [True, False]
-        boundary_loss = ["kl", "reverse_kl", "l2"]
-        b_loss_names = ["KL", "Rev. KL", "L2"]
+        boundary_loss = ["kl"]
+        b_loss_names = ["KL"]
 
         plt.figure(figsize=(10,5))
         c = 0
