@@ -160,10 +160,6 @@ if __name__ == '__main__':
             mean_mm_val_acc = onp.mean(mismatch_accuracies)
             log(FLAGS.session_id,"mm_val_robustness",list(mismatch_accuracies))
             print(f"Epoch {speech_processor.n_epochs} i {i} MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
-            if(mean_mm_val_acc > best_mean_mm_val_acc):
-                best_mean_mm_val_acc = mean_mm_val_acc
-                rnn.save(model_save_path, params)
-                print(f"Saved model under {model_save_path}")
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
@@ -172,3 +168,7 @@ if __name__ == '__main__':
             log(FLAGS.session_id,"attacked_validation_accuracies",attacked_val_acc)
             log(FLAGS.session_id,"validation_kl_over_time",list(loss_over_time))
             print(f"Epoch {speech_processor.n_epochs} i {i} Validation accuracy {val_acc} Attacked val. accuracy {attacked_val_acc}")
+            if(val_acc > best_val_acc):
+                best_val_acc = val_acc
+                cnn.save(model_save_path, params)
+                print(f"Saved model under {model_save_path}")
