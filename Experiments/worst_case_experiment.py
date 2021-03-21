@@ -7,9 +7,30 @@ from datajuicer import run, split, configure, query, run
 from experiment_utils import *
 from matplotlib.lines import Line2D
 from scipy import stats
-from Experiments.mismatch_experiment import mismatch_experiment
 
-class worst_case_experiment(mismatch_experiment):
+class worst_case_experiment:
+
+    @staticmethod
+    def train_grid():
+        ecg = [ecg_lsnn.make()]
+        ecg0 = configure(ecg, {"beta_robustness": 0.0, "attack_size_mismatch":0.3}) # - TODO Change to 0.2 attack_size_mismatch
+        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
+        ecg2 = configure(ecg, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob": 0.3}) # - TODO Change to 0.2 attack_size_mismatch
+        ecg = ecg0 + ecg1 + ecg2
+
+        speech = [speech_lsnn.make()]
+        speech0 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3})
+        speech1 = configure(speech, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
+        speech2 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
+        speech = speech0 + speech1 + speech2
+
+        cnn_grid = [cnn.make()]
+        cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch":0.3})
+        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
+        cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2
+
+        return speech + ecg + cnn_grid
 
     @staticmethod
     def visualize():
@@ -23,7 +44,7 @@ class worst_case_experiment(mismatch_experiment):
         beta = 0.125
         dropout = 0.3
 
-        grid = [model for model in mismatch_experiment.train_grid() if model["seed"] in seeds] 
+        grid = [model for model in worst_case_experiment.train_grid() if model["seed"] in seeds] 
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
 
         grid_worst_case = configure(grid, {"mode":"direct"})
