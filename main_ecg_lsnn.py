@@ -152,5 +152,5 @@ if __name__ == '__main__':
             print(f"Epoch {ecg_processor.n_epochs} i {i} Validation accuracy {val_acc} Attacked val. accuracy {attacked_val_acc}")
             if(val_acc > best_val_acc):
                 best_val_acc = val_acc
-                cnn.save(model_save_path, params)
+                rnn.save(model_save_path, params)
                 print(f"Saved model under {model_save_path}")
