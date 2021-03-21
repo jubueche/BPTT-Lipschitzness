@@ -18,9 +18,11 @@ pip install tensorflow-datasets
 pip install seaborn
 ```
 ## Data
-We use three datasets: ECG anomaly dataset, Fashion-MNIST and the Speech Command dataset. The Fashion-MNIST and the Speech Dataset will be downloaded automatically. You can download the ECG dataset from this link: \
+We use three datasets: ECG anomaly dataset, Fashion-MNIST and the Speech Command dataset. Fashion-MNIST will be downloaded automatically. You can download the ECG dataset from this link: \
 https://drive.google.com/drive/folders/1idNpubBEn36djYST3IIDTQoIp3Gjqd2v?usp=sharing \
-After you have downloaded ```ecg_recordings.zip```, unzip it in the ECG subdirectory in our repository. \
+And the speech dataset from this link \
+https://drive.google.com/file/d/1edOe-_7jvPNmLOXPAQ1WrvrtNyvN9R4O/view?usp=sharing \
+After you have downloaded the folders, unzip and place them inside the TensorCommands and ECG folders, respectively. \
 If you want to run experiments on the Leonhard Cluster, you should move the datasets (Fashion-MNIST,ecg_recordings and Speech Command) to your ```$SCRATCH``` directory. \
 For this you can use the ```scp``` command. Your ```$SCRATCH``` folder should look like this: \
 ```ecg_recordings fashion_mnist speech_dataset``` \
