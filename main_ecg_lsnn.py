@@ -124,12 +124,12 @@ if __name__ == '__main__':
         if((i+1) % 10 == 0):
             params = get_params(opt_state)
             training_accuracy, attacked_training_accuracy, loss_over_time, loss = _get_acc_batch(X, y, params, FLAGS, ATTACK=True)
-            print(f"Epoch {ecg_processor.n_epochs} i {i} Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
+            print(f"Epoch {ecg_processor.n_epochs} i {i} / {sum(iteration)} Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
             log(FLAGS.session_id,"training_accuracy",training_accuracy)
             log(FLAGS.session_id,"attacked_training_accuracy",attacked_training_accuracy)
             log(FLAGS.session_id,"kl_over_time",loss_over_time)
 
-        if((i+1) % (2*FLAGS.eval_step_interval) == 0):
+        if((i+1) % (2*FLAGS.eval_step_interval) == -1):
             params = get_params(opt_state)
             mismatch_accuracies = []
             with ThreadPoolExecutor(max_workers=10) as executor:

@@ -6,7 +6,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": [],
+            "args": ["-n_epochs=80,20", "-learning_rate=0.001,0.0001","-beta_robustness=0.0"],
             "console": "integratedTerminal"
         },
         {

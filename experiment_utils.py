@@ -38,6 +38,7 @@ from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import deepcopy
 
 class Namespace:
     def __init__(self,d):
@@ -63,15 +64,16 @@ def quantise(M, bits):
             return base_weight * onp.round(M / base_weight)
 
 def get_lr_schedule(iteration, lrs):
-    ts = onp.arange(1,sum(iteration),1)
+    iteration_ = deepcopy(iteration)
+    ts = onp.arange(1,sum(iteration_),1)
     lr_sched = onp.zeros((len(ts),))
-    for i in range(1,len(iteration)):
-        iteration[i] += iteration[i-1]
+    for i in range(1,len(iteration_)):
+        iteration_[i] += iteration_[i-1]
     def get_lr(t):
-        if(t < iteration[0]):
+        if(t < iteration_[0]):
             return lrs[0]
-        for i in range(1,len(iteration)):
-            if(t < iteration[i] and t >= iteration[i-1]):
+        for i in range(1,len(iteration_)):
+            if(t < iteration_[i] and t >= iteration_[i-1]):
                 return lrs[i]
     for idx,t in enumerate(ts):
         lr_sched[idx] = get_lr(t)

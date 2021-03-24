@@ -1,4 +1,4 @@
-from architectures import speech_lsnn
+from architectures import ecg_lsnn
 from datajuicer import run, split, configure, query
 from experiment_utils import *
 import numpy as onp
@@ -9,10 +9,10 @@ class weight_scale_experiment:
 
     @staticmethod
     def train_grid():
-        seeds = [0,1,2,3,4]
+        seeds = [0,1,4]
         beta_robustness = [0.0,0.125,1.0,10.0]
 
-        grid = speech_lsnn.make()
+        grid = ecg_lsnn.make()
         grid1 = configure([grid], dictionary={"attack_size_constant":0.01,"attack_size_mismatch":0.0,"initial_std_constant":0.001, "n_epochs":"80,20", "initial_std_mismatch":0.0})
         grid1 = split(grid1, "beta_robustness", beta_robustness)
         grid1 = split(grid1, "seed", seeds)
@@ -25,8 +25,10 @@ class weight_scale_experiment:
 
     @staticmethod
     def visualize():
+        ATTACK_SIZE_CONST = 0.01
+        ATTACK_SIZE_MM = 0.2
         betas = [0.0,0.125,1.0,10.0]
-        seeds = [0,1,2,3,4]
+        seeds = [0,1]
         grid = [model for model in weight_scale_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -48,8 +50,8 @@ class weight_scale_experiment:
 
         for i,param in enumerate(theta):
             for j,beta in enumerate(betas):
-                weights_constant = onp.array(query(grid, "theta", where={"seed":0, "attack_size_constant":0.01, "beta_robustness": beta})[0][param])
-                weights_relative = onp.array(query(grid, "theta", where={"seed":0, "attack_size_mismatch":0.3, "beta_robustness": beta})[0][param])
+                weights_constant = onp.array(query(grid, "theta", where={"seed":0, "attack_size_constant":ATTACK_SIZE_CONST, "beta_robustness": beta})[0][param])
+                weights_relative = onp.array(query(grid, "theta", where={"seed":0, "attack_size_mismatch":ATTACK_SIZE_MM, "beta_robustness": beta})[0][param])
                 mu_constant, std_constant = stats.norm.fit(weights_constant)
                 mu_relative, std_relative = stats.norm.fit(weights_relative)
                 xmin = min(onp.min(weights_constant),onp.min(weights_relative))
@@ -73,8 +75,8 @@ class weight_scale_experiment:
             min_max_constant = []
             min_max_relative = []
             for b in betas:
-                weights_constant = query(grid, "theta", where={"attack_size_constant":0.01, "beta_robustness": b})
-                weights_relative = query(grid, "theta", where={"attack_size_mismatch":0.3, "beta_robustness": b})
+                weights_constant = query(grid, "theta", where={"attack_size_constant":ATTACK_SIZE_CONST, "beta_robustness": b})
+                weights_relative = query(grid, "theta", where={"attack_size_mismatch":ATTACK_SIZE_MM, "beta_robustness": b})
                 for el_constant, el_relative in zip(weights_constant,weights_relative):
                     w_constant = onp.array(el_constant[param])
                     w_relative = onp.array(el_relative[param])
