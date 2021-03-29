@@ -73,11 +73,12 @@ class worst_case_experiment:
 
             return (vanilla_data_acc,vanilla_data_loss), (vanilla_dropout_data_acc,vanilla_dropout_data_loss), (robust_data_acc,robust_data_loss)
 
-        def print_worst_case_test(data, attack_sizes, beta, dropout, n_attack_steps, typ):
+        def print_worst_case_test(data, attack_sizes, beta, dropout, n_attack_steps, typ, arch):
+            print("\\begin{table}[!htb]\n\\begin{tabular}{llll}")
             if(typ == ACC):
-                print("%s \t\t %s \t %s \t %s" % ("Attack size","Test acc. ($\\beta=0$)",f"Test acc. (dropout = {dropout})",f"Test acc. ($\\beta={beta}$)"))
+                print("%s \t\t %s \t %s \t %s" % ("Attack size & ","Test acc. ($\\beta=0$) & ",f"Test acc. (dropout = {dropout}) & ",f"Test acc. ($\\beta={beta}$) \\\\"))
             else:
-                print("%s \t\t %s \t %s \t\t %s" % ("Attack size","Loss ($\\beta=0$)",f"Loss (dropout = {dropout})",f"Loss ($\\beta={beta}$)"))
+                print("%s \t\t %s \t %s \t\t %s" % ("Attack size & ","Loss ($\\beta=0$) & ",f"Loss (dropout = {dropout}) & ",f"Loss ($\\beta={beta}$) \\\\"))
             for idx,attack_size in enumerate(attack_sizes):
                 m = 1
                 if(typ == ACC):
@@ -85,7 +86,13 @@ class worst_case_experiment:
                 dn = 100*onp.ravel(data[0][typ])[idx]
                 dnd = 100*onp.ravel(data[1][typ])[idx]
                 dr = 100*onp.ravel(data[2][typ])[idx]
-                print("%.3f \t\t\t %.2f \t\t\t %.2f \t\t\t\t %.2f" % (attack_size,dn,dnd,dr))
+                print("%.3f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t\t %.2f \\\\" % (attack_size,dn,dnd,dr))
+            print("\\end{tabular}")
+            typ_string = "Loss"
+            if(typ == ACC):
+                typ_string = "Acc."
+            print("\\caption{Architecture",arch," Type",typ_string," N",str(n_attack_steps),"}")
+            print("\\end{table}")
 
         def _plot(ax, data, typ=ACC, labels=None, ylabel=None, title=None):
             colors = ["#4c84e6","#fc033d","#03fc35"]
@@ -132,23 +139,23 @@ class worst_case_experiment:
                 _plot(axes[ij_x(3,idx)], data_ecg_worst_case, typ=LOSS)
                 _plot(axes[ij_x(5,idx)], data_cnn_worst_case, typ=LOSS)
 
-            print("---------------------------")
-            print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC)
+            print("\n")
+            print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="ECG")
 
-            print("---------------------------")
-            print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC)
+            print("\n")
+            print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="Speech")
 
-            print("---------------------------")
-            print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC)
+            print("\n")
+            print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="CNN")
 
-            print("---------------------------")
-            print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS)
+            print("\n")
+            print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="ECG")
 
-            print("---------------------------")
-            print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS)
+            print("\n")
+            print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="Speech")
 
-            print("---------------------------")
-            print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS)
+            print("\n")
+            print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="CNN")
 
         plt.savefig("Resources/Figures/figure_worst_case.png", dpi=1200)
         plt.savefig("Resources/Figures/figure_worst_case.pdf", dpi=1200)
