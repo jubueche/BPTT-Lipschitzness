@@ -43,7 +43,7 @@ def help():
         }
 
 launch_settings = {
-    "direct":"mkdir -p Resources/Logs; python {code_file} {args} &> Resources/Logs/{session_id}.log",
+    "direct":"mkdir -p Resources/Logs; python {code_file} {args} 2>&1 | tee Resources/Logs/{session_id}.log",
     "bsub":"mkdir -p Resources/Logs; bsub -o Resources/Logs/{session_id}.log -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
 }
 
