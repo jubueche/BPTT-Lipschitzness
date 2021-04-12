@@ -33,6 +33,7 @@ def standard_defaults():
         "batch_size":100,
         "boundary_loss":"kl",
         "treat_as_constant":False,
+        "abcd":False,
         "p_norm":"inf"
         }
 

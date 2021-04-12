@@ -44,62 +44,66 @@ def split_and_sample(key, shape):
   val = random.normal(subkey, shape=shape)
   return key, val
 
-def compute_gradients(X, y, params, model, FLAGS, rand_key):
-    _, subkey = random.split(rand_key)
-    subkey, dropout_mask = model.split_and_get_dropout_mask(rand_key, FLAGS.dropout_prob)
-
-    def _training_loss(X, y, params, l2_reg, dropout_mask):
+def _training_loss(X, y, params, FLAGS, model, dropout_mask):
         logits, spikes = model.call(X, dropout_mask, **params)
         avg_firing = jnp.mean(spikes, axis=1) 
         l2 = FLAGS.l2_weight_decay * jnp.sum(jnp.array([jnp.linalg.norm(params[el],'fro') for el in FLAGS.l2_weight_decay_params]))
         l1 = FLAGS.l1_weight_decay * jnp.sum(jnp.array([jnp.sum(jnp.abs(params[el])) for el in FLAGS.l1_weight_decay_params]))
-        return loss_normal(y, logits, avg_firing, l2_reg) + l2 + l1
+        return loss_normal(y, logits, avg_firing, FLAGS.reg) + l2 + l1
 
-    def training_loss(X, y, params, l2_reg, dropout_mask):
-        grads = grad(_training_loss, argnums=2)(X, y, params, FLAGS.reg, model.unmasked())
-        loss_contractive = FLAGS.contractive * jnp.sum(jnp.array([jnp.linalg.norm(jnp.ravel(grads[el]), ord=jnp.inf) for el in FLAGS.contractive_params]))
-        return _training_loss(X, y, params, l2_reg, dropout_mask) + loss_contractive
+def training_loss(X, y, params, FLAGS, model, dropout_mask):
+    grads = grad(_training_loss, argnums=2)(X, y, params, FLAGS, model, model.unmasked())
+    loss_contractive = FLAGS.contractive * jnp.sum(jnp.array([jnp.linalg.norm(jnp.ravel(grads[el]), ord=jnp.inf) for el in FLAGS.contractive_params]))
+    return _training_loss(X, y, params, FLAGS, model, dropout_mask) + loss_contractive
 
-    def lip_loss(X, theta_star, logits, dropout_mask):
-        logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
-        if FLAGS.boundary_loss == "kl":
-            return loss_kl(logits, logits_theta_star)
-        if FLAGS.boundary_loss == "reverse_kl":
-            return loss_kl(logits_theta_star, logits)
-        if FLAGS.boundary_loss == "l2":
-            return jnp.mean(jnp.linalg.norm(logits-logits_theta_star,axis=1))
-        if FLAGS.boundary_loss == "js":
-            return loss_js(logits_theta_star, logits)
+def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits):
+    make_step = {
+        "inf": jnp.sign,
+        "2": lambda grad: grad/jnp.linalg.norm(grad)
+    }
+    step_size = {}
+    theta_star = {}
+    # - Initialize theta_star randomly 
+    for key in params.keys():
+        rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
+        rand_key, random_normal_var2 = split_and_sample(rand_key, params[key].shape)
+        theta_star[key] = params[key] + jnp.abs(params[key]) * FLAGS.initial_std_mismatch*random_normal_var1 + FLAGS.initial_std_constant*random_normal_var2
+        step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key]) + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
 
-    def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits):
-        make_step = {
-            "inf": jnp.sign,
-            "2": lambda grad: grad/jnp.linalg.norm(grad)
-        }
-        step_size = {}
-        theta_star = {}
-        # - Initialize theta_star randomly 
-        for key in params.keys():
-            rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
-            rand_key, random_normal_var2 = split_and_sample(rand_key, params[key].shape)
-            theta_star[key] = params[key] + jnp.abs(params[key]) * FLAGS.initial_std_mismatch*random_normal_var1 + FLAGS.initial_std_constant*random_normal_var2
-            step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key]) + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
+    for _ in range(FLAGS.n_attack_steps):
+        grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, logits, FLAGS, model, dropout_mask)
+        for key in theta_star.keys():
+            theta_star[key] = theta_star[key] + step_size[key] * make_step[FLAGS.p_norm](grads_theta_star[key])
+    return theta_star
 
-        for _ in range(FLAGS.n_attack_steps):
-            grads_theta_star = grad(lip_loss, argnums=1)(X, theta_star, logits, dropout_mask)
-            for key in theta_star.keys():
-                theta_star[key] = theta_star[key] + step_size[key] * make_step[FLAGS.p_norm](grads_theta_star[key])
-        return theta_star
+def lip_loss(X, theta_star, logits, FLAGS, model, dropout_mask):
+    logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
+    if FLAGS.boundary_loss == "kl":
+        return loss_kl(logits, logits_theta_star)
+    if FLAGS.boundary_loss == "reverse_kl":
+        return loss_kl(logits_theta_star, logits)
+    if FLAGS.boundary_loss == "l2":
+        return jnp.mean(jnp.linalg.norm(logits-logits_theta_star,axis=1))
+    if FLAGS.boundary_loss == "js":
+        return loss_js(logits_theta_star, logits)
+
+def compute_gradients(X, y, params, model, FLAGS, rand_key):
+
+    if FLAGS.abcd:
+        return compute_gradients_abcd(X,y,params,model,FLAGS,rand_key)
+
+    _, subkey = random.split(rand_key)
+    subkey, dropout_mask = model.split_and_get_dropout_mask(rand_key, FLAGS.dropout_prob)
     
     def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
         logits, _ = model.call(X, dropout_mask, **params)
         if theta_star is None:
-            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits)
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
         
-        return lip_loss(X, theta_star, logits, dropout_mask)
+        return lip_loss(X, theta_star, logits, FLAGS, model, dropout_mask)
 
     def loss_general(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
-        loss_n = training_loss(X, y, params, FLAGS.reg, dropout_mask)
+        loss_n = training_loss(X, y, params, FLAGS, model, dropout_mask)
         loss_r = robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star)
         return loss_n + FLAGS.beta_robustness*loss_r
 
@@ -107,12 +111,38 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key):
     if(FLAGS.beta_robustness!=0):
         if FLAGS.treat_as_constant:
             logits, _ = model.call(X, dropout_mask, **params)
-            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, logits)
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
         else:
             theta_star=None
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask, theta_star)
     else:
-        grads = grad(training_loss, argnums=2)(X, y, params, FLAGS.reg, dropout_mask)
+        grads = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask)
+    if("W_rec" in grads.keys()):
+        diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
+        # - Remove the diagonal of W_rec from the gradient
+        grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0)
+    return grads
+
+def compute_gradients_abcd(X,y,params,model,FLAGS,rand_key):
+    rand_key, subkey = random.split(rand_key)
+    subkey, dropout_mask = model.split_and_get_dropout_mask(rand_key, FLAGS.dropout_prob)
+    logits, _ = model.call(X, dropout_mask, **params)
+    # - Mask
+    M_a = {}
+    M_b = {}
+    for key in params:
+        rand_key, subkey = random.split(rand_key)
+        M_a[key] = jnp.round(random.uniform(subkey, shape=params[key].shape))
+        M_b[key] = M_a[key]*-1 + 1
+    # - Get the attacking weights
+    theta_star = make_theta_star(X,y,params,FLAGS,rand_key,dropout_mask,model,logits)
+    def f(theta, theta_star, M_a, M_b):
+        mixed_params = {}
+        for key in theta:
+            mixed_params[key] = M_a[key] * theta[key] + M_b[key] * theta_star[key]
+        l = training_loss(X, y, mixed_params, FLAGS, model, dropout_mask)
+        return l
+    grads = grad(f, argnums=0)(params, theta_star, M_a, M_b)
     if("W_rec" in grads.keys()):
         diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
         # - Remove the diagonal of W_rec from the gradient
@@ -150,17 +180,6 @@ def attack_network(X, params, logits, model, FLAGS, rand_key):
     max_size = 1000
     N = X.shape[0]
 
-    def lip_loss(X, theta_star, logits, dropout_mask):
-        logits_theta_star = _get_logits(max_size, model, X, dropout_mask, theta_star)
-        if FLAGS.boundary_loss == "kl":
-            return loss_kl(logits, logits_theta_star)
-        if FLAGS.boundary_loss == "reverse_kl":
-            return loss_kl(logits_theta_star, logits)
-        if FLAGS.boundary_loss == "l2":
-            return jnp.mean(jnp.linalg.norm(logits-logits_theta_star,axis=1))
-        if FLAGS.boundary_loss == "js":
-            return loss_js(logits_theta_star, logits)
-
     step_size = {}
     theta_star = {}
 
@@ -175,10 +194,10 @@ def attack_network(X, params, logits, model, FLAGS, rand_key):
     logits = _get_logits(max_size, model, X, dropout_mask, params)
     for _ in range(FLAGS.n_attack_steps):
         if(N <= max_size):
-            value, grads_theta_star = value_and_grad(lip_loss, argnums=1)(X, theta_star, logits, dropout_mask)
+            value, grads_theta_star = value_and_grad(lip_loss, argnums=1)(X, theta_star, logits, FLAGS, model, dropout_mask)
         else: 
             def _f(X, logits, N, theta_star):
-                v,g = value_and_grad(lip_loss, argnums=1)(X, theta_star, logits, dropout_mask)
+                v,g = value_and_grad(lip_loss, argnums=1)(X, theta_star, logits, FLAGS, model, dropout_mask)
                 return (v,g,N)
             def _add_dict(a, b):
                 if(a == {}):
@@ -216,6 +235,6 @@ def attack_network(X, params, logits, model, FLAGS, rand_key):
         for key in theta_star.keys():
             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
 
-    loss_over_time.append(lip_loss(X, theta_star, logits, dropout_mask))
+    loss_over_time.append(lip_loss(X, theta_star, logits, FLAGS, model, dropout_mask))
     logits_theta_star = _get_logits(max_size, model, X, dropout_mask, theta_star)
     return loss_over_time, logits_theta_star

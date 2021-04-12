@@ -1,7 +1,3 @@
-from jax import config
-config.FLAGS.jax_log_compiles=True
-config.update('jax_disable_jit', False)
-
 import numpy as onp
 import sys
 import os.path as path
@@ -21,6 +17,10 @@ from architectures import log
 from EntropySGD.entropy_sgd import EntropySGD_Jax
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from experiment_utils import get_batched_accuracy, _get_acc_batch, get_val_acc, _get_mismatch_data, get_val_acc, get_lr_schedule
+
+from jax import config
+config.FLAGS.jax_log_compiles=True
+config.update('jax_disable_jit', True)
 
 if __name__ == '__main__':
     t0 = time.time()
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     elif(FLAGS.optimizer == "sgd"):
         opt_init, opt_update, get_params = optimizers.sgd(get_lr_schedule(iteration,lrs))
     elif(FLAGS.optimizer == "esgd"):
-        config = dict(momentum=0.9, damp=0.0, nesterov=True, weight_decay=0.0, L=10, eps=1e-4, g0=1e-2, g1=1e-3, langevin_lr=0.1, langevin_beta1=0.75)
+        config = dict(momentum=0.9, damp=0.0, nesterov=True, weight_decay=0.0, L=20, eps=1e-4, g0=1e-2, g1=1e-3, langevin_lr=0.1, langevin_beta1=0.75)
         opt_init, opt_update, get_params = EntropySGD_Jax(get_lr_schedule(iteration,lrs), config)
     else:
         print("Invalid optimizer")
