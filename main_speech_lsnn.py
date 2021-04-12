@@ -20,7 +20,7 @@ from experiment_utils import get_batched_accuracy, _get_acc_batch, get_val_acc, 
 
 from jax import config
 config.FLAGS.jax_log_compiles=True
-config.update('jax_disable_jit', True)
+config.update('jax_disable_jit', False)
 
 if __name__ == '__main__':
     t0 = time.time()
