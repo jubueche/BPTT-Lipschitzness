@@ -14,19 +14,22 @@ class mismatch_experiment:
         ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
         ecg1 = configure(ecg, {"beta_robustness": 0.125})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
-        ecg = ecg0 + ecg1 + ecg2
+        ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
+        ecg = ecg0 + ecg1 + ecg2 + ecg3
 
         speech = [speech_lsnn.make()]
         speech0 = configure(speech, {"beta_robustness": 0.0})
         speech1 = configure(speech, {"beta_robustness": 0.125})
         speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
-        speech = speech0 + speech1 + speech2
+        speech3 = configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01"})
+        speech = speech0 + speech1 + speech2 + speech3
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
         cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125})
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
-        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2
+        cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"10,5"})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
 
         return speech + ecg + cnn_grid
         # return cnn_grid
@@ -45,7 +48,7 @@ class mismatch_experiment:
         N_cols = 10 # - 10
         N_rows = 24 # - Will be determined by subplot that has the most rows
 
-        fig = plt.figure(figsize=(14, 5), constrained_layout=False)
+        fig = plt.figure(figsize=(12, 5), constrained_layout=False)
         hs = 5
         gridspecs = [fig.add_gridspec(N_rows, N_cols, left=0.05, right=0.31, hspace=hs), fig.add_gridspec(N_rows, N_cols, left=0.35, right=0.61, hspace=hs), fig.add_gridspec(N_rows, N_cols, left=0.65, right=0.98, hspace=hs)]
 
@@ -108,6 +111,7 @@ class mismatch_experiment:
         plt.show()
 
         def print_experiment_info(data, mismatch_levels, beta, dropout):
+            print("\\begin{table}[!htb]\n\\begin{tabular}{llll}")
             print("%s \t\t %s \t %s \t %s" % ("Mismatch level","Test acc. ($\\beta=0$)",f"Test acc. (dropout = {dropout})",f"Test acc. ($\\beta={beta}$)"))
             for idx,mm in enumerate(mismatch_levels):
                 dn = 100*onp.array(data[idx][0])
@@ -120,11 +124,10 @@ class mismatch_experiment:
                 snd = onp.std(dnd)
                 sr = onp.std(dr)
                 print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr))
+            print("\\end{table} \n")
 
         print_experiment_info(data_speech_lsnn, speech_mm_levels, beta, dropout)
-        print("---------------------------")
         print_experiment_info(data_ecg_lsnn, ecg_mm_levels, beta, dropout)
-        print("---------------------------")
         print_experiment_info(data_cnn, cnn_mm_levels, beta, dropout)
 
         

@@ -13,12 +13,14 @@ from loss_jax import compute_gradient_and_update, compute_gradients
 from jax.experimental import optimizers
 from EntropySGD.entropy_sgd import EntropySGD_Jax
 import math
+import time
 from architectures import ecg_lsnn as arch
 from architectures import log
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from experiment_utils import get_batched_accuracy, _get_acc_batch, get_val_acc, _get_mismatch_data, get_val_acc, get_lr_schedule
 
 if __name__ == '__main__':
+    t0 = time.time()
     FLAGS = arch.get_flags()
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
@@ -123,13 +125,14 @@ if __name__ == '__main__':
 
         if((i+1) % 10 == 0):
             params = get_params(opt_state)
+            elapsed_time = float(onp.round(100 * (time.time() - t0) / 3600) / 100)
             training_accuracy, attacked_training_accuracy, loss_over_time, loss = _get_acc_batch(X, y, params, FLAGS, ATTACK=True)
-            print(f"Epoch {ecg_processor.n_epochs} i {i} / {sum(iteration)} Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
+            print(f"{elapsed_time} h Epoch {ecg_processor.n_epochs} i {i} / {sum(iteration)} Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
             log(FLAGS.session_id,"training_accuracy",training_accuracy)
             log(FLAGS.session_id,"attacked_training_accuracy",attacked_training_accuracy)
             log(FLAGS.session_id,"kl_over_time",loss_over_time)
 
-        if((i+1) % (2*FLAGS.eval_step_interval) == -1):
+        if((i+1) % (2*FLAGS.eval_step_interval) == 0):
             params = get_params(opt_state)
             mismatch_accuracies = []
             with ThreadPoolExecutor(max_workers=10) as executor:

@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from experiment_utils import get_batched_accuracy, _get_acc_batch, get_val_acc, _get_mismatch_data, get_val_acc, get_lr_schedule
 
 if __name__ == '__main__':
-
+    t0 = time.time()
     FLAGS = arch.get_flags()
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
@@ -143,7 +143,8 @@ if __name__ == '__main__':
         if((i+1) % 10 == 0):
             params = get_params(opt_state)
             training_accuracy, attacked_training_accuracy, loss_over_time, loss = _get_acc_batch(X, y, params, FLAGS, ATTACK=True)
-            print(f"Epoch {speech_processor.n_epochs} i {i} Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
+            elapsed_time = float(onp.round(100 * (time.time() - t0) / 3600) / 100)
+            print(f"{elapsed_time} h Epoch {speech_processor.n_epochs} i {i} Loss is {loss} Lipschitzness loss over time {loss_over_time} Accuracy {training_accuracy} Attacked accuracy {attacked_training_accuracy}",flush=True)
             log(FLAGS.session_id,"training_accuracy",training_accuracy)
             log(FLAGS.session_id,"attacked_training_accuracy",attacked_training_accuracy)
             log(FLAGS.session_id,"kl_over_time",loss_over_time)

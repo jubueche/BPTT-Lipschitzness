@@ -25,7 +25,6 @@ def standard_defaults():
         "contractive_params":"[]",
         "reg":0.001,
         "learning_rate":"0.001,0.0001",
-        "n_epochs":"150,50",
         "n_attack_steps": 10,
         "beta_robustness": 0.125,
         "seed":0,
@@ -43,7 +42,7 @@ def help():
         }
 
 launch_settings = {
-    "direct":"mkdir -p Resources/Logs; python {code_file} {args} &> Resources/Logs/{session_id}.log",
+    "direct":"mkdir -p Resources/Logs; python {code_file} {args} 2>&1 | tee Resources/Logs/{session_id}.log",
     "bsub":"mkdir -p Resources/Logs; bsub -o Resources/Logs/{session_id}.log -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
 }
 
@@ -165,6 +164,7 @@ class speech_lsnn:
         d["initial_std_constant"]=0.0
         d["attack_size_mismatch"] = 0.2
         d["initial_std_mismatch"]=0.001
+        d["n_epochs"] = "80,20" # ~ 18h
         d["optimizer"]="adam"
         return d
     
@@ -227,6 +227,7 @@ class ecg_lsnn:
         d["feature_bin_count"]=40 
         d["in_repeat"]=1 
         d["n_thr_spikes"]=-1
+        d["n_epochs"] = "150,50" # ~ 17 h
         d["optimizer"]="adam"
         return d
     
@@ -288,6 +289,7 @@ class cnn:
         d["attack_size_mismatch"]=0.2
         d["initial_std_constant"]=0.0
         d["initial_std_mismatch"]=0.001
+        d["n_epochs"] = "35,5" # ~ 18 h
         d["Kernels"]="[[64,1,4,4],[64,64,4,4]]"
         d["Dense"]="[[1600,256],[256,64],[64,10]]"
         d["optimizer"]="adam"

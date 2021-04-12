@@ -11,8 +11,6 @@ from CNN_Jax import CNN
 from RNN_Jax import RNN
 import ujson as json
 import numpy as onp
-from Hessian import hessian_computation, lanczos
-from Hessian import density as density_lib
 import jax.numpy as jnp
 import jax.random as jax_random
 from jax import grad
@@ -299,16 +297,17 @@ def get_axes_method_figure(fig, gridspec):
 def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm_ylims):
     # - Get the top axes
     if(id == "speech"):
-        top_axes = [fig.add_subplot(gridspec[:int(N_rows/2),:int(N_cols/2)]),fig.add_subplot(gridspec[:int(N_rows/2),int(N_cols/2):2*int(N_cols/2)])]
-        for ax in top_axes:
-            remove_all_splines(ax)
+        # yes,no,up,down,left,right
+        inner_grid = gridspec[0:int(N_rows/2),:].subgridspec(4, 3, wspace=0.1, hspace=0.1)
+        top_axes = [fig.add_subplot(inner_grid[i,j]) for i in range(4) for j in range(3)]
+        top_axes[3].text(x=-0.15, y=0.5, s="Robust", fontdict={"rotation": 90})
+        top_axes[6].text(x=-0.15, y=-0.5, s="Normal", fontdict={"rotation": 90})
     elif(id == "ecg"):
         r = int(N_rows/6)
         top_axes = [fig.add_subplot(gridspec[:r,:N_cols]),fig.add_subplot(gridspec[r:2*r,:N_cols]),fig.add_subplot(gridspec[2*r:3*r,:N_cols])]
         for ax in top_axes:
             remove_all_splines(ax)
     elif(id == "cnn"):
-        r = int(N_rows/8)
         inner_grid = gridspec[0:int(N_rows/2),:].subgridspec(4, N_cols, wspace=0.05, hspace=0.05)
         top_axes = [fig.add_subplot(inner_grid[i,j]) for i in range(4) for j in range(N_cols)]
         top_axes[10].text(x=-10, y=10, s="Robust", fontdict={"rotation": 90})
@@ -329,22 +328,6 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
         ax.set(xticks=[], yticks=[])
     axes = {"top": top_axes, "btm": btm_axes}
     return axes
-
-def get_axes_hessian(fig, architectures):
-    Nc = 9
-    gridspec = fig.add_gridspec(2, Nc, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
-    axes_top = [fig.add_subplot(gridspec[0,:int(Nc / 3)]), fig.add_subplot(gridspec[0,int(Nc / 3):2*int(Nc / 3)]), fig.add_subplot(gridspec[0,2*int(Nc / 3):])]
-    axes_btm = [fig.add_subplot(gridspec[1,:int(Nc / 3)]), fig.add_subplot(gridspec[1,int(Nc / 3):2*int(Nc / 3)]), fig.add_subplot(gridspec[1,2*int(Nc / 3):])]
-    for ax in (axes_top+axes_btm):
-        ax.spines['left'].set_visible(True)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.spines['bottom'].set_visible(True)
-    axes_top[0].set_ylabel(r"Normal")
-    axes_btm[0].set_ylabel(r"Robust")
-    for i,ax in enumerate(axes_top):
-        ax.set_title(architectures[i])
-    return axes_top, axes_btm
 
 def get_axes_weight_scale_exp(fig, N_rows, N_cols):
     gridspec = fig.add_gridspec(N_rows, N_cols, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
@@ -413,13 +396,13 @@ def get_data(id):
         )
         train_fingerprints, train_ground_truth = audio_processor.get_data(100, 0, d, d["background_frequency"],d["background_volume"], int((d["time_shift_ms"] * d["sample_rate"]) / 1000), 'training')
         X = train_fingerprints.numpy()
-        y = train_ground_truth.numpy()
+        targets = train_ground_truth.numpy()
         input_frequency_size = d['fingerprint_width']
         input_channels = onp.max(onp.array([1, 2*d['n_thr_spikes'] - 1]))
         input_time_size = d['spectrogram_length'] * d['in_repeat']
         X = onp.reshape(X, (-1, input_time_size, input_frequency_size * input_channels))
-        X = X[[onp.where(y==2)[0][0],onp.where(y==3)[0][0]],:,:].transpose((0,2,1)) # - Yes and no
-        y = [2,3]
+        y = [2,2,3,3,4,4,5,5,6,6,7,7]
+        X = X[[onp.where(targets==i)[0][int(i % 2)] for i in y],:,:].transpose((0,2,1)) # - Yes and no
     elif(id == "ecg"):
         d = ecg_lsnn.default_hyperparameters()
         ecg_processor = ECGDataLoader(path="ECG/ecg_recordings", batch_size=100)
@@ -451,10 +434,19 @@ def plot_images(axes, X, y):
 def plot_spectograms(axes, X, y):
     x = onp.linspace(0,1,X.shape[2])
     y = onp.linspace(0,1,X.shape[1])
-    axes[0].pcolormesh(x,y, X[0])
-    axes[1].pcolormesh(x,y, X[1])
-    axes[0].text(x=0.8, y=0.8, s="Yes", fontdict={"size": 15})
-    axes[1].text(x=0.8, y=0.8, s="No", fontdict={"size": 15})
+    ims = []
+    p = 0.9
+    for i,ax in enumerate(axes):
+        if i == 6:
+            p = 0.2
+        c = "g" if onp.random.rand() <= p else "r"
+        ims.append(ax.pcolormesh(x,y, X[i], cmap="RdBu_r"))
+        plt.setp(ax.spines.values(), color=c, linewidth=1)
+    vmin = 0.0
+    vmax = 5.0
+    norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+    for im in ims:
+        im.set_norm(norm)
     axes[0].set_title(r"$\textbf{a}$", x=0, fontdict={'fontsize':15})
 
 def get_y(y, p):

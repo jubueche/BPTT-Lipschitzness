@@ -36,7 +36,8 @@ class CNN:
         return cnn_out
 
 
-    def save(self,fn,theta):
+    def save(self,fn,theta_o):
+        theta = deepcopy(theta_o)
         save_dict = {}
         save_dict["params"] = deepcopy(self.model_settings)
         save_dict["rng_key"] = onp.array(list(self._rng_key),onp.int64).tolist()
