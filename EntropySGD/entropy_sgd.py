@@ -1,8 +1,7 @@
-from jax.experimental.optimizers import optimizer, make_schedule
+from jax.experimental.optimizers import make_schedule
 import jax.numpy as jnp
 import numpy as np
 from copy import deepcopy, copy
-from jax import jit, partial
 
 
 def EntropySGD_Jax(step_size,config):

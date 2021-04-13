@@ -88,10 +88,7 @@ def lip_loss(X, theta_star, logits, FLAGS, model, dropout_mask):
         return loss_js(logits_theta_star, logits)
 
 def compute_gradients(X, y, params, model, FLAGS, rand_key):
-
-    if FLAGS.abcd:
-        return compute_gradients_abcd(X,y,params,model,FLAGS,rand_key)
-
+    
     _, subkey = random.split(rand_key)
     subkey, dropout_mask = model.split_and_get_dropout_mask(rand_key, FLAGS.dropout_prob)
     
@@ -117,32 +114,6 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key):
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask, theta_star)
     else:
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask)
-    if("W_rec" in grads.keys()):
-        diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
-        # - Remove the diagonal of W_rec from the gradient
-        grads["W_rec"] = grads["W_rec"].at[diag_indices,diag_indices].set(0.0)
-    return grads
-
-def compute_gradients_abcd(X,y,params,model,FLAGS,rand_key):
-    rand_key, subkey = random.split(rand_key)
-    subkey, dropout_mask = model.split_and_get_dropout_mask(rand_key, FLAGS.dropout_prob)
-    logits, _ = model.call(X, dropout_mask, **params)
-    # - Mask
-    M_a = {}
-    M_b = {}
-    for key in params:
-        rand_key, subkey = random.split(rand_key)
-        M_a[key] = jnp.round(random.uniform(subkey, shape=params[key].shape))
-        M_b[key] = M_a[key]*-1 + 1
-    # - Get the attacking weights
-    theta_star = make_theta_star(X,y,params,FLAGS,rand_key,dropout_mask,model,logits)
-    def f(theta, theta_star, M_a, M_b):
-        mixed_params = {}
-        for key in theta:
-            mixed_params[key] = M_a[key] * theta[key] + M_b[key] * theta_star[key]
-        l = training_loss(X, y, mixed_params, FLAGS, model, dropout_mask)
-        return l
-    grads = grad(f, argnums=0)(params, theta_star, M_a, M_b)
     if("W_rec" in grads.keys()):
         diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
         # - Remove the diagonal of W_rec from the gradient

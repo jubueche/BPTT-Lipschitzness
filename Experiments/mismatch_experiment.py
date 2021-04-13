@@ -15,25 +15,26 @@ class mismatch_experiment:
         ecg1 = configure(ecg, {"beta_robustness": 0.125})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
-        ecg = ecg0 + ecg1 + ecg2 + ecg3
+        ecg4 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
+        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4
 
         speech = [speech_lsnn.make()]
         speech0 = configure(speech, {"beta_robustness": 0.0})
         speech1 = configure(speech, {"beta_robustness": 0.125})
         speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
-        speech3 = configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01"})
-        speech = speech0 + speech1 + speech2 + speech3
+
+        speech4 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
+        speech = speech0 + speech1 + speech2 + speech4
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
         cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125})
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
         cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"10,5"})
-        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
+        cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4
 
         return speech + ecg + cnn_grid
-        # return cnn_grid
-        # return speech
 
     @staticmethod
     def visualize():

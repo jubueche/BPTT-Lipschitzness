@@ -12,6 +12,7 @@ import jax.numpy as jnp
 from loss_jax import compute_gradient_and_update, compute_gradients
 from jax.experimental import optimizers
 from EntropySGD.entropy_sgd import EntropySGD_Jax
+from ABCD.abcd import ABCD_Jax
 import math
 import time
 from architectures import ecg_lsnn as arch
@@ -103,6 +104,9 @@ if __name__ == '__main__':
     elif(FLAGS.optimizer == "esgd"):
         config = dict(momentum=0.9, damp=0.0, nesterov=True, weight_decay=0.0, L=10, eps=1e-4, g0=1e-2, g1=1e-3, langevin_lr=0.1, langevin_beta1=0.75)
         opt_init, opt_update, get_params = EntropySGD_Jax(get_lr_schedule(iteration,lrs), config)
+    elif(FLAGS.optimizer == "abcd"):
+        config = dict(L=FLAGS.abcd_L, eta_A=FLAGS.abcd_etaA, b1=0.9, b2=0.999, eps=1e-8)
+        opt_init, opt_update, get_params = ABCD_Jax(get_lr_schedule(iteration,lrs), config)
     else:
         print("Invalid optimizer")
         sys.exit(0)
@@ -119,6 +123,8 @@ if __name__ == '__main__':
 
         if(FLAGS.optimizer == "esgd"):
             opt_state = opt_update(i, get_params(opt_state), opt_state, get_grads)
+        elif(FLAGS.optimizer == "abcd"):
+            opt_state = opt_update(i, get_params(opt_state), opt_state, get_grads, FLAGS, rnn._rng_key)
         else:
             opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
         rnn._rng_key, _ = random.split(rnn._rng_key)

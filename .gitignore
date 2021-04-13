@@ -10,3 +10,5 @@
 **/fashion_mnist
 /tmp.py
 **/.vscode/settings.json
+**/*.gz
+**/.ipynb_checkpoints

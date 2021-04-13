@@ -6,7 +6,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-n_epochs=80,20", "-learning_rate=0.001,0.0001","-beta_robustness=0.0"],
+            "args": ["-exp=weight_scale_experiment"],
             "console": "integratedTerminal"
         },
         {
@@ -31,7 +31,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-beta_robustness=0.125", "-wanted_words=yes,no,up,down,left,right"],
+            "args": ["-beta_robustness=0.0", "-abcd", "-wanted_words=yes,no,up,down,left,right"],
             "console": "integratedTerminal"
         },
         {
@@ -39,7 +39,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-beta_robustness=0.0", "-dropout_prob=0.3"],
+            "args": ["-beta_robustness=0.0", "-optimizer=abcd"],
             "console": "integratedTerminal"
         },
         {

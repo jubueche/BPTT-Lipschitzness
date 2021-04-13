@@ -3,6 +3,7 @@ from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
 from CNN_Jax import CNN
 from RNN_Jax import RNN
+from MLP_Jax import MLP
 import ujson as json
 import jax.numpy as jnp
 import numpy as onp
@@ -33,7 +34,8 @@ def standard_defaults():
         "batch_size":100,
         "boundary_loss":"kl",
         "treat_as_constant":False,
-        "abcd":False,
+        "abcd_etaA":0.001,
+        "abcd_L":2,
         "p_norm":"inf"
         }
 
@@ -200,6 +202,61 @@ class speech_lsnn:
         data["network"] = rnn
         data["theta"] = theta
         data["speech_lsnn_session_id"] = sid
+        return data
+
+
+class mnist_mlp:
+    @staticmethod
+    def make():
+        def mk_data_dir(mode="direct"):
+            if mode=="direct":
+                return "MNIST/mnist_dataset/"
+            elif mode=="bsub":
+                return "$SCRATCH/mnist_dataset"
+            raise Exception("Invalid Mode")
+        d = mnist_mlp.default_hyperparameters()
+        d["mk_data_dir"] = mk_data_dir
+        d["data_dir"] = "{mk_data_dir({mode})}"
+        d["code_file"] = "main_mnist_mlp.py"
+        d["architecture"] = "mnist_mlp"
+        d["train"] = mk_runner(mnist_mlp, ["data_dir"])
+        return d
+        
+
+    @staticmethod
+    def default_hyperparameters():
+        d = {}
+        d["step_size"]=0.001
+        d["batch_size"]=128
+        d["weight_increase"]=0.0
+        d["n_epochs"] = "20"
+        d["n_iters"]=10
+        d["eps_attack"]=0.2
+        return d
+    
+    @staticmethod
+    def get_flags():
+        default_dict = {**mnist_mlp.default_hyperparameters(), **{"data_dir":"MNIST/mnist_dataset/"}}
+        return _get_flags(default_dict, help())
+
+    @staticmethod
+    def checker(sid, table, cache_dir):
+        try:
+            data = mnist_mlp.loader(sid, table, cache_dir)
+        except Exception as er:
+            print(er)
+            return False
+        return True
+
+    @staticmethod
+    def loader(sid, table, cache_dir):
+        data = json.load(open(os.path.join("Resources/TrainingResults",f"{sid}.json"),'r'))
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(base_path, f"Resources/Models/{sid}_model.json")
+        mlp, params = MLP.load(model_path)
+        data["network"] = mlp
+        data["theta"] = params
+        data["mnist_mlp_session_id"] = sid
         return data
 
 class ecg_lsnn:
