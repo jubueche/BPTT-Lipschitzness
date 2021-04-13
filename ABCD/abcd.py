@@ -22,16 +22,15 @@ def ABCD_Jax(step_size,config):
 
     def update(batch_id, params, state, get_grads, FLAGS, rand_key):
         """ get_grads: Theta -> PyTree Gradients, batch_id must start from 0 """        
-        # - Mask
-        M_a = {}
-        M_b = {}
-        for key in params:
-            rand_key, subkey = random.split(rand_key)
-            M_a[key] = jnp.round(random.uniform(subkey, shape=params[key].shape))
-            M_b[key] = M_a[key]*-1 + 1
         for l in range(config["L"]):
-            # - Update state['params'][key] and return state
-            
+            # - Mask
+            M_a = {}
+            M_b = {}
+            for key in params:
+                rand_key, subkey = random.split(rand_key)
+                M_a[key] = jnp.round(random.uniform(subkey, shape=params[key].shape))
+                M_b[key] = M_a[key]*-1 + 1
+
             grads_w_l_1 = get_grads(params)
 
             w_l_0_5 = {}

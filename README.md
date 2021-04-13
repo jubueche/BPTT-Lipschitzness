@@ -3,8 +3,8 @@
 This repository contains the code to reproduce the experiments in our report.
 
 ## Contact
-Julian Büchel, Fynn Faber and Maxime Fabre. \
-E-Mail: {jubueche,faberf,mfabre}@ethz.ch
+Julian Büchel and Fynn Faber \
+E-Mail: {jubueche,faberf}@ethz.ch
 
 ## Requirements
 ```
@@ -34,25 +34,6 @@ After having setup the environment, you can create the Figures that are in the p
 python make_figures.py
 ```
 This command will import any experiment that is present in the ```Experiments``` folder and execute the ```visualize()``` method. This is part of our own experiment manager that we developed for this project called ```datajuicer``` (see more info further down). \
-You should see Figures like this:
-
-<center>
-<img src=Resources/Figures/figure_main.png width="500">
-</center>
-
-<center>
-<img src=Resources/Figures/constant_attack_figure.png width="500">
-</center>
-
-<center>
-<img src=Resources/Figures/methods_figure.png width="500">
-</center>
-(The blank in the last figure is intentional. It is a placeholder for the flowchart of the algorithm).
-
-To generate the figure for the mismatch recordings, navigate to ```FigureMismatch/``` and execute ```python plot.py``` which should give you this figure:
-<center>
-<img src=Resources/Figures/figure_mismatch.png width="500">
-</center>
 
 ## Retraining Models
 For each network that we used, we trained 10 copies with different random initialisations for statistical significance. To retrain all models, you can rename the ```Sessions``` folder (rather than deleting it) and simply execute

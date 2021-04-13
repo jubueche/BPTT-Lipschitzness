@@ -9,15 +9,15 @@ class methods_experiment:
     @staticmethod
     def train_grid():
         grid = speech_lsnn.make()
-        grid = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.3,"initial_std_constant":0.0, "initial_std_mismatch":0.001})
-        grid = split(grid, "beta_robustness", [0.0, 0.1, 1.0])
-        grid = split(grid, "seed", [0,1,2,3])
+        grid = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.2,"initial_std_constant":0.0, "initial_std_mismatch":0.001})
+        grid = split(grid, "beta_robustness", [0.0,0.125,0.5])
+        grid = split(grid, "seed", [0,1])
         return grid
 
     @staticmethod
     def visualize():
-        betas = [0.0, 0.1, 1.0]
-        seeds = [0,1,2,3]
+        betas = [0.0,0.125,0.5]
+        seeds = [0,1]
         grid = [model for model in methods_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -61,6 +61,5 @@ class methods_experiment:
         axes_middle[0].set_xticklabels(["t=0","t=T"])
         axes_middle[1].ticklabel_format(style="sci", scilimits=(0,0))
 
-        plt.savefig("Resources/Figures/methods_figure.png", dpi=1200)
-        plt.savefig("Resources/Figures/methods_figure.pdf", dpi=1200)
+        plt.savefig("Resources/Figures/methods_figure.svg", format="svg")
         plt.show()
