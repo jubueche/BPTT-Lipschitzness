@@ -12,25 +12,33 @@ class worst_case_experiment:
 
     @staticmethod
     def train_grid():
+        seeds = [0]
+
         ecg = [ecg_lsnn.make()]
-        ecg0 = configure(ecg, {"beta_robustness": 0.0, "attack_size_mismatch":0.3}) # - TODO Change to 0.2 attack_size_mismatch
-        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
-        ecg2 = configure(ecg, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob": 0.3}) # - TODO Change to 0.2 attack_size_mismatch
-        ecg = ecg0 + ecg1 + ecg2
+        ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
+        ecg1 = configure(ecg, {"beta_robustness": 0.125})
+        ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
+        ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
+        ecg4 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
+        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4
 
         speech = [speech_lsnn.make()]
-        speech0 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3})
-        speech1 = configure(speech, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
-        speech2 = configure(speech, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
-        speech = speech0 + speech1 + speech2
+        speech0 = configure(speech, {"beta_robustness": 0.0})
+        speech1 = configure(speech, {"beta_robustness": 0.125})
+        speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        speech3 = configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"40,10"})
+        speech4 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
+        speech = speech0 + speech1 + speech2 + speech3 + speech4
 
         cnn_grid = [cnn.make()]
-        cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch":0.3})
-        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125, "attack_size_mismatch":0.2})
-        cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch":0.3, "dropout_prob":0.3})
-        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2
+        cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
+        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125})
+        cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"10,5"})
+        cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4
 
-        return speech + ecg + cnn_grid
+        return ecg + speech + cnn_grid
 
     @staticmethod
     def visualize():
@@ -39,7 +47,7 @@ class worst_case_experiment:
         LOSS = 1
 
         attack_sizes = [0.0,0.005,0.01,0.05,0.1,0.2,0.3,0.5]
-        n_attack_steps = [5,10,15]
+        n_attack_steps = [5,10,15,40]
         seeds = [0]
         beta = 0.125
         dropout = 0.3
@@ -56,7 +64,9 @@ class worst_case_experiment:
                 for p in g["theta"]:
                     g["theta"][p] = g["theta"][p].astype(jnp.float64)
 
-        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(5, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0)
+        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0)
+
+        assert False, "Stop"
 
         def _get_data_acc(architecture, beta, identifier, grid, n_attack_steps):
             robust_data = query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":0.2, "dropout_prob":0.0, "architecture":architecture, "n_attack_steps":n_attack_steps})

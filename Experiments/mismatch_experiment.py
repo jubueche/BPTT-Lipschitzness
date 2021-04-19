@@ -9,10 +9,11 @@ class mismatch_experiment:
     @staticmethod
     def train_grid():
         seeds = [0]
+        # beta 0.125 asm 0.1 ; 0.25 asm 0.2
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
-        ecg1 = configure(ecg, {"beta_robustness": 0.125})
+        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch": 0.1})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
@@ -22,9 +23,9 @@ class mismatch_experiment:
         speech0 = configure(speech, {"beta_robustness": 0.0})
         speech1 = configure(speech, {"beta_robustness": 0.125})
         speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
-
+        speech3 = configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"40,10"})
         speech4 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
-        speech = speech0 + speech1 + speech2 + speech4
+        speech = speech0 + speech1 + speech2 + speech3 + speech4
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
@@ -34,7 +35,7 @@ class mismatch_experiment:
         cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4
 
-        return speech + ecg + cnn_grid
+        return ecg + speech + cnn_grid
 
     @staticmethod
     def visualize():
@@ -79,13 +80,15 @@ class mismatch_experiment:
 
         def _get_data_acc(architecture, beta, identifier, grid):
             robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":0.2, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
-            vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
+            vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "optimizer":"adam", "architecture":architecture})).reshape((len(seeds),-1))
             vanilla_dropout_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":architecture})).reshape((len(seeds),-1))
-            return vanilla_data, vanilla_dropout_data ,robust_data
+            abcd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"abcd", "architecture":architecture})).reshape((len(seeds),-1))
+            esgd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"esgd", "architecture":architecture})).reshape((len(seeds),-1))
+            return vanilla_data, vanilla_dropout_data ,robust_data, abcd_data, esgd_data
 
         def get_data_acc(architecture, beta, identifier, grid):
-            vanilla_data, vanilla_dropout_data, robust_data = _get_data_acc(architecture, beta, identifier, grid)
-            return list(zip(unravel(vanilla_data), unravel(vanilla_dropout_data), unravel(robust_data)))
+            vanilla_data, vanilla_dropout_data, robust_data, abcd_data, esgd_data = _get_data_acc(architecture, beta, identifier, grid)
+            return list(zip(unravel(vanilla_data), unravel(vanilla_dropout_data), unravel(robust_data), unravel(abcd_data), unravel(esgd_data)))
 
         data_speech_lsnn = get_data_acc("speech_lsnn", beta, "mismatch_list", grid_mm)
         data_ecg_lsnn = get_data_acc("ecg_lsnn", beta, "mismatch_list", grid_mm)
@@ -113,18 +116,24 @@ class mismatch_experiment:
 
         def print_experiment_info(data, mismatch_levels, beta, dropout):
             print("\\begin{table}[!htb]\n\\begin{tabular}{llll}")
-            print("%s \t\t %s \t %s \t %s" % ("Mismatch level","Test acc. ($\\beta=0$)",f"Test acc. (dropout = {dropout})",f"Test acc. ($\\beta={beta}$)"))
+            print("%s \t\t %s \t %s \t %s \t %s \t %s" % ("Mismatch level","Test acc. ($\\beta=0$)",f"Test acc. (dropout = {dropout})",f"Test acc. ($\\beta={beta}$)","Test acc. ABCD", "Test acc. ESGD"))
             for idx,mm in enumerate(mismatch_levels):
                 dn = 100*onp.array(data[idx][0])
                 dnd = 100*onp.array(data[idx][1])
                 dr = 100*onp.array(data[idx][2])
+                dabcd = 100*onp.array(data[idx][3])
+                desgd = 100*onp.array(data[idx][4])
                 mn = onp.mean(dn)
                 mnd = onp.mean(dnd)
                 mr = onp.mean(dr)
+                mabcd = onp.mean(dabcd)
+                mesgd = onp.mean(desgd)
                 sn = onp.std(dn)
                 snd = onp.std(dnd)
                 sr = onp.std(dr)
-                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr))
+                sabcd = onp.std(dabcd)
+                sesgd = onp.std(desgd)
+                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr,mabcd,sabcd,mesgd,sesgd))
             print("\\end{table} \n")
 
         print_experiment_info(data_speech_lsnn, speech_mm_levels, beta, dropout)

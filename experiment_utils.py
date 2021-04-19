@@ -357,7 +357,7 @@ def plot_mm_distributions(axes, data, labels, legend=False):
         x = []
         y = []
         hue = []
-        for j in range(len(el)):
+        for j in range(3):
             x = onp.hstack([x, [j] * len(el[j])])
             y = onp.hstack([y, el[j]])
             hue = onp.hstack([hue, [j] * len(el[j])])

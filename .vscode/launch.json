@@ -13,9 +13,8 @@
             "name": "ESGD",
             "type": "python",
             "request": "launch",
-            "justMyCode": true,
             "program": "${file}",
-            "args": ["-optimizer=esgd", "-beta_robustness=0.0"],
+            "args": ["-optimizer=esgd", "-beta_robustness=0.0", "-learning_rate=0.1,0.01"],
             "console": "integratedTerminal"
         },
         {

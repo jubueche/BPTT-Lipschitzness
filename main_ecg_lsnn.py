@@ -102,7 +102,7 @@ if __name__ == '__main__':
     elif(FLAGS.optimizer == "sgd"):
         opt_init, opt_update, get_params = optimizers.sgd(get_lr_schedule(iteration,lrs))
     elif(FLAGS.optimizer == "esgd"):
-        config = dict(momentum=0.9, damp=0.0, nesterov=True, weight_decay=0.0, L=10, eps=1e-4, g0=1e-2, g1=1e-3, langevin_lr=0.1, langevin_beta1=0.75)
+        config = dict(momentum=0.9, damp=0.0, nesterov=True, weight_decay=0.0, L=10, eps=1e-4, g0=1e-2, g1=1e-3, langevin_lr=0.1, langevin_beta1=0.75, b1=0.0, b2=1.0, eps_adam=1e-8)
         opt_init, opt_update, get_params = EntropySGD_Jax(get_lr_schedule(iteration,lrs), config)
     elif(FLAGS.optimizer == "abcd"):
         config = dict(L=FLAGS.abcd_L, eta_A=FLAGS.abcd_etaA, b1=0.9, b2=0.999, eps=1e-8)
