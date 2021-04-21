@@ -71,7 +71,6 @@ if __name__ == '__main__':
             '--n_epochs and --learning_rate must be equal length '
             'lists, but are %d and %d long instead' % (len(epochs_list),
                                                         len(learning_rates_list)))
-    
     steps_list = [math.ceil(epochs * ecg_processor.N_train/FLAGS.batch_size) for epochs in epochs_list]
 
     # - Define trainable variables
