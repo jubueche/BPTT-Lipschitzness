@@ -9,11 +9,11 @@ class mismatch_experiment:
     @staticmethod
     def train_grid():
         seeds = [0]
-        # beta 0.125 asm 0.1 ; 0.25 asm 0.2
+        # beta 0.125 asm 0.1 ; 0.25 asm 0.1 ; 
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
-        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch": 0.1})
+        ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1}) # TODO try with 0.2 beta rob, best is 0.125 beta rob, 0.1 asm
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
@@ -21,7 +21,7 @@ class mismatch_experiment:
 
         speech = [speech_lsnn.make()]
         speech0 = configure(speech, {"beta_robustness": 0.0})
-        speech1 = configure(speech, {"beta_robustness": 0.125})
+        speech1 = configure(speech, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
         speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
         speech3 = configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"40,10"})
         speech4 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
@@ -29,7 +29,7 @@ class mismatch_experiment:
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
-        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125})
+        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
         cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"10,5"})
         cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
@@ -44,7 +44,12 @@ class mismatch_experiment:
         cnn_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
         seeds = [0]
         dropout = 0.3
-        beta = 0.125
+        beta_ecg = 0.25
+        beta_speech = 0.25
+        beta_cnn = 0.25
+        attack_size_mismatch_speech = 0.1
+        attack_size_mismatch_ecg = 0.1
+        attack_size_mismatch_cnn = 0.1
 
         # - Per general column
         N_cols = 10 # - 10
@@ -78,21 +83,25 @@ class mismatch_experiment:
                     res[i].extend(list(arr[seed,i]))
             return res
 
-        def _get_data_acc(architecture, beta, identifier, grid):
-            robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":0.2, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
+        def _get_data_acc(architecture, beta,attack_size_mismatch, identifier, grid):
+            robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":attack_size_mismatch, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
             vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "optimizer":"adam", "architecture":architecture})).reshape((len(seeds),-1))
             vanilla_dropout_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":architecture})).reshape((len(seeds),-1))
             abcd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"abcd", "architecture":architecture})).reshape((len(seeds),-1))
             esgd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"esgd", "architecture":architecture})).reshape((len(seeds),-1))
             return vanilla_data, vanilla_dropout_data ,robust_data, abcd_data, esgd_data
 
-        def get_data_acc(architecture, beta, identifier, grid):
-            vanilla_data, vanilla_dropout_data, robust_data, abcd_data, esgd_data = _get_data_acc(architecture, beta, identifier, grid)
+        def get_data_acc(architecture, beta, attack_size_mismatch,identifier, grid):
+            vanilla_data, vanilla_dropout_data, robust_data, abcd_data, esgd_data = _get_data_acc(architecture, beta,attack_size_mismatch, identifier, grid)
             return list(zip(unravel(vanilla_data), unravel(vanilla_dropout_data), unravel(robust_data), unravel(abcd_data), unravel(esgd_data)))
 
-        data_speech_lsnn = get_data_acc("speech_lsnn", beta, "mismatch_list", grid_mm)
-        data_ecg_lsnn = get_data_acc("ecg_lsnn", beta, "mismatch_list", grid_mm)
-        data_cnn = get_data_acc("cnn", beta, "mismatch_list", grid_mm)
+        val_acc_speech = [max(a[0]) for a in _get_data_acc("speech_lsnn", beta_speech, attack_size_mismatch_speech, "validation_accuracy", grid)]
+        val_acc_ecg = [max(a[0]) for a in _get_data_acc("ecg_lsnn", beta_ecg, attack_size_mismatch_ecg, "validation_accuracy", grid)]
+        val_acc_cnn = [max(a[0]) for a in _get_data_acc("cnn", beta_cnn, attack_size_mismatch_cnn, "validation_accuracy", grid)]
+
+        data_speech_lsnn = get_data_acc("speech_lsnn", beta_speech, attack_size_mismatch_speech, "mismatch_list", grid_mm)
+        data_ecg_lsnn = get_data_acc("ecg_lsnn", beta_ecg, attack_size_mismatch_ecg, "mismatch_list", grid_mm)
+        data_cnn = get_data_acc("cnn", beta_cnn, attack_size_mismatch_cnn, "mismatch_list", grid_mm)
 
         plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn, labels=["Normal","Dropout","Robust"])
         plot_mm_distributions(axes_ecg["btm"], data=data_ecg_lsnn, labels=["Normal","Dropout","Robust"])
@@ -133,11 +142,24 @@ class mismatch_experiment:
                 sr = onp.std(dr)
                 sabcd = onp.std(dabcd)
                 sesgd = onp.std(desgd)
-                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr,mabcd,sabcd,mesgd,sesgd))
+                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr,mabcd,sabcd,mesgd,sesgd))
             print("\\end{table} \n")
 
-        print_experiment_info(data_speech_lsnn, speech_mm_levels, beta, dropout)
-        print_experiment_info(data_ecg_lsnn, ecg_mm_levels, beta, dropout)
-        print_experiment_info(data_cnn, cnn_mm_levels, beta, dropout)
+        def print_val_acc(data):
+            print("%s \t %s \t %s \t %s \t %s" % ("Val acc. normal",f"Val acc. dropout",f"Val acc. robust","Val acc. ABCD", "Val acc. ESGD"))
+            dn = 100*data[0]
+            dnd = 100*data[1]
+            dr = 100*data[2]
+            dabcd = 100*data[3]
+            desgd = 100*data[4]
+            print("%.2f \t\t\t %.2f \t\t\t %.2f \t\t\t %.2f \t\t %.2f" % (dn,dnd,dr,dabcd,desgd))
+
+        print_val_acc(val_acc_speech)
+        print_val_acc(val_acc_ecg)
+        print_val_acc(val_acc_cnn)
+
+        print_experiment_info(data_speech_lsnn, speech_mm_levels, beta_speech, dropout)
+        print_experiment_info(data_ecg_lsnn, ecg_mm_levels, beta_ecg, dropout)
+        print_experiment_info(data_cnn, cnn_mm_levels, beta_cnn, dropout)
 
         
