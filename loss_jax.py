@@ -87,6 +87,12 @@ def lip_loss(X, theta_star, logits, FLAGS, model, dropout_mask):
     if FLAGS.boundary_loss == "js":
         return loss_js(logits_theta_star, logits)
 
+def dict_difference(dict1, dict2):
+    diff = 0
+    for key in dict1:
+        diff += jnp.linalg.norm(dict1[key] - dict2[key]) ** 2
+    return jnp.sqrt(diff)
+
 def compute_gradients(X, y, params, model, FLAGS, rand_key):
     
     _, subkey = random.split(rand_key)
@@ -96,7 +102,11 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key):
         logits, _ = model.call(X, dropout_mask, **params)
         if theta_star is None:
             theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
-        
+        if FLAGS.hessian_robustness:
+            nabla_theta = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask)
+            nabla_theta_star = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask)
+            return dict_difference(nabla_theta, nabla_theta_star)
+
         return lip_loss(X, theta_star, logits, FLAGS, model, dropout_mask)
 
     def loss_general(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
