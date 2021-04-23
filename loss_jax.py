@@ -156,6 +156,10 @@ def _get_logits(max_size, model, X, dropout_mask, theta):
     return logits
 
 def attack_network(X, params, logits, model, FLAGS, rand_key):
+    loss_over_time, logits_theta_star, _ = _attack_network(X, params, logits, model, FLAGS, rand_key)
+    return loss_over_time, logits_theta_star
+
+def _attack_network(X, params, logits, model, FLAGS, rand_key):
     #In contrast to the training attacker this attackers epsilon is deterministic (equal to the mean epsilon)
     dropout_mask = model.unmasked()
     max_size = 1000
@@ -218,4 +222,4 @@ def attack_network(X, params, logits, model, FLAGS, rand_key):
 
     loss_over_time.append(lip_loss(X, theta_star, logits, FLAGS, model, dropout_mask))
     logits_theta_star = _get_logits(max_size, model, X, dropout_mask, theta_star)
-    return loss_over_time, logits_theta_star
+    return loss_over_time, logits_theta_star, theta_star
