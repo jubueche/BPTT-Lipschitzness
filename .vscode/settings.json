@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/home/julian/anaconda3/envs/adversarial/bin/python",
+    "python.pythonPath": "/home/julian/anaconda3/envs/synsense/bin/python",
     "sqltools.connections": [
         {
             "previewLimit": 50,

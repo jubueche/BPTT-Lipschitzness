@@ -167,8 +167,8 @@ def get_test_acc(model, theta, data_dir, ATTACK=False):
     return _get_acc(model, theta, data_dir, ATTACK, mode="test")
 
 
-@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "num_steps", "std"])
-def get_landscape_sweep(model, num_steps, data_dir, std):
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "num_steps", "std", "from_", "to_","n_repeat"])
+def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):
         """
         Compute the adversarial direction and interpolate between Theta and Theta*.
         For each intermediate value, compute the loss.
@@ -186,20 +186,22 @@ def get_landscape_sweep(model, num_steps, data_dir, std):
         logits = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta)
         # - Choose theta star using the adversary
         rng_key = jax_random.PRNGKey(onp.random.randint(1e15))
-        d = {}
-        for key in theta:
-            rng_key, random_normal_var = split_and_sample(rng_key, theta[key].shape)
-            d[key] = jnp.abs(theta[key])*std*random_normal_var
-
         losses = []
-        for alpha in onp.linspace(-1.0,1.0,num_steps):
-            theta_current = {}
+        for _ in range(n_repeat):
+            d = {}
             for key in theta:
-                theta_current[key] = theta[key] + alpha * d[key]
-            logits_theta_current = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta_current)
-            losses.append(categorical_cross_entropy(y,logits_theta_current))
+                rng_key, random_normal_var = split_and_sample(rng_key, theta[key].shape)
+                d[key] = jnp.abs(theta[key])*std*random_normal_var
 
-        return losses
+            losses_tmp = []
+            for alpha in onp.linspace(from_,to_,num_steps):
+                theta_current = {}
+                for key in theta:
+                    theta_current[key] = theta[key] + alpha * d[key]
+                logits_theta_current = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta_current)
+                losses_tmp.append(float(categorical_cross_entropy(y,logits_theta_current)))
+            losses.append(losses_tmp)
+        return onp.array(losses)
 
 
 
