@@ -9,6 +9,6 @@
 **/runs
 **/fashion_mnist
 /tmp.py
-**/.vscode/settings.json
+**/.vscode
 **/*.gz
 **/.ipynb_checkpoints
