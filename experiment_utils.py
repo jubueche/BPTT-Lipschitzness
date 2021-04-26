@@ -14,7 +14,7 @@ import numpy as onp
 import jax.numpy as jnp
 import jax.random as jax_random
 from jax import grad
-from loss_jax import loss_kl, categorical_cross_entropy, loss_normal, _get_logits
+from loss_jax import loss_kl, categorical_cross_entropy, loss_normal, _get_logits, attack_network, _attack_network, split_and_sample
 import matplotlib
 import numpy as onp
 import matplotlib
@@ -31,7 +31,6 @@ from TensorCommands import input_data
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
 from copy import copy, deepcopy
-from loss_jax import attack_network
 from datajuicer import cachable, get
 from architectures import speech_lsnn, ecg_lsnn, cnn
 import threading
@@ -166,6 +165,45 @@ def get_val_acc(model, theta, data_dir, ATTACK=False):
 
 def get_test_acc(model, theta, data_dir, ATTACK=False):
     return _get_acc(model, theta, data_dir, ATTACK, mode="test")
+
+
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "num_steps", "std", "from_", "to_","n_repeat"])
+def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):
+        """
+        Compute the adversarial direction and interpolate between Theta and Theta*.
+        For each intermediate value, compute the loss.
+        """
+        max_size = 1000
+        class Namespace:
+            def __init__(self,d):
+                self.__dict__.update(d)
+        FLAGS = Namespace(model)
+        theta = model["theta"]
+        loader, set_size = get_loader(FLAGS, data_dir)
+        X = loader.X_test
+        y = loader.y_test
+
+        logits = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta)
+        # - Choose theta star using the adversary
+        rng_key = jax_random.PRNGKey(onp.random.randint(1e15))
+        losses = []
+        for _ in range(n_repeat):
+            d = {}
+            for key in theta:
+                rng_key, random_normal_var = split_and_sample(rng_key, theta[key].shape)
+                d[key] = jnp.abs(theta[key])*std*random_normal_var
+
+            losses_tmp = []
+            for alpha in onp.linspace(from_,to_,num_steps):
+                theta_current = {}
+                for key in theta:
+                    theta_current[key] = theta[key] + alpha * d[key]
+                logits_theta_current = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta_current)
+                losses_tmp.append(float(categorical_cross_entropy(y,logits_theta_current)))
+            losses.append(losses_tmp)
+        return onp.array(losses)
+
+
 
 @cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
 def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):

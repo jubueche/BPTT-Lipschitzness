@@ -13,7 +13,7 @@ class mismatch_experiment:
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
-        ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1}) # TODO try with 0.2 beta rob, best is 0.125 beta rob, 0.1 asm
+        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch": 0.2}) # TODO try with 0.2 beta rob, best is 0.125 beta rob, 0.1 asm
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
@@ -44,11 +44,11 @@ class mismatch_experiment:
         cnn_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
         seeds = [0]
         dropout = 0.3
-        beta_ecg = 0.25
+        beta_ecg = 0.125
         beta_speech = 0.25
         beta_cnn = 0.25
         attack_size_mismatch_speech = 0.1
-        attack_size_mismatch_ecg = 0.1
+        attack_size_mismatch_ecg = 0.2
         attack_size_mismatch_cnn = 0.1
 
         # - Per general column
