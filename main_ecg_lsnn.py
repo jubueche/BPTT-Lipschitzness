@@ -112,12 +112,12 @@ if __name__ == '__main__':
     opt_state = opt_init(init_params)
 
     best_val_acc = best_mean_mm_val_acc = 0.0
-    for i in range(sum(iteration)):
+    for i, e in zip(range(sum(iteration)), [item for sublist in [[i]*a for i,a in enumerate(steps_list)] for item in sublist]):
         # - Get training data
         X,y = ecg_processor.get_batch("train")
         
         def get_grads(params):
-            grads = compute_gradients(X, y, params, rnn, FLAGS, rnn._rng_key)
+            grads = compute_gradients(X, y, params, rnn, FLAGS, rnn._rng_key,e)
             return grads
 
         if(FLAGS.optimizer == "esgd"):
@@ -125,7 +125,7 @@ if __name__ == '__main__':
         elif(FLAGS.optimizer == "abcd"):
             opt_state = opt_update(i, get_params(opt_state), opt_state, get_grads, FLAGS, rnn._rng_key)
         else:
-            opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key)
+            opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key,e)
         rnn._rng_key, _ = random.split(rnn._rng_key)
 
         if((i+1) % 10 == 0):
