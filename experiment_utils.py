@@ -123,7 +123,7 @@ def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mis
 
     loader, set_size = get_loader(FLAGS, data_dir)
     logits = _get_logits(max_size, FLAGS.network, loader.X_test, FLAGS.network.unmasked(), model["theta"])
-    loss_over_time, logits_theta_star = attack_network(loader.X_test, model["theta"], logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
+    loss_over_time, logits_theta_star = attack_network(loader.X_test,loader.y_test, model["theta"], logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
     attacked_test_acc = get_batched_accuracy(loader.y_test, logits_theta_star)
     return attacked_test_acc, loss_over_time[-1]
 
@@ -152,7 +152,7 @@ def _get_acc_batch(X, y, theta, FLAGS, ATTACK):
     acc = onp.float64(get_batched_accuracy(y, logits))
     attacked_acc = loss_over_time = None
     if(ATTACK):
-        loss_over_time, logits_theta_star = attack_network(X, theta, logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
+        loss_over_time, logits_theta_star = attack_network(X,y, theta, logits, FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
         attacked_acc = onp.float64(get_batched_accuracy(y, logits_theta_star))
         loss_over_time = list(onp.array(loss_over_time, dtype=onp.float64))
     return acc, attacked_acc, loss_over_time, onp.float64(loss)

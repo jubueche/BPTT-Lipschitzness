@@ -37,7 +37,10 @@ def standard_defaults():
         "abcd_etaA":0.001,
         "abcd_L":2,
         "p_norm":"inf",
-        "hessian_robustness":False
+        "hessian_robustness":False,
+        "awp":False,
+        "warmup":0,
+        "awp_gamma":0.1
         }
 
 def help():
