@@ -29,42 +29,6 @@ if __name__ == '__main__':
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
 
-    def _next_power_of_two(x):
-        return 1 if x == 0 else 2**(int(x) - 1).bit_length()
-
-    FLAGS.l2_weight_decay_params = str(FLAGS.l2_weight_decay_params[1:-1]).split(",")
-    FLAGS.l1_weight_decay_params = str(FLAGS.l1_weight_decay_params[1:-1]).split(",")
-    FLAGS.contractive_params = str(FLAGS.contractive_params[1:-1]).split(",")
-    if(FLAGS.l1_weight_decay_params == ['']):
-        FLAGS.l1_weight_decay_params = []
-    if(FLAGS.l2_weight_decay_params == ['']):
-        FLAGS.l2_weight_decay_params = []
-    if(FLAGS.contractive_params == ['']):
-        FLAGS.contractive_params = []
-
-    FLAGS.desired_samples = int(FLAGS.sample_rate * FLAGS.clip_duration_ms / 1000)
-    FLAGS.window_size_samples = int(FLAGS.sample_rate * FLAGS.window_size_ms / 1000)
-    FLAGS.window_stride_samples = int(FLAGS.sample_rate * FLAGS.window_stride_ms / 1000)
-    FLAGS.length_minus_window = (FLAGS.desired_samples - FLAGS.window_size_samples)
-    if FLAGS.length_minus_window < 0:
-        spectrogram_length = 0
-    else:
-        FLAGS.spectrogram_length = 1 + int(FLAGS.length_minus_window / FLAGS.window_stride_samples)
-    if FLAGS.preprocess == 'average':
-        fft_bin_count = 1 + (_next_power_of_two(FLAGS.window_size_samples) / 2)
-        FLAGS.average_window_width = int(math.floor(fft_bin_count / FLAGS.feature_bin_count))
-        FLAGS.fingerprint_width = int(math.ceil(fft_bin_count / FLAGS.average_window_width))
-    elif FLAGS.preprocess in ['mfcc', 'fbank']:
-        FLAGS.average_window_width = -1
-        FLAGS.fingerprint_width = FLAGS.feature_bin_count
-    elif FLAGS.preprocess == 'micro':
-        FLAGS.average_window_width = -1
-        FLAGS.fingerprint_width = FLAGS.feature_bin_count
-    else:
-        raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
-                        ' "average", or "micro")' % (FLAGS.preprocess))
-    FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
-
     audio_processor = input_data.AudioProcessor(
         data_url=FLAGS.data_url, data_dir=FLAGS.data_dir,
         silence_percentage=FLAGS.silence_percentage, unknown_percentage=FLAGS.unknown_percentage,

@@ -53,6 +53,19 @@ launch_settings = {
     "bsub":"mkdir -p Resources/Logs; bsub -o Resources/Logs/{session_id}.log -W 24:00 -n 16 -R \"rusage[mem=4096]\" \"python3 {code_file} {args}\""
 }
 
+
+def _dict_to_bash(dic):
+    def _format(key, value):
+        if type(value) is bool:
+            if value==True:
+                return f"-{key}"
+            else:
+                return ""
+        else: return f"-{key}={value}"
+    
+    return  " ".join([_format(key, val) for key, val in dic.items()])
+
+
 def mk_runner(architecture, env_vars):
     @cachable(
         dependencies=["model:"+key for key in architecture.default_hyperparameters().keys()], 
@@ -75,7 +88,8 @@ def mk_runner(architecture, env_vars):
                     return ""
             else: return f"-{key}={value}"
 
-        model["args"] = " ".join([_format(key, get(model,key)) for key in list(architecture.default_hyperparameters().keys())+env_vars + ["session_id"]])
+        model["args"] = _dict_to_bash({key:get(model,key) for key in list(architecture.default_hyperparameters().keys())+env_vars + ["session_id"]})
+        
         command = format_template(model,launch_settings[mode])
         print(command)
         os.system(command)
@@ -83,7 +97,7 @@ def mk_runner(architecture, env_vars):
 
     return runner
 
-def _get_flags(default_dict, help_dict):
+def _get_flags(default_dict, help_dict, arg_dict=None):
     parser = argparse.ArgumentParser()
     for key, value in default_dict.items():
         if type(value) is bool:
@@ -91,8 +105,12 @@ def _get_flags(default_dict, help_dict):
         else:
             parser.add_argument("-" + key,type=type(value),default=value,help=help_dict.get(key,""))
     parser.add_argument("-session_id", type=int, default = 0)
-    
-    flags = parser.parse_args()
+    if arg_dict is None:
+        flags = parser.parse_args()
+    else:
+        dic = {key: get(arg_dict,key) for key in arg_dict if key in default_dict or key=="session_id"}
+        string = _dict_to_bash(dic)
+        flags = parser.parse_args(str.split(string))
     if flags.session_id==0:
         flags.session_id = random.randint(1000000000, 9999999999)
     
@@ -176,9 +194,47 @@ class speech_lsnn:
         return d
     
     @staticmethod
-    def get_flags():
+    def get_flags(dic=None):
+        " ".join([_format(key, get(model,key)) for key in dic])
         default_dict = {**speech_lsnn.default_hyperparameters(), **{"data_dir":"TensorCommands/speech_dataset/"}}
-        return _get_flags(default_dict, help())
+        FLAGS = _get_flags(default_dict, help(), dic)
+        def _next_power_of_two(x):
+            return 1 if x == 0 else 2**(int(x) - 1).bit_length()
+
+        FLAGS.l2_weight_decay_params = str(FLAGS.l2_weight_decay_params[1:-1]).split(",")
+        FLAGS.l1_weight_decay_params = str(FLAGS.l1_weight_decay_params[1:-1]).split(",")
+        FLAGS.contractive_params = str(FLAGS.contractive_params[1:-1]).split(",")
+        if(FLAGS.l1_weight_decay_params == ['']):
+            FLAGS.l1_weight_decay_params = []
+        if(FLAGS.l2_weight_decay_params == ['']):
+            FLAGS.l2_weight_decay_params = []
+        if(FLAGS.contractive_params == ['']):
+            FLAGS.contractive_params = []
+
+        FLAGS.desired_samples = int(FLAGS.sample_rate * FLAGS.clip_duration_ms / 1000)
+        FLAGS.window_size_samples = int(FLAGS.sample_rate * FLAGS.window_size_ms / 1000)
+        FLAGS.window_stride_samples = int(FLAGS.sample_rate * FLAGS.window_stride_ms / 1000)
+        FLAGS.length_minus_window = (FLAGS.desired_samples - FLAGS.window_size_samples)
+        if FLAGS.length_minus_window < 0:
+            spectrogram_length = 0
+        else:
+            FLAGS.spectrogram_length = 1 + int(FLAGS.length_minus_window / FLAGS.window_stride_samples)
+        if FLAGS.preprocess == 'average':
+            fft_bin_count = 1 + (_next_power_of_two(FLAGS.window_size_samples) / 2)
+            FLAGS.average_window_width = int(math.floor(fft_bin_count / FLAGS.feature_bin_count))
+            FLAGS.fingerprint_width = int(math.ceil(fft_bin_count / FLAGS.average_window_width))
+        elif FLAGS.preprocess in ['mfcc', 'fbank']:
+            FLAGS.average_window_width = -1
+            FLAGS.fingerprint_width = FLAGS.feature_bin_count
+        elif FLAGS.preprocess == 'micro':
+            FLAGS.average_window_width = -1
+            FLAGS.fingerprint_width = FLAGS.feature_bin_count
+        else:
+            raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
+                            ' "average", or "micro")' % (FLAGS.preprocess))
+        FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
+        FLAGS.architecture = "speech_lsnn"
+        return FLAGS
 
     @staticmethod
     def checker(sid, table, cache_dir):
@@ -239,9 +295,9 @@ class mnist_mlp:
         return d
     
     @staticmethod
-    def get_flags():
+    def get_flags(dic=None):
         default_dict = {**mnist_mlp.default_hyperparameters(), **{"data_dir":"MNIST/mnist_dataset/"}}
-        return _get_flags(default_dict, help())
+        return _get_flags(default_dict, help(), dic)
 
     @staticmethod
     def checker(sid, table, cache_dir):
@@ -310,9 +366,49 @@ class ecg_lsnn:
         return d
 
     @staticmethod
-    def get_flags():
+    def get_flags(dic=None):
         default_dict = {**ecg_lsnn.default_hyperparameters(), **{"data_dir":"ECG/ecg_recordings/"}}
-        return _get_flags(default_dict, help())
+        FLAGS = _get_flags(default_dict, help(), dic)
+
+        def _next_power_of_two(x):
+            return 1 if x == 0 else 2**(int(x) - 1).bit_length()
+
+        FLAGS.l2_weight_decay_params = str(FLAGS.l2_weight_decay_params[1:-1]).split(",")
+        FLAGS.l1_weight_decay_params = str(FLAGS.l1_weight_decay_params[1:-1]).split(",")
+        FLAGS.contractive_params = str(FLAGS.contractive_params[1:-1]).split(",")
+        if(FLAGS.l1_weight_decay_params == ['']):
+            FLAGS.l1_weight_decay_params = []
+        if(FLAGS.l2_weight_decay_params == ['']):
+            FLAGS.l2_weight_decay_params = []
+        if(FLAGS.contractive_params == ['']):
+            FLAGS.contractive_params = []
+
+        FLAGS.desired_samples = int(FLAGS.sample_rate * FLAGS.clip_duration_ms / 1000)
+        FLAGS.window_size_samples = int(FLAGS.sample_rate * FLAGS.window_size_ms / 1000)
+        FLAGS.window_stride_samples = int(FLAGS.sample_rate * FLAGS.window_stride_ms / 1000)
+        FLAGS.length_minus_window = (FLAGS.desired_samples - FLAGS.window_size_samples)
+        if FLAGS.length_minus_window < 0:
+            spectrogram_length = 0
+        else:
+            FLAGS.spectrogram_length = 1 + int(FLAGS.length_minus_window / FLAGS.window_stride_samples)
+        if FLAGS.preprocess == 'average':
+            fft_bin_count = 1 + (_next_power_of_two(FLAGS.window_size_samples) / 2)
+            FLAGS.average_window_width = int(math.floor(fft_bin_count / FLAGS.feature_bin_count))
+            FLAGS.fingerprint_width = int(math.ceil(fft_bin_count / FLAGS.average_window_width))
+        elif FLAGS.preprocess in ['mfcc', 'fbank']:
+            FLAGS.average_window_width = -1
+            FLAGS.fingerprint_width = FLAGS.feature_bin_count
+        elif FLAGS.preprocess == 'micro':
+            FLAGS.average_window_width = -1
+            FLAGS.fingerprint_width = FLAGS.feature_bin_count
+        else:
+            raise ValueError('Unknown preprocess mode "%s" (should be "mfcc",'
+                            ' "average", or "micro")' % (FLAGS.preprocess))
+        FLAGS.fingerprint_size = FLAGS.fingerprint_width * FLAGS.spectrogram_length
+
+        FLAGS.architecture = "ecg_lsnn"
+
+        return FLAGS
 
     @staticmethod
     def checker(sid, table, cache_dir):
@@ -374,9 +470,24 @@ class cnn:
         return d
 
     @staticmethod
-    def get_flags():
+    def get_flags(dic=None):
         default_dict = {**cnn.default_hyperparameters(), **{"data_dir":"CNN/fashion_mnist/"}}
-        return _get_flags(default_dict, help())
+        FLAGS = _get_flags(default_dict, help(), dic)
+        FLAGS.Kernels = json.loads(FLAGS.Kernels)
+        FLAGS.Dense = json.loads(FLAGS.Dense)
+
+        FLAGS.l2_weight_decay_params = str(FLAGS.l2_weight_decay_params[1:-1]).split(",")
+        FLAGS.l1_weight_decay_params = str(FLAGS.l1_weight_decay_params[1:-1]).split(",")
+        FLAGS.contractive_params = str(FLAGS.contractive_params[1:-1]).split(",")
+        if(FLAGS.l1_weight_decay_params == ['']):
+            FLAGS.l1_weight_decay_params = []
+        if(FLAGS.l2_weight_decay_params == ['']):
+            FLAGS.l2_weight_decay_params = []
+        if(FLAGS.contractive_params == ['']):
+            FLAGS.contractive_params = []
+        
+        FLAGS.architecture = "cnn"
+        return FLAGS
 
     @staticmethod
     def checker(sid, table, cache_dir):
