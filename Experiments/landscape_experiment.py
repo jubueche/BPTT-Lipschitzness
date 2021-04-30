@@ -9,30 +9,30 @@ class landscape_experiment:
     @staticmethod
     def train_grid():
         betas = [0.05,0.125,0.25,0.5]
-        seeds = [0]
+        seeds = [0,1]
         grid_speech_ = speech_lsnn.make()
         grid_speech = configure([grid_speech_], dictionary={"attack_size_mismatch":0.1})
-        grid_speech = split(grid_speech, "seed", seeds)
         grid_speech = split(grid_speech, "beta_robustness", betas)
-        grid_speech += configure([grid_speech_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
+        grid_speech += configure([grid_speech_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
+        grid_speech = split(grid_speech, "seed", seeds)
 
         grid_ecg_ = ecg_lsnn.make()
         grid_ecg = configure([grid_ecg_], dictionary={"attack_size_mismatch":0.1})
-        grid_ecg = split(grid_ecg, "seed", seeds)
         grid_ecg = split(grid_ecg, "beta_robustness", betas)
-        grid_ecg += configure([grid_ecg_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
+        grid_ecg += configure([grid_ecg_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
+        grid_ecg = split(grid_ecg, "seed", seeds)
 
         grid_cnn_ = cnn.make()
         grid_cnn = configure([grid_cnn_], dictionary={"attack_size_mismatch":0.1})
-        grid_cnn = split(grid_cnn, "seed", seeds)
         grid_cnn = split(grid_cnn, "beta_robustness", betas)
-        grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
+        grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
+        grid_cnn = split(grid_cnn, "seed", seeds)
 
-        return grid_speech + grid_ecg + grid_cnn
+        return grid_speech + grid_ecg
 
     @staticmethod
     def visualize():
-        seeds = [0]
+        seeds = [0,1]
         betas = [0.0,0.05,0.125,0.25,0.5]
         colors = ["#4c84e6","#fc033d","#03fc35","#77fc03","#f803fc"]
         grid = [model for model in landscape_experiment.train_grid() if model["seed"] in seeds]
