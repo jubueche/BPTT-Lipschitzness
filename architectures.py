@@ -195,7 +195,6 @@ class speech_lsnn:
     
     @staticmethod
     def get_flags(dic=None):
-        " ".join([_format(key, get(model,key)) for key in dic])
         default_dict = {**speech_lsnn.default_hyperparameters(), **{"data_dir":"TensorCommands/speech_dataset/"}}
         FLAGS = _get_flags(default_dict, help(), dic)
         def _next_power_of_two(x):
