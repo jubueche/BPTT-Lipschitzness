@@ -10,21 +10,21 @@ class methods_experiment:
     def train_grid():
         grid = speech_lsnn.make()
         grid = configure([grid], dictionary={"attack_size_constant":0.0,"attack_size_mismatch":0.2,"initial_std_constant":0.0, "initial_std_mismatch":0.001})
-        grid = split(grid, "beta_robustness", [0.0,0.125,0.5])
+        grid = split(grid, "beta_robustness", [0.0,0.125])
         grid = split(grid, "seed", [0,1])
         return grid
 
     @staticmethod
     def visualize():
-        betas = [0.0,0.125,0.5]
+        betas = [0.0,0.125]
         seeds = [0,1]
         grid = [model for model in methods_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
 
-        fig = plt.figure(figsize=(12, 9), constrained_layout=False)
-        gridspec = fig.add_gridspec(3, 6, left=0.05, right=0.98, hspace=0.3, wspace=0.4)
-        _,axes_middle,axes_bottom = get_axes_method_figure(fig, gridspec)
+        fig = plt.figure(figsize=(10, 4), constrained_layout=False)
+        gridspec = fig.add_gridspec(2, 6, left=0.05, right=0.98, hspace=0.3, wspace=0.4)
+        axes_top,axes_bottom = get_axes_method_figure(fig, gridspec)
 
         kl_over_time = [onp.array(query(grid, "kl_over_time", where={"beta_robustness": beta})) for beta in betas]
 
@@ -39,27 +39,29 @@ class methods_experiment:
                     ax.plot(kl_over_time_beta[seed,idx], color=cmap(t[idx]), alpha=0.2)
             ax.set_xlabel(r"$\beta=$"+str(beta))
 
-        def plot_end_kl_over_time(ax, kl_over_time_beta, beta, filter_length=50):
+        def plot_end_kl_over_time(ax, kl_over_time_beta, beta, filter_length=50, color="C2"):
             n_seeds = kl_over_time_beta.shape[0]
             T = kl_over_time_beta.shape[1]
             data = onp.zeros((T,n_seeds)); data_ma = onp.zeros((T,n_seeds))
             for seed in range(n_seeds):
                 data[:,seed] = onp.array([el[-1] for el in kl_over_time_beta[seed]])
                 data_ma[:,seed] = onp.convolve(data[:,seed], onp.ones(filter_length)/filter_length, mode="full")[:T]
-            ax.plot(data, alpha=0.1, color="C2")
-            ax.plot(data_ma, alpha=0.5, color="C2")
-            ax.plot(onp.mean(data_ma, axis=1), alpha=1.0, color="C2", label=r"$\beta$="+str(beta))
-            ax.legend(frameon=False, loc=0)
+            ax.plot(data, alpha=0.1, color=color)
+            ax.plot(data_ma, alpha=0.5, color=color)
+            ax.plot(onp.mean(data_ma, axis=1), alpha=1.0, color=color, label=r"$\beta$="+str(beta))
 
         for i in range(len(betas)):
             plot_kl_over_time(axes_bottom[i], kl_over_time[i], cbar.cmap, betas[i])
         
-        plot_end_kl_over_time(axes_middle[0], kl_over_time[0], betas[0])
-        plot_end_kl_over_time(axes_middle[1], kl_over_time[1], betas[1])
-        
-        axes_middle[0].set_xticks([0,kl_over_time[0].shape[1]])
-        axes_middle[0].set_xticklabels(["t=0","t=T"])
-        axes_middle[1].ticklabel_format(style="sci", scilimits=(0,0))
+        plot_end_kl_over_time(axes_top, kl_over_time[0], betas[0], color="C2")
+        plot_end_kl_over_time(axes_top, kl_over_time[1], betas[1], color="C3")
+        axes_top.legend(frameon=False, loc=0)
 
-        plt.savefig("Resources/Figures/methods_figure.svg", format="svg")
+        axes_top.set_xticks([0,kl_over_time[0].shape[1]])
+        axes_top.set_xticklabels(["t=0","t=T"])
+
+        # Uncomment for same y-axis
+        # axes_bottom[1].set_ylim(axes_bottom[0].get_ylim())
+        
+        plt.savefig("Resources/Figures/methods_figure.pdf", dpi=1200)
         plt.show()

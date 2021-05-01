@@ -16,27 +16,30 @@ class worst_case_experiment:
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
-        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch":0.1})
+        ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch":0.1})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
-        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4
+        ecg5 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5
 
         speech = [speech_lsnn.make()]
         speech0 = configure(speech, {"beta_robustness": 0.0})
-        speech1 = configure(speech, {"beta_robustness": 0.125})
+        speech1 = configure(speech, {"beta_robustness": 0.25, "attack_size_mismatch":0.1})
         speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
         speech3 = configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"40,10"})
         speech4 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
-        speech = speech0 + speech1 + speech2 + speech3 + speech4
+        speech5 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        speech = speech0 + speech1 + speech2 + speech3 + speech4 + speech5
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
-        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.125})
+        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch":0.1})
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
         cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"10,5"})
         cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
-        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4
+        cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5
 
         return ecg + speech + cnn_grid
 
@@ -49,11 +52,11 @@ class worst_case_experiment:
         attack_sizes = [0.0,0.005,0.01,0.05,0.1,0.2,0.3,0.5]
         n_attack_steps = [10,15,40]
         seeds = [0]
-        beta = 0.125
+        beta = 0.25
         dropout = 0.3
-        attack_size_mismatch_speech = 0.2
+        attack_size_mismatch_speech = 0.1
         attack_size_mismatch_ecg = 0.1
-        attack_size_mismatch_cnn = 0.2
+        attack_size_mismatch_cnn = 0.1
 
         grid = [model for model in worst_case_experiment.train_grid() if model["seed"] in seeds] 
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
@@ -74,7 +77,7 @@ class worst_case_experiment:
             robust_data_acc = onp.array([el[0] for el in robust_data])
             robust_data_loss = onp.array([el[1] for el in robust_data])
 
-            vanilla_data = query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
+            vanilla_data = query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "awp":False, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
             vanilla_data_acc = onp.array([el[0] for el in vanilla_data])
             vanilla_data_loss = onp.array([el[1] for el in vanilla_data])
 
@@ -132,8 +135,8 @@ class worst_case_experiment:
             if(title is not None):
                 ax.set_title(title)
 
-        fig = plt.figure(figsize=(10, 8), constrained_layout=True)
-        axes = get_axes_worst_case(fig, N_rows=6, N_cols=3, attack_sizes=attack_sizes)
+        fig = plt.figure(figsize=(10, 4), constrained_layout=True)
+        axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
         def ij_x(i,j):
             return i*3+j
 
@@ -145,39 +148,49 @@ class worst_case_experiment:
 
             if(idx == 0):
                 _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, ylabel="Test acc. Speech", labels=["Normal","Dropout","Robust","ESGD","ABCD"], title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
-                _plot(axes[ij_x(2,idx)], data_ecg_worst_case, typ=ACC, ylabel="Test acc. ECG")
-                _plot(axes[ij_x(4,idx)], data_cnn_worst_case, typ=ACC, ylabel="Test acc. CNN")
+                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC, ylabel="Test acc. ECG")
+                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC, ylabel="Test acc. CNN")
                 
-                _plot(axes[ij_x(1,idx)], data_speech_worst_case, typ=LOSS, ylabel="Loss Speech")
-                _plot(axes[ij_x(3,idx)], data_ecg_worst_case, typ=LOSS, ylabel="Loss ECG")
-                _plot(axes[ij_x(5,idx)], data_cnn_worst_case, typ=LOSS, ylabel="Loss CNN")
             else:
                 _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
-                _plot(axes[ij_x(2,idx)], data_ecg_worst_case, typ=ACC)
-                _plot(axes[ij_x(4,idx)], data_cnn_worst_case, typ=ACC)
-                
-                _plot(axes[ij_x(1,idx)], data_speech_worst_case, typ=LOSS)
-                _plot(axes[ij_x(3,idx)], data_ecg_worst_case, typ=LOSS)
-                _plot(axes[ij_x(5,idx)], data_cnn_worst_case, typ=LOSS)
+                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC)
+                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC)
 
             print("\n")
             print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="ECG")
-
             print("\n")
             print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="Speech")
-
             print("\n")
             print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="CNN")
 
+        plt.savefig("Resources/Figures/figure_worst_case_test_acc.pdf", dpi=1200)
+        plt.show()
+
+        fig = plt.figure(figsize=(10, 4), constrained_layout=True)
+        axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
+
+        for idx,n in enumerate(n_attack_steps):
+
+            data_ecg_worst_case = _get_data_acc("ecg_lsnn", beta, attack_size_mismatch_ecg, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
+            data_speech_worst_case = _get_data_acc("speech_lsnn", beta, attack_size_mismatch_speech, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
+            data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
+
+            if(idx == 0):
+                
+                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS, ylabel="Loss Speech")
+                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS, ylabel="Loss ECG")
+                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS, ylabel="Loss CNN")
+            else:
+                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS)
+                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS)
+                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS)
+
             print("\n")
             print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="ECG")
-
             print("\n")
             print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="Speech")
-
             print("\n")
             print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="CNN")
 
-        plt.savefig("Resources/Figures/figure_worst_case.png", dpi=1200)
-        plt.savefig("Resources/Figures/figure_worst_case.pdf", dpi=1200)
+        plt.savefig("Resources/Figures/figure_worst_case_KL.pdf", dpi=1200)
         plt.show()

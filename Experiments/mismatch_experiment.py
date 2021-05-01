@@ -9,11 +9,10 @@ class mismatch_experiment:
     @staticmethod
     def train_grid():
         seeds = [0]
-        # beta 0.125 asm 0.1 ; 0.25 asm 0.1 ; 
 
         ecg = [ecg_lsnn.make()]
-        ecg0 = configure(ecg, {"beta_robustness": 0.0}) 
-        ecg1 = configure(ecg, {"beta_robustness": 0.125, "attack_size_mismatch": 0.2}) # TODO try with 0.2 beta rob, best is 0.125 beta rob, 0.1 asm
+        ecg0 = configure(ecg, {"beta_robustness": 0.0})
+        ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
@@ -53,6 +52,7 @@ class mismatch_experiment:
         attack_size_mismatch_speech = 0.1
         attack_size_mismatch_ecg = 0.2
         attack_size_mismatch_cnn = 0.1
+        awp_gamma = 0.1
 
         # - Per general column
         N_cols = 10 # - 10
@@ -86,29 +86,30 @@ class mismatch_experiment:
                     res[i].extend(list(arr[seed,i]))
             return res
 
-        def _get_data_acc(architecture, beta,attack_size_mismatch, identifier, grid):
+        def _get_data_acc(architecture, beta,attack_size_mismatch, awp_gamma, identifier, grid):
             robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":attack_size_mismatch, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
-            vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "optimizer":"adam", "architecture":architecture})).reshape((len(seeds),-1))
+            vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "awp":False, "optimizer":"adam", "architecture":architecture})).reshape((len(seeds),-1))
             vanilla_dropout_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":architecture})).reshape((len(seeds),-1))
             abcd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"abcd", "architecture":architecture})).reshape((len(seeds),-1))
             esgd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"esgd", "architecture":architecture})).reshape((len(seeds),-1))
-            return vanilla_data, vanilla_dropout_data ,robust_data, abcd_data, esgd_data
+            awp_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "awp":True, "awp_gamma":awp_gamma, "boundary_loss":"madry", "architecture":architecture})).reshape((len(seeds),-1))
+            return vanilla_data, vanilla_dropout_data ,robust_data, abcd_data, esgd_data, awp_data
 
         def get_data_acc(architecture, beta, attack_size_mismatch,identifier, grid):
-            vanilla_data, vanilla_dropout_data, robust_data, abcd_data, esgd_data = _get_data_acc(architecture, beta,attack_size_mismatch, identifier, grid)
-            return list(zip(unravel(vanilla_data), unravel(vanilla_dropout_data), unravel(robust_data), unravel(abcd_data), unravel(esgd_data)))
+            vanilla_data, vanilla_dropout_data, robust_data, abcd_data, esgd_data, awp_data = _get_data_acc(architecture, beta,attack_size_mismatch, awp_gamma, identifier, grid)
+            return list(zip(unravel(vanilla_data), unravel(vanilla_dropout_data), unravel(robust_data), unravel(abcd_data), unravel(esgd_data), unravel(awp_data)))
 
-        val_acc_speech = [max(a[0]) for a in _get_data_acc("speech_lsnn", beta_speech, attack_size_mismatch_speech, "validation_accuracy", grid)]
-        val_acc_ecg = [max(a[0]) for a in _get_data_acc("ecg_lsnn", beta_ecg, attack_size_mismatch_ecg, "validation_accuracy", grid)]
-        val_acc_cnn = [max(a[0]) for a in _get_data_acc("cnn", beta_cnn, attack_size_mismatch_cnn, "validation_accuracy", grid)]
+        val_acc_speech = [max(a[0]) for a in _get_data_acc("speech_lsnn", beta_speech, attack_size_mismatch_speech, awp_gamma, "validation_accuracy", grid)]
+        val_acc_ecg = [max(a[0]) for a in _get_data_acc("ecg_lsnn", beta_ecg, attack_size_mismatch_ecg, awp_gamma, "validation_accuracy", grid)]
+        val_acc_cnn = [max(a[0]) for a in _get_data_acc("cnn", beta_cnn, attack_size_mismatch_cnn, awp_gamma, "validation_accuracy", grid)]
 
         data_speech_lsnn = get_data_acc("speech_lsnn", beta_speech, attack_size_mismatch_speech, "mismatch_list", grid_mm)
         data_ecg_lsnn = get_data_acc("ecg_lsnn", beta_ecg, attack_size_mismatch_ecg, "mismatch_list", grid_mm)
         data_cnn = get_data_acc("cnn", beta_cnn, attack_size_mismatch_cnn, "mismatch_list", grid_mm)
 
-        plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn, labels=["Normal","Dropout","Robust"])
-        plot_mm_distributions(axes_ecg["btm"], data=data_ecg_lsnn, labels=["Normal","Dropout","Robust"])
-        plot_mm_distributions(axes_cnn["btm"], data=data_cnn, labels=["Normal","Dropout","Robust"],legend=True)
+        plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn, labels=["Normal","Robust"])
+        plot_mm_distributions(axes_ecg["btm"], data=data_ecg_lsnn, labels=["Normal","Robust"])
+        plot_mm_distributions(axes_cnn["btm"], data=data_cnn, labels=["Normal","Robust"],legend=True)
 
         # - Get the sample data for speech
         X_speech, y_speech = get_data("speech")
@@ -122,7 +123,6 @@ class mismatch_experiment:
         axes_speech["btm"][0].set_ylabel("Accuracy")
         axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
 
-        plt.savefig("Resources/Figures/figure_main.png", dpi=1200)
         plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
         plt.show()
 
