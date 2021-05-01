@@ -28,7 +28,7 @@ class landscape_experiment:
         grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
         grid_cnn = split(grid_cnn, "seed", seeds)
 
-        return grid_speech + grid_ecg
+        return grid_speech + grid_ecg + grid_cnn
 
     @staticmethod
     def visualize():
