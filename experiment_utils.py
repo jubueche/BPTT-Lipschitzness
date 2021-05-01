@@ -306,31 +306,20 @@ def get_axes_constant_attack_figure(fig, gridspec,betas):
 
 def get_axes_method_figure(fig, gridspec):
     axes_top = fig.add_subplot(gridspec[0,:])
-    remove_all_splines(axes_top)
-    remove_all_ticks(axes_top)
+    remove_top_right_splines(axes_top)
     axes_top.set_title(r"\textbf{a}", x=0, fontdict={"fontsize":13})
-    
-    axes_middle = [fig.add_subplot(gridspec[1,:3]),fig.add_subplot(gridspec[1,3:])]
-    remove_top_right_splines(axes_middle)
-    axes_middle[-1].spines['bottom'].set_visible(False)
-    axes_middle[-1].set_xticks([])
-    axes_middle[0].set_title(r"\textbf{b}", x=0, fontdict={"fontsize":13})
-    axes_middle[0].set_ylabel(r"$\mathcal{L}_\textnormal{KL}$")
+    axes_top.set_ylabel(r"$\mathcal{L}_\textnormal{KL}$")
 
-    axes_bottom = [fig.add_subplot(gridspec[2,i*2:(i+1)*2]) for i in range(3)]
+    axes_bottom = [fig.add_subplot(gridspec[1,:3]),fig.add_subplot(gridspec[1,3:])]
     axes_bottom[1].set_xticks([])
-    axes_bottom[-1].set_xticks([])
-    remove_top_right_splines(axes_bottom[1:])
+    remove_top_right_splines(axes_bottom[1])
     axes_bottom[1].spines['bottom'].set_visible(False)
-    axes_bottom[-1].spines['bottom'].set_visible(False)
     remove_top_right_splines(axes_bottom[0])
-    axes_bottom[0].set_title(r"\textbf{c}", x=0, fontdict={"fontsize":13})
+    axes_bottom[0].set_title(r"\textbf{b}", x=0, fontdict={"fontsize":13})
     axes_bottom[0].set_ylabel(r"$\mathcal{L}_\textnormal{KL}$")
     axes_bottom[0].set_xticks([0,10])
     axes_bottom[0].set_xticklabels(["0",r"$N_\textnormal{attack}$"])
-    axes_bottom[1].ticklabel_format(style="sci", scilimits=(0,0))
-    axes_bottom[-1].ticklabel_format(style="sci", scilimits=(0,0))
-    return axes_top,axes_middle,axes_bottom
+    return axes_top,axes_bottom
 
 def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm_ylims):
     # - Get the top axes
@@ -386,7 +375,7 @@ def get_axes_worst_case(fig, N_rows, N_cols, attack_sizes):
 
 def plot_mm_distributions(axes, data, labels, legend=False):
     N = len(labels)
-    colors = ["#4c84e6","#fc033d","#03fc35"]
+    colors = ["#4c84e6","#03fc35"]
     test_accs = [onp.mean(el) for el in data[0]]
     for i in range(N):
         print(f"Test acc {labels[i]} is {test_accs[i]}")
@@ -395,14 +384,15 @@ def plot_mm_distributions(axes, data, labels, legend=False):
         x = []
         y = []
         hue = []
-        for j in range(3):
-            x = onp.hstack([x, [j] * len(el[j])])
-            y = onp.hstack([y, el[j]])
-            hue = onp.hstack([hue, [j] * len(el[j])])
+        x = onp.hstack([x, [0] * (len(el[0]) + len(el[2]))])
+        y = onp.hstack([y, el[0]])
+        y = onp.hstack([y, el[2]])
+        hue = onp.hstack([hue, [0] * len(el[0])])
+        hue = onp.hstack([hue, [1] * len(el[2])])
         sns.violinplot(ax = axes[i],
             x = x,
             y = y,
-            split = False,
+            split = True,
             hue = hue,
             inner = 'quartile', cut=0,
             scale = "width", palette = colors, saturation=1.0, linewidth=0.5)
@@ -413,7 +403,7 @@ def plot_mm_distributions(axes, data, labels, legend=False):
     if(legend):
         a = axes[i]
         lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
-        a.legend(lines, labels, frameon=False, loc=3, prop={'size': 7})
+        a.legend(lines, labels, frameon=False, loc=1, prop={'size': 7})
         
 def get_data(id):
     if(id == "speech"):

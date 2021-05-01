@@ -14,18 +14,24 @@ class landscape_experiment:
         grid_speech = configure([grid_speech_], dictionary={"attack_size_mismatch":0.1})
         grid_speech = split(grid_speech, "beta_robustness", betas)
         grid_speech += configure([grid_speech_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
+        grid_speech += configure([grid_speech_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
+        grid_speech += configure([grid_speech_], dictionary={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
         grid_speech = split(grid_speech, "seed", seeds)
 
         grid_ecg_ = ecg_lsnn.make()
         grid_ecg = configure([grid_ecg_], dictionary={"attack_size_mismatch":0.1})
         grid_ecg = split(grid_ecg, "beta_robustness", betas)
         grid_ecg += configure([grid_ecg_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
+        grid_ecg += configure([grid_ecg_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
+        grid_ecg += configure([grid_ecg_], dictionary={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
         grid_ecg = split(grid_ecg, "seed", seeds)
 
         grid_cnn_ = cnn.make()
         grid_cnn = configure([grid_cnn_], dictionary={"attack_size_mismatch":0.1})
         grid_cnn = split(grid_cnn, "beta_robustness", betas)
         grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
+        grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
+        grid_cnn += configure([grid_cnn_], dictionary={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
         grid_cnn = split(grid_cnn, "seed", seeds)
 
         return grid_speech + grid_ecg + grid_cnn
@@ -33,8 +39,8 @@ class landscape_experiment:
     @staticmethod
     def visualize():
         seeds = [0,1]
-        betas = [0.0,0.05,0.125,0.25,0.5]
-        colors = ["#4c84e6","#fc033d","#03fc35","#77fc03","#f803fc"]
+        betas = [0.0,0.05,0.25,0.5]
+        colors = ["#4c84e6","#fc033d","#03fc35","#f803fc","#eba434","#343deb","#77fc03"]
         grid = [model for model in landscape_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -51,18 +57,22 @@ class landscape_experiment:
         def get_data(arch):
             data_dict = {}
             for beta in betas:
-                data_tmp = query(grid, "landscape", where={"beta_robustness":beta, "architecture":arch})
+                data_tmp = query(grid, "landscape", where={"beta_robustness":beta, "dropout_prob":0.0, "architecture":arch})
                 data_dict[beta] = data_tmp
+            data_dict["Dropout"] = query(grid, "landscape", where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":arch})
+            # data_dict["AWP"] = query(grid, "landscape", where={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
             return data_dict
+
+        keys = betas + ["Dropout"] # + ["AWP"]
 
         data_speech = get_data(arch="speech_lsnn")
         data_ecg = get_data(arch="ecg_lsnn")
         data_cnn = get_data(arch="cnn")
 
-        fig = plt.figure(figsize=(10,3), constrained_layout=False)
+        fig = plt.figure(figsize=(10,4), constrained_layout=False)
         axes_speech = plt.subplot(1,3,1) # - Speech
         axes_speech.set_xlabel(r"$\alpha$")
-        axes_speech.set_ylabel("Loss")
+        axes_speech.set_ylabel("Cross-entropy loss")
         axes_speech.spines['right'].set_visible(False)
         axes_speech.spines['top'].set_visible(False)
 
@@ -86,19 +96,19 @@ class landscape_experiment:
                 result = ma(x, N)
             return result
 
-        for beta_idx,beta in enumerate(betas):
+        def get_ma(data,N=5):
+            sum_data_over_seed = onp.array(data[0])
+            for d in data[1:]:
+                sum_data_over_seed += onp.array(d)
+            # - Mean over seeds
+            mean_data_over_seed = 1/len(data) * sum_data_over_seed
+            smoothed_mean_data_over_seed = moving_average(mean_data_over_seed, N=N)
+            return onp.mean(smoothed_mean_data_over_seed, axis=0)
+
+        for beta_idx,beta in enumerate(keys):
             data_beta_speech = data_speech[beta]
             data_beta_ecg = data_ecg[beta]
             data_beta_cnn = data_cnn[beta]
-
-            def get_ma(data,N=5):
-                sum_data_over_seed = onp.array(data[0])
-                for d in data[1:]:
-                    sum_data_over_seed += onp.array(d)
-                # - Mean over seeds
-                mean_data_over_seed = 1/len(data) * sum_data_over_seed
-                smoothed_mean_data_over_seed = moving_average(mean_data_over_seed, N=N)
-                return onp.mean(smoothed_mean_data_over_seed, axis=0)
             
             smoothed_mean_speech_over_seed = get_ma(data_beta_speech)
             smoothed_mean_ecg_over_seed = get_ma(data_beta_ecg)
@@ -107,7 +117,14 @@ class landscape_experiment:
             for idx_d,d in enumerate(data_beta_speech):
                 label = None
                 if idx_d == 0:
-                    label = ("%s" % str(beta))               
+                    if beta == 0.0:
+                        label = "Normal"
+                    elif beta == "Dropout":
+                        label = "Dropout"
+                    elif beta == "AWP":
+                        label = "AWP"
+                    else:
+                        label = r"$\beta_{\textnormal{robust}}=$" + ("%s" % str(beta))               
                 axes_speech.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
             axes_speech.plot(onp.linspace(from_,to_,len(smoothed_mean_speech_over_seed)), smoothed_mean_speech_over_seed, c=colors[beta_idx], alpha=1.0, label=label)
             
@@ -123,5 +140,5 @@ class landscape_experiment:
         axes_speech.set_title("Speech")
         axes_cnn.set_title("CNN")
         axes_speech.legend(fontsize=5)
-        plt.savefig("Resources/Figures/landscape_dropout.pdf", dpi=1200)
+        plt.savefig("Resources/Figures/landscape.pdf", dpi=1200)
         plt.plot()
