@@ -28,18 +28,6 @@ if __name__ == '__main__':
     FLAGS = arch.get_flags()
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
-    FLAGS.Kernels = json.loads(FLAGS.Kernels)
-    FLAGS.Dense = json.loads(FLAGS.Dense)
-
-    FLAGS.l2_weight_decay_params = str(FLAGS.l2_weight_decay_params[1:-1]).split(",")
-    FLAGS.l1_weight_decay_params = str(FLAGS.l1_weight_decay_params[1:-1]).split(",")
-    FLAGS.contractive_params = str(FLAGS.contractive_params[1:-1]).split(",")
-    if(FLAGS.l1_weight_decay_params == ['']):
-        FLAGS.l1_weight_decay_params = []
-    if(FLAGS.l2_weight_decay_params == ['']):
-        FLAGS.l2_weight_decay_params = []
-    if(FLAGS.contractive_params == ['']):
-        FLAGS.contractive_params = []
 
     data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
     flags_dict = vars(FLAGS)

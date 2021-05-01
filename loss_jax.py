@@ -3,6 +3,7 @@ from jax import jit, random, partial, grad, value_and_grad
 import jax.numpy as jnp
 import numpy as onp
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import copy
 
 @jit
 def categorical_cross_entropy(y, logits):
@@ -95,27 +96,26 @@ def dict_difference(dict1, dict2):
         diff += jnp.linalg.norm(dict1[key] - dict2[key]) ** 2
     return jnp.sqrt(diff)
 
+def robust_loss(X, y, params, FLAGS, model, rand_key, dropout_mask, theta_star):
+    logits, _ = model.call(X, dropout_mask, **params)
+    if theta_star is None:
+        theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
+    if FLAGS.hessian_robustness:
+        nabla_theta = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask)
+        nabla_theta_star = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask)
+        return dict_difference(nabla_theta, nabla_theta_star)
+
+    return lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask)
+
+def loss_general(X, y, params, FLAGS, model, rand_key, dropout_mask, theta_star):
+    loss_n = training_loss(X, y, params, FLAGS, model, dropout_mask)
+    loss_r = robust_loss(X, y, params, FLAGS, model, rand_key, dropout_mask, theta_star)
+    return loss_n + FLAGS.beta_robustness*loss_r
+
 def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
     
     _, subkey = random.split(rand_key)
     subkey, dropout_mask = model.split_and_get_dropout_mask(rand_key, FLAGS.dropout_prob)
-    
-    def robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
-        logits, _ = model.call(X, dropout_mask, **params)
-        if theta_star is None:
-            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
-        if FLAGS.hessian_robustness:
-            nabla_theta = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask)
-            nabla_theta_star = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask)
-            return dict_difference(nabla_theta, nabla_theta_star)
-
-        return lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask)
-
-    def loss_general(X, y, params, FLAGS, rand_key, dropout_mask, theta_star):
-        loss_n = training_loss(X, y, params, FLAGS, model, dropout_mask)
-        loss_r = robust_loss(X, y, params, FLAGS, rand_key, dropout_mask, theta_star)
-        return loss_n + FLAGS.beta_robustness*loss_r
-
     
     #todo warmup if statment
     if(FLAGS.awp and epoch>=FLAGS.warmup):
@@ -135,7 +135,7 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
             theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
         else:
             theta_star=None
-        grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, subkey, dropout_mask, theta_star)
+        grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, model, subkey, dropout_mask, theta_star)
     
     if("W_rec" in grads.keys()):
         diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
@@ -181,6 +181,8 @@ def _attack_network(X,y, params, logits, model, FLAGS, rand_key):
     step_size = {}
     theta_star = {}
 
+    FLAGS2 = copy.copy(FLAGS)
+    FLAGS2.boundary_loss = "kl"
     # - Initialize theta_star randomly 
     for key in params.keys():
         rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
@@ -192,10 +194,10 @@ def _attack_network(X,y, params, logits, model, FLAGS, rand_key):
     logits = _get_logits(max_size, model, X, dropout_mask, params)
     for _ in range(FLAGS.n_attack_steps):
         if(N <= max_size):
-            value, grads_theta_star = value_and_grad(lip_loss, argnums=2)(X,y, theta_star, logits, FLAGS, model, dropout_mask)
+            value, grads_theta_star = value_and_grad(lip_loss, argnums=2)(X,y, theta_star, logits, FLAGS2, model, dropout_mask)
         else: 
             def _f(X,y, logits, N, theta_star):
-                v,g = value_and_grad(lip_loss, argnums=2)(X, y, theta_star, logits, FLAGS, model, dropout_mask)
+                v,g = value_and_grad(lip_loss, argnums=2)(X, y, theta_star, logits, FLAGS2, model, dropout_mask)
                 return (v,g,N)
             def _add_dict(a, b):
                 if(a == {}):
