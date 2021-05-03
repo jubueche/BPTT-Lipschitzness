@@ -168,11 +168,11 @@ def _get_logits(max_size, model, X, dropout_mask, theta):
         logits = jnp.vstack(logits_list)
     return logits
 
-def attack_network(X, y, params, logits, model, FLAGS, rand_key):
-    loss_over_time, logits_theta_star, _ = _attack_network(X,y, params, logits, model, FLAGS, rand_key)
+def attack_network(X, y, params, model, FLAGS, rand_key):
+    loss_over_time, logits_theta_star, _ = _attack_network(X,y, params, model, FLAGS, rand_key)
     return loss_over_time, logits_theta_star
 
-def _attack_network(X,y, params, logits, model, FLAGS, rand_key):
+def _attack_network(X,y, params, model, FLAGS, rand_key):
     #In contrast to the training attacker this attackers epsilon is deterministic (equal to the mean epsilon)
     dropout_mask = model.unmasked()
     max_size = 1000
@@ -180,6 +180,10 @@ def _attack_network(X,y, params, logits, model, FLAGS, rand_key):
 
     step_size = {}
     theta_star = {}
+
+    def KL(X, logits, theta_star):
+        logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
+        return loss_kl(logits, logits_theta_star)
 
     FLAGS2 = copy.copy(FLAGS)
     FLAGS2.boundary_loss = "kl"
@@ -194,10 +198,10 @@ def _attack_network(X,y, params, logits, model, FLAGS, rand_key):
     logits = _get_logits(max_size, model, X, dropout_mask, params)
     for _ in range(FLAGS.n_attack_steps):
         if(N <= max_size):
-            value, grads_theta_star = value_and_grad(lip_loss, argnums=2)(X,y, theta_star, logits, FLAGS2, model, dropout_mask)
+            value, grads_theta_star = value_and_grad(KL, argnums=2)(X, logits, theta_star)
         else: 
             def _f(X,y, logits, N, theta_star):
-                v,g = value_and_grad(lip_loss, argnums=2)(X, y, theta_star, logits, FLAGS2, model, dropout_mask)
+                v,g = value_and_grad(KL, argnums=2)(X, logits, theta_star)
                 return (v,g,N)
             def _add_dict(a, b):
                 if(a == {}):
@@ -235,6 +239,6 @@ def _attack_network(X,y, params, logits, model, FLAGS, rand_key):
         for key in theta_star.keys():
             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
 
-    loss_over_time.append(lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask))
+    loss_over_time.append(KL(X, logits, theta_star))
     logits_theta_star = _get_logits(max_size, model, X, dropout_mask, theta_star)
     return loss_over_time, logits_theta_star, theta_star
