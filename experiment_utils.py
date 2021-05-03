@@ -120,6 +120,7 @@ def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mis
     FLAGS.attack_size_constant = attack_size_constant
     FLAGS.initial_std_mismatch = initial_std_mismatch
     FLAGS.initial_std_constant = initial_std_constant
+    FLAGS.boundary_loss = "kl"
 
     loader, set_size = get_loader(FLAGS, data_dir)
     logits = _get_logits(max_size, FLAGS.network, loader.X_test, FLAGS.network.unmasked(), model["theta"])
@@ -145,7 +146,7 @@ def _get_acc(model, theta, data_dir, ATTACK, mode):
     return _get_acc_batch(X, y, theta, FLAGS, ATTACK)
 
 def _get_acc_batch(X, y, theta, FLAGS, ATTACK):
-    max_size = 1000
+    max_size = 500
     dropout_mask = FLAGS.network.unmasked()
     logits = _get_logits(max_size, FLAGS.network, X, dropout_mask, theta)
     loss = categorical_cross_entropy(y, logits)

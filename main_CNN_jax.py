@@ -127,11 +127,12 @@ if __name__ == '__main__':
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
-            val_acc, attacked_val_acc, loss_over_time, loss = get_val_acc(vars(FLAGS), params, FLAGS.data_dir, ATTACK=True)
+            val_acc, attacked_val_acc, loss_over_time, loss = get_val_acc(vars(FLAGS), params, FLAGS.data_dir, ATTACK=False)
             log(FLAGS.session_id,"validation_accuracy",val_acc)
-            log(FLAGS.session_id,"attacked_validation_accuracies",attacked_val_acc)
-            log(FLAGS.session_id,"validation_kl_over_time",list(loss_over_time))
+            # log(FLAGS.session_id,"attacked_validation_accuracies",attacked_val_acc)
+            # log(FLAGS.session_id,"validation_kl_over_time",list(loss_over_time))
             print(f"Epoch {data_loader.n_epochs} i {i} Validation accuracy {val_acc} Attacked val. accuracy {attacked_val_acc}")
+            print(f"Epoch {data_loader.n_epochs} i {i} Validation accuracy {val_acc}")
             if(val_acc > best_val_acc):
                 best_val_acc = val_acc
                 cnn.save(model_save_path, params)

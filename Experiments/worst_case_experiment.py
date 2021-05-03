@@ -1,5 +1,4 @@
 from jax import config
-# config.update("jax_enable_x64", True)
 config.update('jax_disable_jit', False)
 
 from architectures import ecg_lsnn, speech_lsnn, cnn
@@ -38,7 +37,7 @@ class worst_case_experiment:
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
         cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"10,5"})
         cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
-        cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        cnn_grid5 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.001,0.0001"})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5
 
         return ecg + speech + cnn_grid
@@ -64,11 +63,6 @@ class worst_case_experiment:
         grid_worst_case = configure(grid, {"mode":"direct"})
         grid_worst_case = split(grid_worst_case, "attack_size", attack_sizes)
         grid_worst_case = split(grid_worst_case, "n_attack_steps", n_attack_steps)
-        
-        if(config.FLAGS.jax_enable_x64):
-            for g in grid_worst_case:
-                for p in g["theta"]:
-                    g["theta"][p] = g["theta"][p].astype(jnp.float64)
 
         grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0)
 
@@ -93,14 +87,18 @@ class worst_case_experiment:
             vanilla_abcd_data_acc = onp.array([el[0] for el in vanilla_abcd_data])
             vanilla_abcd_data_loss = onp.array([el[1] for el in vanilla_abcd_data])
 
-            return (vanilla_data_acc,vanilla_data_loss), (vanilla_dropout_data_acc,vanilla_dropout_data_loss), (robust_data_acc,robust_data_loss), (vanilla_esgd_data_acc,vanilla_esgd_data_loss), (vanilla_abcd_data_acc,vanilla_abcd_data_loss)
+            vanilla_awp_data = query(grid, identifier, where={"beta_robustness":0.0, "awp":True, "architecture":architecture, "n_attack_steps":n_attack_steps})
+            vanilla_awp_data_acc = onp.array([el[0] for el in vanilla_awp_data])
+            vanilla_awp_data_loss = onp.array([el[1] for el in vanilla_awp_data])
+
+            return (vanilla_data_acc,vanilla_data_loss), (vanilla_dropout_data_acc,vanilla_dropout_data_loss), (robust_data_acc,robust_data_loss), (vanilla_esgd_data_acc,vanilla_esgd_data_loss), (vanilla_abcd_data_acc,vanilla_abcd_data_loss), (vanilla_awp_data_acc,vanilla_awp_data_loss)
 
         def print_worst_case_test(data, attack_sizes, beta, dropout, n_attack_steps, typ, arch):
-            print("\\begin{table}[!htb]\n\\begin{tabular}{llll}")
+            print("\\begin{table}[!htb]\n\\begin{tabular}{lllllll}")
             if(typ == ACC):
-                print("%s \t %s \t %s \t %s \t %s \t %s" % ("Attack size          & ","Test acc. ($\\beta=0$) & ",f"Test acc. (dropout = {dropout}) & ",f"Test acc. ($\\beta={beta}$) &", "Test acc. (ESGD)     & ", "Test acc. (ABCD)    \\\\"))
+                print("%s \t %s \t %s \t %s \t %s \t %s \t %s" % ("Attack size          & ","Test acc. ($\\beta=0$) & ",f"Test acc. (dropout = {dropout}) & ",f"Test acc. ($\\beta={beta}$) &", "Test acc. (ESGD)     & ", "Test acc. (ABCD)    & ","Test acc. (AWP)   \\\\"))
             else:
-                print("%s \t %s \t %s \t %s \t %s \t %s" % ("Attack size          & ","Loss ($\\beta=0$)       & ",f"Loss (dropout = {dropout}) & ",f"Loss ($\\beta={beta}$) &", "Loss (ESGD)          & ", "Loss (ABCD)          \\\\"))
+                print("%s \t %s \t %s \t %s \t %s \t %s \t %s" % ("Attack size          & ","Loss ($\\beta=0$)       & ",f"Loss (dropout = {dropout}) & ",f"Loss ($\\beta={beta}$) &", "Loss (ESGD)          & ", "Loss (ABCD)          & ","Loss (AWP)         \\\\"))
             for idx,attack_size in enumerate(attack_sizes):
                 m = 1
                 if(typ == ACC):
@@ -110,7 +108,8 @@ class worst_case_experiment:
                 dr = 100*onp.ravel(data[2][typ])[idx]
                 desgd = 100*onp.ravel(data[3][typ])[idx]
                 dabcd = 100*onp.ravel(data[4][typ])[idx]
-                print("%.3f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t %.2f \t\t\t\t %.2f \t\t\t\t %.2f \\\\" % (attack_size,dn,dnd,dr,desgd,dabcd))
+                dawp = 100*onp.ravel(data[5][typ])[idx]
+                print("%.3f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t\t %.2f & \t\t\t\t %.2f \\\\" % (attack_size,dn,dnd,dr,desgd,dabcd,dawp))
             print("\\end{tabular}")
             typ_string = "Loss"
             if(typ == ACC):
@@ -119,7 +118,8 @@ class worst_case_experiment:
             print("\\end{table}")
 
         def _plot(ax, data, typ=ACC, labels=None, ylabel=None, title=None):
-            colors = ["#4c84e6","#fc033d","#03fc35","#77fc03","#f803fc"]
+            data = data[:3] + (data[5],)
+            colors = ["#4c84e6","#fc033d","#03fc35","#000000"]
             for idx in range(len(data)):
                 d = onp.ravel(data[idx][typ])
                 if(labels is None):
@@ -131,7 +131,7 @@ class worst_case_experiment:
             if(ylabel is not None):
                 ax.set_ylabel(ylabel)
             if(labels is not None):
-                ax.legend(frameon=False, prop={'size': 7})
+                ax.legend(frameon=True, prop={'size': 7})
             if(title is not None):
                 ax.set_title(title)
 
@@ -147,7 +147,7 @@ class worst_case_experiment:
             data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
 
             if(idx == 0):
-                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, ylabel="Test acc. Speech", labels=["Normal","Dropout","Robust","ESGD","ABCD"], title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
+                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, ylabel="Test acc. Speech", labels=["Normal","Dropout","Robust","AWP"], title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
                 _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC, ylabel="Test acc. ECG")
                 _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC, ylabel="Test acc. CNN")
                 
@@ -177,7 +177,7 @@ class worst_case_experiment:
 
             if(idx == 0):
                 
-                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS, ylabel="Loss Speech")
+                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS, ylabel="Loss Speech", labels=["Normal","Dropout","Robust","AWP"])
                 _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS, ylabel="Loss ECG")
                 _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS, ylabel="Loss CNN")
             else:

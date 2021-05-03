@@ -9,7 +9,7 @@ class landscape_experiment:
     @staticmethod
     def train_grid():
         betas = [0.05,0.125,0.25,0.5]
-        seeds = [0,1]
+        seeds = [0]
         grid_speech_ = speech_lsnn.make()
         grid_speech = configure([grid_speech_], dictionary={"attack_size_mismatch":0.1})
         grid_speech = split(grid_speech, "beta_robustness", betas)
@@ -31,16 +31,16 @@ class landscape_experiment:
         grid_cnn = split(grid_cnn, "beta_robustness", betas)
         grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
         grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
-        grid_cnn += configure([grid_cnn_], dictionary={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
+        grid_cnn += configure([grid_cnn_], dictionary={"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.001,0.0001"})
         grid_cnn = split(grid_cnn, "seed", seeds)
 
         return grid_speech + grid_ecg + grid_cnn
 
     @staticmethod
     def visualize():
-        seeds = [0,1]
-        betas = [0.0,0.05,0.25,0.5]
-        colors = ["#4c84e6","#fc033d","#03fc35","#f803fc","#eba434","#343deb","#77fc03"]
+        seeds = [0]
+        betas = [0.0,0.25,0.5]
+        colors = ["#4c84e6","#fc033d","#03fc35","#f803fc","#eba434","#42e6f5","#f542e0"]
         grid = [model for model in landscape_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -60,10 +60,10 @@ class landscape_experiment:
                 data_tmp = query(grid, "landscape", where={"beta_robustness":beta, "dropout_prob":0.0, "architecture":arch})
                 data_dict[beta] = data_tmp
             data_dict["Dropout"] = query(grid, "landscape", where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":arch})
-            # data_dict["AWP"] = query(grid, "landscape", where={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
+            data_dict["AWP"] = query(grid, "landscape", where={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
             return data_dict
 
-        keys = betas + ["Dropout"] # + ["AWP"]
+        keys = betas + ["Dropout","AWP"]
 
         data_speech = get_data(arch="speech_lsnn")
         data_ecg = get_data(arch="ecg_lsnn")
@@ -114,8 +114,8 @@ class landscape_experiment:
             smoothed_mean_ecg_over_seed = get_ma(data_beta_ecg)
             smoothed_mean_cnn_over_seed = get_ma(data_beta_cnn)
 
+            label = None
             for idx_d,d in enumerate(data_beta_speech):
-                label = None
                 if idx_d == 0:
                     if beta == 0.0:
                         label = "Normal"

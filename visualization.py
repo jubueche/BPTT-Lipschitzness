@@ -1,8 +1,12 @@
-#%%
 import numpy as np
 import concurrent.futures
 from collections import OrderedDict
 import plotly.graph_objects as go
+from architectures import ecg_lsnn
+from datajuicer import run, get
+import loss_jax
+from experiment_utils import get_loader
+import jax
 
 def to_array(dic):
     dic = OrderedDict(dic)
@@ -15,7 +19,7 @@ def to_dict(array, shapes):
 
 class Visualizer:
 
-    def __init__(self, theta_center, ppsu=64, extent=2, z_scale=0.5):
+    def __init__(self, theta_center, dir_tuple=None, ppsu=64, extent=2, z_scale=0.5):
         self.z_scale=z_scale
         
         if type(extent) is int:
@@ -46,15 +50,26 @@ class Visualizer:
             dir1 = {'key':np.array([1.0,0.0])}
             dir2 = {'key':np.array([0.0,1.0])}
         else:
-            for key in theta_center:
-                dir1[key] = np.random.random(size=theta_center[key].shape) 
-                dir2[key] = np.random.random(size=theta_center[key].shape)
+            if dir_tuple == None:
+                for key in theta_center:
+                    dir1[key] = np.random.normal(loc=0.0, scale=0.3*np.abs(theta_center[key]), size=theta_center[key].shape) 
+                    dir2[key] = np.random.normal(loc=0.0, scale=0.3*np.abs(theta_center[key]), size=theta_center[key].shape)
+            else:
+                dir1,dir2 = dir_tuple
         
         self.x_coords = [(i/ np.sqrt(ppsu) - 0.5* extent[0]) for i in range(length)]
         self.y_coords = [(i/ np.sqrt(ppsu) - 0.5* extent[1]) for i in range(width)]
         
+        theta_center_array, theta_shapes = to_array(theta_center)
+        dir1_arr, _ = to_array(dir1)
+        dir2_arr, _ = to_array(dir2)
 
-        self.thetas = [[{key:theta_center[key] + x*dir1[key] + y*dir2[key] for key in theta_center} for y in self.y_coords] for x in self.x_coords]
+        self.thetas = []
+        for y in self.y_coords:
+            row = []
+            for x in self.x_coords:
+                row.append(to_dict(theta_center_array + x*dir1_arr + y*dir2_arr, theta_shapes))
+            self.thetas.append(row)
 
         arr1, sh1 = to_array(dir1)
         arr2, sh2 = to_array(dir2)
@@ -138,86 +153,33 @@ class Visualizer:
         layout = go.Layout(scene={"aspectmode":"manual", "aspectratio":aspectratio}, xaxis=dict(range=range0), yaxis=dict(range=range1))
         fig  = go.FigureWidget(data=[surface] + scatters, layout = layout)
         fig.show()
-        
 
-        
+if __name__ == "__main__":
+    
 
-        
+    v = Visualizer(theta_start, ppsu=64, extent=4)
 
+    v.add_z(cce_loss)
 
-loss = lambda a: a[0] + a[1]
+    # v.add_color(robust_loss)
 
-theta_center = np.array([0.0,0.0])
+    def step(theta, treat_as_constant, beta_robustness):
+        FLAGS = ecg_lsnn.get_flags({"treat_as_constant":treat_as_constant, "beta_robustness":beta_robustness,"mode":"direct"})
+        grads = loss_jax.compute_gradients(loader.X_test, loader.y_test, theta, model["network"], FLAGS, model["network"]._rng_key,0)
+        theta_new = {}
+        for key in theta:
+            theta_new[key]= theta[key] - 0.001 * grads[key]
+        model["network"]._rng_key, _ = jax.random.split(model["network"]._rng_key)
+        return theta_new
 
-v=Visualizer(theta_center, extent=2)
+    def make_path(start, length, treat_as_constant, beta_robustness):
+        path = [start]
+        for _ in range(length):
+            path += [step(path[-1], treat_as_constant, beta_robustness)]
+        return path
 
-v.add_z(loss)
+    # v.add_path(make_path(theta_start, 2, False, 0.125))
 
+    # v.add_path(make_path(theta_start, 2, True, 0.125))
 
-
-v.add_path([[0.1,0.2], [0.2,0.2], [0.2,0.3], [0.3,0.3]])
-
-#%%
-v.visualize()
-
-# %%
-
-
-from architectures import ecg_lsnn
-from datajuicer import run, get
-import loss_jax
-from experiment_utils import get_loader
-import jax
-
-arch=ecg_lsnn.make()
-
-arch["mode"]= "direct"
-model = run(arch, "train", run_mode="load", store_key="*")("{*}")[0]
-
-
-theta = model["theta"]
-
-theta_arr, theta_shapes = to_array(theta)
-theta_arr += np.random.random(size=theta_arr.shape)
-
-theta_start = to_dict(theta_arr, theta_shapes)
-
-class Namespace:
-    def __init__(self,d):
-        self.__dict__.update(d)
-FLAGS = ecg_lsnn.get_flags({})
-loader, set_size = get_loader(FLAGS, get(model,"data_dir"))
-
-
-training_loss = lambda th: loss_jax.training_loss(loader.X_test[0:100], loader.y_test[0:100], th, FLAGS, model["network"], model["network"].unmasked())
-robust_loss = lambda th: loss_jax.robust_loss(loader.X_test[0:100], loader.y_test[0:100], th, FLAGS, model["network"], model["network"]._rng_key, model["network"].unmasked(), theta_star=None)
-
-v = Visualizer(theta, ppsu=4)
-
-v.add_z(training_loss)
-
-v.add_color(robust_loss)
-
-def step(theta, treat_as_constant, beta_robustness):
-    FLAGS = ecg_lsnn.get_flags({"treat_as_constant":treat_as_constant, "beta_robustness":beta_robustness,"mode":"direct"})
-    grads = loss_jax.compute_gradients(loader.X_test, loader.y_test, theta, model["network"], FLAGS, model["network"]._rng_key,0)
-    theta_new = {}
-    for key in theta:
-        theta_new[key]= theta[key] - 0.001 * grads[key]
-    model["network"]._rng_key, _ = jax.random.split(model["network"]._rng_key)
-    return theta_new
-
-def make_path(start, length, treat_as_constant, beta_robustness):
-    path = [start]
-    for _ in range(length):
-        print("hi")
-        path += [step(path[-1], treat_as_constant, beta_robustness)]
-    return path
-
-v.add_path(make_path(theta_start, 2, False, 0.125))
-
-v.add_path(make_path(theta_start, 2, True, 0.125))
-print("bla")
-
-v.visualize()
-# %%
+    v.visualize()

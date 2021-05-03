@@ -34,7 +34,7 @@ class mismatch_experiment:
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
         cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"10,5"})
         cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2", "learning_rate":"0.001,0.0001", "abcd_etaA":0.001})
-        cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        cnn_grid5 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.001,0.0001"})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5
 
         return ecg + speech + cnn_grid
@@ -46,11 +46,11 @@ class mismatch_experiment:
         cnn_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
         seeds = [0]
         dropout = 0.3
-        beta_ecg = 0.125
+        beta_ecg = 0.25
         beta_speech = 0.25
         beta_cnn = 0.25
         attack_size_mismatch_speech = 0.1
-        attack_size_mismatch_ecg = 0.2
+        attack_size_mismatch_ecg = 0.1
         attack_size_mismatch_cnn = 0.1
         awp_gamma = 0.1
 
@@ -127,35 +127,39 @@ class mismatch_experiment:
         plt.show()
 
         def print_experiment_info(data, mismatch_levels, beta, dropout):
-            print("\\begin{table}[!htb]\n\\begin{tabular}{llll}")
-            print("%s \t\t %s \t %s \t %s \t %s \t %s" % ("Mismatch level","Test acc. ($\\beta=0$)",f"Test acc. (dropout = {dropout})",f"Test acc. ($\\beta={beta}$)","Test acc. ABCD", "Test acc. ESGD"))
+            print("\\begin{table}[!htb]\n\\begin{tabular}{lllll}")
+            print("%s \t\t %s \t %s \t %s \t %s \t %s \t %s" % ("Mismatch level","Test acc. ($\\beta=0$)",f"Test acc. (dropout = {dropout})",f"Test acc. ($\\beta={beta}$)","Test acc. ABCD", "Test acc. ESGD", "Test acc. AWP"))
             for idx,mm in enumerate(mismatch_levels):
                 dn = 100*onp.array(data[idx][0])
                 dnd = 100*onp.array(data[idx][1])
                 dr = 100*onp.array(data[idx][2])
                 dabcd = 100*onp.array(data[idx][3])
                 desgd = 100*onp.array(data[idx][4])
+                dawp = 100*onp.array(data[idx][5])
                 mn = onp.mean(dn)
                 mnd = onp.mean(dnd)
                 mr = onp.mean(dr)
                 mabcd = onp.mean(dabcd)
                 mesgd = onp.mean(desgd)
+                mawp = onp.mean(dawp)
                 sn = onp.std(dn)
                 snd = onp.std(dnd)
                 sr = onp.std(dr)
                 sabcd = onp.std(dabcd)
                 sesgd = onp.std(desgd)
-                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr,mabcd,sabcd,mesgd,sesgd))
+                sawp = onp.std(dawp)
+                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr,mabcd,sabcd,mesgd,sesgd,mawp,sawp))
             print("\\end{table} \n")
 
         def print_val_acc(data):
-            print("%s \t %s \t %s \t %s \t %s" % ("Val acc. normal",f"Val acc. dropout",f"Val acc. robust","Val acc. ABCD", "Val acc. ESGD"))
+            print("%s \t %s \t %s \t %s \t %s \t %s" % ("Val acc. normal",f"Val acc. dropout",f"Val acc. robust","Val acc. ABCD", "Val acc. ESGD", "Val acc. AWP"))
             dn = 100*data[0]
             dnd = 100*data[1]
             dr = 100*data[2]
             dabcd = 100*data[3]
             desgd = 100*data[4]
-            print("%.2f \t\t\t %.2f \t\t\t %.2f \t\t\t %.2f \t\t %.2f" % (dn,dnd,dr,dabcd,desgd))
+            dawp = 100*data[5]
+            print("%.2f \t\t\t %.2f \t\t\t %.2f \t\t\t %.2f \t\t %.2f \t\t %.2f" % (dn,dnd,dr,dabcd,desgd,dawp))
 
         print_val_acc(val_acc_speech)
         print_val_acc(val_acc_ecg)

@@ -157,7 +157,7 @@ def _get_logits(max_size, model, X, dropout_mask, theta):
         _f = lambda X, dropout_mask, theta, idx : (model.call(X, dropout_mask, **theta), idx)
         N = X.shape[0]
         intervals = [(i,i+max_size) for i in range(0,N - (N % max_size),max_size)] + (lambda i : [(N - (N % max_size),N)] if i else [])(N % max_size)
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             parallel_results = []
             futures = [executor.submit(_f, X[el[0]:el[1]], dropout_mask, theta, idx) for idx,el in enumerate(intervals)]
             for future in as_completed(futures):
