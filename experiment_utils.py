@@ -1,5 +1,5 @@
 from jax import config
-config.update('jax_disable_jit', False)
+# config.update('jax_disable_jit', False)
 
 import os
 from TensorCommands import input_data

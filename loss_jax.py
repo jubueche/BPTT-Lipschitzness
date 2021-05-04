@@ -137,6 +137,78 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
             theta_star=None
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, model, subkey, dropout_mask, theta_star)
     
+        # logits, _ = model.call(X, dropout_mask, **params)
+        # from jax import jacfwd
+        # import matplotlib.pyplot as plt
+
+        # def lip_loss_(X,y,theta_star,logits,model,dropout_mask):
+        #     logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
+        #     return loss_kl(logits, logits_theta_star)
+
+        # def f(params):
+        #     step_size = {}
+        #     theta_star = {}
+        #     N_steps = FLAGS.n_attack_steps
+        #     # - Initialize theta_star randomly 
+        #     for key in params.keys():
+        #         _, random_normal_var1 = split_and_sample(subkey, params[key].shape)
+        #         theta_star[key] = params[key] + jnp.abs(params[key]) * FLAGS.initial_std_mismatch*jnp.ones(params[key].shape)
+        #         step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key])) / N_steps
+        #     for _ in range(N_steps):
+        #         grads_theta_star = grad(lip_loss_, argnums=2)(X,y, theta_star, logits, model, dropout_mask)
+        #         for key in theta_star.keys():
+        #             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
+        #     return theta_star
+
+        # def get_diagonal(params):
+        #     step_size = {}
+        #     theta_star = {}
+        #     diagonal = {}
+        #     for key in params:
+        #         diagonal[key] = jnp.zeros_like(params[key])
+        #     N_steps = FLAGS.n_attack_steps
+        #     # - Initialize theta_star randomly 
+        #     for key in params.keys():
+        #         _, random_normal_var1 = split_and_sample(subkey, params[key].shape)
+        #         theta_star[key] = params[key] + jnp.abs(params[key]) * FLAGS.initial_std_mismatch*jnp.ones(params[key].shape)
+        #         step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key])) / N_steps
+        #     for _ in range(N_steps):
+        #         grads_theta_star = grad(lip_loss_, argnums=2)(X,y, theta_star, logits, model, dropout_mask)
+        #         for key in theta_star.keys():
+        #             diagonal[key] += (FLAGS.attack_size_mismatch * jnp.sign(params[key])) / N_steps * jnp.sign(grads_theta_star[key]) 
+        #             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
+        #     for key in params:
+        #         diagonal[key] = 1 + jnp.reshape(diagonal[key], (-1,))
+        #     return diagonal
+
+
+        # J = jacfwd(f)(params)
+        # W = {}
+        # for key in params:
+        #     W[key] = jnp.reshape(J[key][key], (onp.prod(params[key].shape),onp.prod(params[key].shape)))
+
+        # v = {}
+        # theta_v = {}
+
+        # for key in params:
+        #     v[key] = onp.random.random(size=onp.prod(params[key].shape))-0.5
+        #     v[key] = (v[key] / jnp.linalg.norm(v[key])) * 1e-4
+        #     theta_v[key] = params[key] + onp.reshape(v[key], params[key].shape)
+
+        # theta_star_v = f(theta_v)
+        # theta_star = f(params)
+
+        # diff = onp.reshape(theta_star_v["W_in"] - theta_star["W_in"], params["W_in"].shape)
+        # diff_jac = onp.reshape(W["W_in"] @ v["W_in"], params["W_in"].shape)
+
+        # key = "W_in"
+        # W = jnp.reshape(J[key][key], (onp.prod(params[key].shape),onp.prod(params[key].shape)))
+        # x = onp.diagonal(W)
+        
+
+        # diagonal = get_diagonal(params)
+        # plt.plot(x[:100]); plt.plot(diagonal[key][:100]); plt.ylim([0.75,1.25]); plt.show()
+
     if("W_rec" in grads.keys()):
         diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
         # - Remove the diagonal of W_rec from the gradient

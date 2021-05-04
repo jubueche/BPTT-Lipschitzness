@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
         if((i+1) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
-            val_acc, attacked_val_acc, loss_over_time, loss = get_val_acc(vars(FLAGS), params, FLAGS.data_dir, ATTACK=False)
+            val_acc, attacked_val_acc, loss_over_time, loss = get_val_acc(vars(FLAGS), params, FLAGS.data_dir, ATTACK=True)
             log(FLAGS.session_id,"validation_accuracy",val_acc)
             log(FLAGS.session_id,"attacked_validation_accuracies",attacked_val_acc)
             log(FLAGS.session_id,"validation_kl_over_time",list(loss_over_time))

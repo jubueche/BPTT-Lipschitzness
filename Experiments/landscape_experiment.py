@@ -31,7 +31,7 @@ class landscape_experiment:
         grid_cnn = split(grid_cnn, "beta_robustness", betas)
         grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
         grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
-        grid_cnn += configure([grid_cnn_], dictionary={"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.001,0.0001"})
+        grid_cnn += configure([grid_cnn_], dictionary={"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.0001,0.00001"})
         grid_cnn = split(grid_cnn, "seed", seeds)
 
         return grid_speech + grid_ecg + grid_cnn
