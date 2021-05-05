@@ -136,10 +136,11 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
         else:
             theta_star=None
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, model, subkey, dropout_mask, theta_star)
-    
+
         # logits, _ = model.call(X, dropout_mask, **params)
         # from jax import jacfwd
         # import matplotlib.pyplot as plt
+        # # "args": ["-beta_robustness=0.125", "-attack_size_mismatch=0.1", "-treat_as_constant", "-batch_size=1", "-n_hidden=16", "-n_attack_steps=10", "-initial_std_mismatch=0.0001"],
 
         # def lip_loss_(X,y,theta_star,logits,model,dropout_mask):
         #     logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
@@ -253,12 +254,19 @@ def _attack_network(X,y, params, model, FLAGS, rand_key):
     step_size = {}
     theta_star = {}
 
-    def KL(X, logits, theta_star):
-        logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
-        return loss_kl(logits, logits_theta_star)
+    # def KL(X, logits, theta_star):
+    #     logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
+    #     return loss_kl(logits, logits_theta_star)
 
-    FLAGS2 = copy.copy(FLAGS)
-    FLAGS2.boundary_loss = "kl"
+    if FLAGS.boundary_loss == "madry":
+        def attack_loss(X, y, logits, theta_star):
+            logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
+            return categorical_cross_entropy(y, logits_theta_star)
+    else:
+        def attack_loss(X, y, logits, theta_star):
+            logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
+            return loss_kl(logits, logits_theta_star)
+
     # - Initialize theta_star randomly 
     for key in params.keys():
         rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
@@ -270,10 +278,10 @@ def _attack_network(X,y, params, model, FLAGS, rand_key):
     logits = _get_logits(max_size, model, X, dropout_mask, params)
     for _ in range(FLAGS.n_attack_steps):
         if(N <= max_size):
-            value, grads_theta_star = value_and_grad(KL, argnums=2)(X, logits, theta_star)
+            value, grads_theta_star = value_and_grad(attack_loss, argnums=3)(X, y, logits, theta_star)
         else: 
             def _f(X,y, logits, N, theta_star):
-                v,g = value_and_grad(KL, argnums=2)(X, logits, theta_star)
+                v,g = value_and_grad(attack_loss, argnums=3)(X, y, logits, theta_star)
                 return (v,g,N)
             def _add_dict(a, b):
                 if(a == {}):
@@ -311,6 +319,6 @@ def _attack_network(X,y, params, model, FLAGS, rand_key):
         for key in theta_star.keys():
             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
 
-    loss_over_time.append(KL(X, logits, theta_star))
+    loss_over_time.append(attack_loss(X, y, logits, theta_star))
     logits_theta_star = _get_logits(max_size, model, X, dropout_mask, theta_star)
     return loss_over_time, logits_theta_star, theta_star

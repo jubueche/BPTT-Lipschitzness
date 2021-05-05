@@ -56,6 +56,7 @@ class worst_case_experiment:
         attack_size_mismatch_speech = 0.1
         attack_size_mismatch_ecg = 0.1
         attack_size_mismatch_cnn = 0.1
+        boundary_loss = ["kl","madry"]
 
         grid = [model for model in worst_case_experiment.train_grid() if model["seed"] in seeds] 
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
@@ -63,31 +64,32 @@ class worst_case_experiment:
         grid_worst_case = configure(grid, {"mode":"direct"})
         grid_worst_case = split(grid_worst_case, "attack_size", attack_sizes)
         grid_worst_case = split(grid_worst_case, "n_attack_steps", n_attack_steps)
+        grid_worst_case = split(grid_worst_case, "boundary_loss", boundary_loss)
 
-        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0)
+        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0, "{boundary_loss}")
 
-        def _get_data_acc(architecture, beta, attack_size_mismatch, identifier, grid, n_attack_steps):
-            robust_data = query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":attack_size_mismatch, "dropout_prob":0.0, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
+        def _get_data_acc(architecture, beta, attack_size_mismatch, identifier, grid, n_attack_steps, boundary_loss):
+            robust_data = query(grid, identifier, where={"beta_robustness":beta, "boundary_loss":boundary_loss, "attack_size_mismatch":attack_size_mismatch, "dropout_prob":0.0, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
             robust_data_acc = onp.array([el[0] for el in robust_data])
             robust_data_loss = onp.array([el[1] for el in robust_data])
 
-            vanilla_data = query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "awp":False, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
+            vanilla_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "dropout_prob":0.0, "awp":False, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
             vanilla_data_acc = onp.array([el[0] for el in vanilla_data])
             vanilla_data_loss = onp.array([el[1] for el in vanilla_data])
 
-            vanilla_dropout_data = query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.3, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
+            vanilla_dropout_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "dropout_prob":0.3, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
             vanilla_dropout_data_acc = onp.array([el[0] for el in vanilla_dropout_data])
             vanilla_dropout_data_loss = onp.array([el[1] for el in vanilla_dropout_data])
 
-            vanilla_esgd_data = query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"esgd", "architecture":architecture, "n_attack_steps":n_attack_steps})
+            vanilla_esgd_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "optimizer":"esgd", "architecture":architecture, "n_attack_steps":n_attack_steps})
             vanilla_esgd_data_acc = onp.array([el[0] for el in vanilla_esgd_data])
             vanilla_esgd_data_loss = onp.array([el[1] for el in vanilla_esgd_data])
 
-            vanilla_abcd_data = query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"abcd", "architecture":architecture, "n_attack_steps":n_attack_steps})
+            vanilla_abcd_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "optimizer":"abcd", "architecture":architecture, "n_attack_steps":n_attack_steps})
             vanilla_abcd_data_acc = onp.array([el[0] for el in vanilla_abcd_data])
             vanilla_abcd_data_loss = onp.array([el[1] for el in vanilla_abcd_data])
 
-            vanilla_awp_data = query(grid, identifier, where={"beta_robustness":0.0, "awp":True, "architecture":architecture, "n_attack_steps":n_attack_steps})
+            vanilla_awp_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "awp":True, "architecture":architecture, "n_attack_steps":n_attack_steps})
             vanilla_awp_data_acc = onp.array([el[0] for el in vanilla_awp_data])
             vanilla_awp_data_loss = onp.array([el[1] for el in vanilla_awp_data])
 
@@ -135,62 +137,67 @@ class worst_case_experiment:
             if(title is not None):
                 ax.set_title(title)
 
-        fig = plt.figure(figsize=(10, 4), constrained_layout=True)
-        axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
-        def ij_x(i,j):
-            return i*3+j
+        def plot_all(boundary_loss):
 
-        for idx,n in enumerate(n_attack_steps):
+            fig = plt.figure(figsize=(10, 4), constrained_layout=True)
+            axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
+            def ij_x(i,j):
+                return i*3+j
 
-            data_ecg_worst_case = _get_data_acc("ecg_lsnn", beta, attack_size_mismatch_ecg, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
-            data_speech_worst_case = _get_data_acc("speech_lsnn", beta, attack_size_mismatch_speech, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
-            data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
+            for idx,n in enumerate(n_attack_steps):
 
-            if(idx == 0):
-                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, ylabel="Test acc. Speech", labels=["Normal","Dropout","Robust","AWP"], title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
-                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC, ylabel="Test acc. ECG")
-                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC, ylabel="Test acc. CNN")
-                
-            else:
-                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
-                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC)
-                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC)
+                data_ecg_worst_case = _get_data_acc("ecg_lsnn", beta, attack_size_mismatch_ecg, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
+                data_speech_worst_case = _get_data_acc("speech_lsnn", beta, attack_size_mismatch_speech, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
+                data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
 
-            print("\n")
-            print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="ECG")
-            print("\n")
-            print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="Speech")
-            print("\n")
-            print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="CNN")
+                if(idx == 0):
+                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, ylabel="Test acc. Speech", labels=["Normal","Dropout","Robust","AWP"], title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
+                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC, ylabel="Test acc. ECG")
+                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC, ylabel="Test acc. CNN")
+                    
+                else:
+                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
+                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC)
+                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC)
 
-        plt.savefig("Resources/Figures/figure_worst_case_test_acc.pdf", dpi=1200)
-        plt.show()
+                print("\n")
+                print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="ECG")
+                print("\n")
+                print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="Speech")
+                print("\n")
+                print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="CNN")
 
-        fig = plt.figure(figsize=(10, 4), constrained_layout=True)
-        axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
+            plt.savefig(f"Resources/Figures/figure_worst_case_test_acc_boundary_{boundary_loss}.pdf", dpi=1200)
+            plt.show()
 
-        for idx,n in enumerate(n_attack_steps):
+            fig = plt.figure(figsize=(10, 4), constrained_layout=True)
+            axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
 
-            data_ecg_worst_case = _get_data_acc("ecg_lsnn", beta, attack_size_mismatch_ecg, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
-            data_speech_worst_case = _get_data_acc("speech_lsnn", beta, attack_size_mismatch_speech, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
-            data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n)
+            for idx,n in enumerate(n_attack_steps):
 
-            if(idx == 0):
-                
-                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS, ylabel="Loss Speech", labels=["Normal","Dropout","Robust","AWP"])
-                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS, ylabel="Loss ECG")
-                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS, ylabel="Loss CNN")
-            else:
-                _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS)
-                _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS)
-                _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS)
+                data_ecg_worst_case = _get_data_acc("ecg_lsnn", beta, attack_size_mismatch_ecg, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
+                data_speech_worst_case = _get_data_acc("speech_lsnn", beta, attack_size_mismatch_speech, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
+                data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
 
-            print("\n")
-            print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="ECG")
-            print("\n")
-            print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="Speech")
-            print("\n")
-            print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="CNN")
+                if(idx == 0):
+                    
+                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS, ylabel="Loss Speech", labels=["Normal","Dropout","Robust","AWP"])
+                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS, ylabel="Loss ECG")
+                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS, ylabel="Loss CNN")
+                else:
+                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS)
+                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS)
+                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS)
 
-        plt.savefig("Resources/Figures/figure_worst_case_KL.pdf", dpi=1200)
-        plt.show()
+                print("\n")
+                print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="ECG")
+                print("\n")
+                print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="Speech")
+                print("\n")
+                print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="CNN")
+
+            plt.savefig(f"Resources/Figures/figure_worst_case_KL_boundary_{boundary_loss}.pdf", dpi=1200)
+            plt.show()
+
+        plot_all("madry")
+        plot_all("kl")

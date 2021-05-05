@@ -125,7 +125,7 @@ if __name__ == '__main__':
             print(f"Epoch {data_loader.n_epochs} i {i} MM robustness @0.3 {mean_mm_val_acc}+-{onp.std(mismatch_accuracies)}")
             
 
-        if((i+1) % FLAGS.eval_step_interval == 0):
+        if((i) % FLAGS.eval_step_interval == 0):
             params = get_params(opt_state)
             val_acc, attacked_val_acc, loss_over_time, loss = get_val_acc(vars(FLAGS), params, FLAGS.data_dir, ATTACK=True)
             log(FLAGS.session_id,"validation_accuracy",val_acc)

@@ -111,7 +111,7 @@ def get_mismatch_data(model, mm_level, data_dir, mode):
     theta = model["theta"]
     return _get_mismatch_data(model, theta, mm_level, data_dir, mode)
 
-def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
+def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant, boundary_loss):
     FLAGS = Namespace(model)
     max_size = 1000
 
@@ -120,7 +120,7 @@ def get_whole_attacked_test_acc(model, data_dir, n_attack_steps, attack_size_mis
     FLAGS.attack_size_constant = attack_size_constant
     FLAGS.initial_std_mismatch = initial_std_mismatch
     FLAGS.initial_std_constant = initial_std_constant
-    FLAGS.boundary_loss = "kl"
+    FLAGS.boundary_loss = boundary_loss
 
     loader, set_size = get_loader(FLAGS, data_dir)
     loss_over_time, logits_theta_star = attack_network(loader.X_test,loader.y_test, model["theta"], FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
@@ -205,11 +205,11 @@ def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):
 
 
 
-@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant"])
-def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant):
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "n_attack_steps", "attack_size_mismatch", "attack_size_constant", "initial_std_mismatch", "initial_std_constant", "boundary_loss"])
+def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant, boundary_loss):
     with ThreadPoolExecutor(max_workers=1) as executor:
         parallel_results = []
-        futures = [executor.submit(get_whole_attacked_test_acc, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant) for i in range(num)]
+        futures = [executor.submit(get_whole_attacked_test_acc, model, data_dir, n_attack_steps, attack_size_mismatch, attack_size_constant, initial_std_mismatch, initial_std_constant, boundary_loss) for i in range(num)]
         for future in as_completed(futures):
             result = future.result()
             parallel_results.append(result)
