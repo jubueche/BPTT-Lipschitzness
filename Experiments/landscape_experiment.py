@@ -8,7 +8,7 @@ class landscape_experiment:
 
     @staticmethod
     def train_grid():
-        betas = [0.05,0.125,0.25,0.5]
+        betas = [0.25,0.5]
         seeds = [0]
         grid_speech_ = speech_lsnn.make()
         grid_speech = configure([grid_speech_], dictionary={"attack_size_mismatch":0.1})
@@ -50,7 +50,7 @@ class landscape_experiment:
         alpha_val = 0.2
         from_ = -2.0
         to_ = 2.0
-        n_repeat = 5
+        n_repeat = 15
 
         grid = run(grid, get_landscape_sweep, n_threads=1, store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
 
@@ -125,15 +125,15 @@ class landscape_experiment:
                         label = "AWP"
                     else:
                         label = r"$\beta_{\textnormal{robust}}=$" + ("%s" % str(beta))               
-                axes_speech.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
+                # axes_speech.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
             axes_speech.plot(onp.linspace(from_,to_,len(smoothed_mean_speech_over_seed)), smoothed_mean_speech_over_seed, c=colors[beta_idx], alpha=1.0, label=label)
             
-            for idx_d,d in enumerate(data_beta_ecg):
-                axes_ecg.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
+            # for idx_d,d in enumerate(data_beta_ecg):
+            #     axes_ecg.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
             axes_ecg.plot(onp.linspace(from_,to_,len(smoothed_mean_ecg_over_seed)), smoothed_mean_ecg_over_seed, c=colors[beta_idx], alpha=1.0)
 
-            for idx_d,d in enumerate(data_beta_cnn):
-                axes_cnn.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
+            # for idx_d,d in enumerate(data_beta_cnn):
+            #     axes_cnn.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
             axes_cnn.plot(onp.linspace(from_,to_,len(smoothed_mean_cnn_over_seed)), smoothed_mean_cnn_over_seed, c=colors[beta_idx], alpha=1.0)
 
         axes_ecg.set_title("ECG")
