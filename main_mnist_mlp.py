@@ -44,7 +44,7 @@ if __name__ == '__main__':
         robustness = check_robustness(mlp.params, num_iterations=FLAGS.n_iters, eps=FLAGS.eps_attack)
         test_acc = accuracy(mlp.params, (test_images, test_labels))
         wm = jnp.sum([jnp.mean(jnp.abs(p[0])) for p in mlp.params[:-1]])
-        print(f"{epoch} / {FLAGS.n_epochs} Test accuracy {test_acc}")
+        print(f"Epoch {epoch} / {FLAGS.n_epochs} Test accuracy {test_acc}")
         print(f"Weight magnitude {wm}")
         print(f"Robustness {robustness}")
 

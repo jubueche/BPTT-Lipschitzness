@@ -8,9 +8,11 @@ import datajuicer.in_out as in_out
 import datajuicer.database as database
 import time
 
-#run_mode in normal, force, load
+#run_mode in normal, force, load, load_any
 
 #cache_mode in normal, no_save
+class NOMODEL:
+    pass
 
 def run(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_dir="Sessions/", store_key=None):
     def _runner(grid, *args, **kwargs):
@@ -58,6 +60,8 @@ def run(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_di
             if sid is None or run_mode == "force":
                 if run_mode == "load":
                     raise Exception("No Sessions Found")
+                if run_mode == "load_any":
+                    return NOMODEL
                 random.seed()
                 sid = random.randint(1000000000, 9999999999)
                 data["session_id"] = sid
@@ -86,13 +90,15 @@ def run(grid, func,n_threads=1, run_mode="normal", cache_mode="normal", cache_di
             grid = [grid]
         
         if n_threads==1:
-            return [_run(copy.copy(data),func,list(args),kwargs) for data in grid]
+            ret = [_run(copy.copy(data),func,list(args),kwargs) for data in grid]
+            
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
+                param_list = [(copy.copy(data),func,list(args),kwargs) for data in grid]
+                futures = [executor.submit(_run, *param) for param in param_list]
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-            param_list = [(copy.copy(data),func,list(args),kwargs) for data in grid]
-            futures = [executor.submit(_run, *param) for param in param_list]
-
-        return [f.result() for f in futures] 
+            ret = [f.result() for f in futures] 
+        return [r for r in ret if not r is NOMODEL]
     return lambda *args, **kwargs: _runner(grid, *args, **kwargs)
         
 

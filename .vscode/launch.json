@@ -6,7 +6,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["-exp=weight_scale_experiment"],
+            "args": [],
             "console": "integratedTerminal"
         },
         {
