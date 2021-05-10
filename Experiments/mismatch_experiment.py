@@ -8,7 +8,7 @@ class mismatch_experiment:
     
     @staticmethod
     def train_grid():
-        seeds = [0]
+        seeds = [0,1]
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
@@ -37,7 +37,10 @@ class mismatch_experiment:
         cnn_grid5 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.0001,0.00001"})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5
 
-        return ecg + speech + cnn_grid
+        final_grid = ecg + speech + cnn_grid
+        final_grid = split(final_grid, "seed", seeds)
+
+        return final_grid
 
     @staticmethod
     def visualize():
