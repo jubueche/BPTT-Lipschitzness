@@ -121,8 +121,9 @@ def format_template(data, template):
             return get(data, template[1:-1])
         else:
             return parser.replace(template, lambda k: str(get(data, k)))
-
-def get(data, key):
+class NODEFAULT:
+    pass
+def get(data, key, default=NODEFAULT):
     if key == "*":
         return data
     func_name, l_args = parser.get_arg_list(key)
@@ -130,7 +131,13 @@ def get(data, key):
     if func_name[0] == "!":
         literal = True
         func_name = func_name[1:]
-    output = data[format_template(data, func_name)]
+    try:
+        output = data[format_template(data, func_name)]
+    except KeyError as e:
+        if default is NODEFAULT:
+            raise(e)
+        else:
+            output = default
     while type(output) is str and "{" in output:
         output = format_template(data, output)
     for args in l_args:
@@ -147,7 +154,7 @@ def split(grid, key, values, where={}):
     
     output = []
     for data in grid:
-        if all([data[kkey]==where[kkey] for kkey in where]):
+        if all([get(data,kkey)==where[kkey] for kkey in where]):
             for val in values:
                 copied = copy.copy(data)
                 copied[key] = val
@@ -157,20 +164,93 @@ def split(grid, key, values, where={}):
     return output
 
 def configure(grid, dictionary, where={}):
+    if type(grid) is dict:
+        grid = [grid]
     cg = [copy.copy(model) for model in grid]
     for model in cg:
-        if all([model[key]==where[key] for key in where]):
+        if all([get(model,key)==where[key] for key in where]):
             for key in dictionary:
                 model[key] = dictionary[key]
     return cg
 
 
-def query(grid, select, where):
+def query(grid, select, where={}, group_by=[], reduction=lambda x:x, return_func=False, flatten_reductions=False):
+    if type(grid) is dict:
+        grid = [grid]
     ret = []
+    single_select = False
+    if type(group_by) is str:
+        group_by = [group_by]
+    if type(select) is str:
+        if select == "*":
+            get_keys = lambda model: list(model.keys())
+        else:
+            select = [select]
+            get_keys = lambda model: select
+            if not flatten_reductions:
+                single_select = True
+    else:
+        get_keys = lambda model: select
+    
+    if type(reduction) is dict:
+        red_d = reduction
+        reduction = lambda l: {key:red_d[key](l) for key in red_d}
+    
+    groups = []
+    def get_index(model):
+        for i, group in enumerate(groups):
+            if all([get(model,k)==group[k] for k in group_by]):
+                return i
+
+    def prepare(model):
+        model_group = {key:get(model,key) for key in group_by}
+        i = get_index(model)
+        if not i is None:
+            return i
+        
+        groups.append(model_group)
+        ret.append({key:[] for key in get_keys(model)})
+        return len(groups) -1
+
     for model in grid:
-        if all([model[key] == where[key] for key in where]):
-            ret += [copy.copy(get(model, select))]
-    return ret
+        if all([get(model,key) == where[key] for key in where]):
+            index = prepare(model)
+            for key in get_keys(model):
+                ret[index][key].append(get(model,key))
+    
+    ret = [{key: reduction(l) for key, l in group.items()} for group in ret]
+    if flatten_reductions:
+        for i,d in enumerate(ret):
+            
+            new_d = {}
+            for key in d:
+                if type(d[key]) is dict:
+                    for k in d[key]:
+                        new_d[key + "_" + k] = d[key][k]
+                else:
+                    new_d[key] = d[key]
+            ret[i] = new_d
+    
+    if single_select:
+        ret = [group[list(group.keys())[0]] for group in ret]
+    if group_by == []:
+        return ret[0]
+    if return_func:
+        return lambda group: ret[get_index(group)]
+    return groups, ret
+
+def reduce_keys(grid, keys, reduction, where=[]):
+    if type(keys) is str:
+        group_by = [k for k in grid[0].keys() if not k == keys]
+    else:
+        group_by = [k for k in grid[0].keys() if not k in keys]
+    for data in grid:
+        for key in group_by:
+            if not key in data:
+                group_by.pop('key')
+    groups, q = query(grid, keys, where=where, group_by=group_by, reduction=reduction, return_func=False, flatten_reductions=True)
+    return [{**group,**qe} for group, qe in zip(groups, q)]
+
 
 def make_unique(grid):
     def try_to_serialize(value):
