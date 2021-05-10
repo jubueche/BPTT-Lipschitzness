@@ -16,7 +16,7 @@ def latex(table, decimals=2):
     def format_value(val):
         if type(val) is float:
             return f"%.{decimals}f" % (val)
-        if type(val) is str:
+        elif type(val) is str:
             return val.replace("_", r"\_")
         return str(val)
 
@@ -38,9 +38,11 @@ def latex(table, decimals=2):
             + r" \Tstrut\\" + "\n"
         
         for i2 in range(shape[2]):
-            string += format_value(table.get_label(axis=2, index=i2)) \
-                + "".join([" && "  + " & ".join([format_value(table.get_val(i0, i1, i2, i3)) for i3 in range(shape[3])]) for i1 in range(shape[1]) ]) \
-                + r"\\" + "\n"
+            vals = [[format_value(table.get_val(i0, i1, i2, i3)) for i3 in range(shape[3])] for i1 in range(shape[1])]
+            if not all([all([val =='None' for val in v]) for v in vals]):
+                string += format_value(table.get_label(axis=2, index=i2)) \
+                    + "".join([" && "  + " & ".join(v) for v in vals]) \
+                    + r"\\" + "\n"
 
     string += r"\end{tabular}%" + "\n"
     string += "}"

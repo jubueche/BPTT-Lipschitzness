@@ -17,8 +17,11 @@ class Table():
         def deviance(self, data, label_dict):
             ret = []
             for key in self.default:
-                if not data.get(key) == self.default[key]:
-                    ret.append(f"{label_dict.get(key,key)} = {get(data,key,key)}")
+                if not get(data,key) == self.default[key]:
+                    if self.default[key] == False and get(data,key) ==True:
+                        ret.append(str(label_dict.get(key,key)))
+                    else:
+                        ret.append(f"{label_dict.get(key,key)} = {get(data,key,key)}")
             if ret == []:
                 return "Default"
             return ", ".join(ret)
@@ -71,8 +74,11 @@ class Table():
             elif len(self.independent_keys) +1 < dim:
                 self.independent_keys = [Table.Dummy_Var()] * (dim - len(self.independent_keys) -1)
         self.independent_keys = [var.prepare(label_dict, grid) for var in self.independent_keys]
-
-        self.dependent_keys = dependent_keys
+        
+        if order is None or order[-1] is None:
+            self.dependent_keys = dependent_keys 
+        else:
+            self.dependent_keys = [dependent_keys[order[-1][idx]] for idx in range(len(dependent_keys))]
         
         self._f = query(grid, self.dependent_keys, group_by=self.independent_keys, return_func=True)
         def _permute(l, axis):
@@ -83,7 +89,6 @@ class Table():
             return [l[i] for i in order[axis]] + [l[i] for i in range(len(l)) if not i in order[axis]]
 
         self.vals = {key: _permute(sorted(list(set([get(data,key,key)  for data in grid]))), i) for i, key in enumerate(self.independent_keys)}
-        
 
     def shape(self):
         return [len(self.vals[key]) for key in self.independent_keys] + [len(self.dependent_keys)]
@@ -96,7 +101,7 @@ class Table():
             if len(ret) > 1:
                 print("Warning: More than one value found for table entry.")
             ret = ret[0]
-        except KeyError:
+        except Exception:
             ret = None
         return ret
     
