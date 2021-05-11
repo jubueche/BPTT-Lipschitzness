@@ -6,6 +6,10 @@ from datajuicer import run, split, configure, query, run
 from experiment_utils import *
 from matplotlib.lines import Line2D
 from scipy import stats
+import numpy as np
+from datajuicer.table import Table
+from datajuicer.visualizers import latex, visualizer
+from datajuicer.utils import reduce_keys
 
 class worst_case_experiment:
 
@@ -67,137 +71,82 @@ class worst_case_experiment:
         grid_worst_case = split(grid_worst_case, "boundary_loss", boundary_loss)
 
         grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=1, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0, "{boundary_loss}")
+        for g in grid_worst_case:
+            acc,loss = g["min_acc_test_set_acc"]
+            g["acc"] = 100 * acc
+            g["loss"] = loss
 
-        def _get_data_acc(architecture, beta, attack_size_mismatch, identifier, grid, n_attack_steps, boundary_loss):
-            robust_data = query(grid, identifier, where={"beta_robustness":beta, "boundary_loss":boundary_loss, "attack_size_mismatch":attack_size_mismatch, "dropout_prob":0.0, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
-            robust_data_acc = onp.array([el[0] for el in robust_data])
-            robust_data_loss = onp.array([el[1] for el in robust_data])
+        label_dict = {
+            "beta_robustness": "Beta",
+            "n_attack_steps": "Attack steps",
+            "attack_size": "Attack size",
+            "optimizer": "Optimizer",
+            "acc": "Mean Acc.",
+            "dropout_prob":"Dropout",
+            "cnn" : "CNN",
+            "speech_lsnn": "Speech LSNN",
+            "ecg_lsnn": "ECG LSNN",
+            "awp": "AWP",
+            "AWP = True":"AWP",
+            "Optimizer = abcd":"ABCD",
+            "Optimizer = esgd":"ESGD"
+        }
 
-            vanilla_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "dropout_prob":0.0, "awp":False, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
-            vanilla_data_acc = onp.array([el[0] for el in vanilla_data])
-            vanilla_data_loss = onp.array([el[1] for el in vanilla_data])
+        def get_table(architecture, boundary_loss, loss_or_acc):
+            sub_grid = [g for g in grid_worst_case if g["architecture"]==architecture and g["boundary_loss"]==boundary_loss]
+            group_by = ["awp", "beta_robustness", "dropout_prob", "optimizer", "attack_size", "n_attack_steps"]
+            reduced = reduce_keys(sub_grid, loss_or_acc, reduction={"mean":lambda l : float(np.mean(l))}, group_by=group_by)
+            independent_keys = ["n_attack_steps",Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam"}, label="Attack"),  "attack_size"]
+            dependent_keys = [loss_or_acc+"_mean"]
+            order = [None, [3,2,1,4,0,5], None, None]
 
-            vanilla_dropout_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "dropout_prob":0.3, "optimizer":"adam", "architecture":architecture, "n_attack_steps":n_attack_steps})
-            vanilla_dropout_data_acc = onp.array([el[0] for el in vanilla_dropout_data])
-            vanilla_dropout_data_loss = onp.array([el[1] for el in vanilla_dropout_data])
+            print(latex(reduced, independent_keys, dependent_keys, label_dict, order=order, bold_order=[max if loss_or_acc=="acc" else min]))
 
-            vanilla_esgd_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "optimizer":"esgd", "architecture":architecture, "n_attack_steps":n_attack_steps})
-            vanilla_esgd_data_acc = onp.array([el[0] for el in vanilla_esgd_data])
-            vanilla_esgd_data_loss = onp.array([el[1] for el in vanilla_esgd_data])
+        @visualizer(dim=7)
+        def grid_plot(table, axes_dict):
+            shape = table.shape()
+            for i0 in range(shape[0]):
+                axes = axes_dict[table.get_label(axis=0, index=i0)]
+                for i1 in range(shape[1]):
+                    n_attack_steps = table.get_label(axis=1, index=i1)
+                    normal = [table.get_val(i0,i1,i2,0,0,0,0) for i2 in range(shape[2])]
+                    dropout = [table.get_val(i0,i1,i2,0,0,1,0) for i2 in range(shape[2])]
+                    awp_data = [table.get_val(i0,i1,i2,1,0,0,0) for i2 in range(shape[2])]
+                    beta = [table.get_val(i0,i1,i2,0,1,0,0) for i2 in range(shape[2])]
+                    data = [normal,dropout,awp_data,beta]
+                    labels = ["Normal","Dropout","AWP","Beta"]
+                    colors = ["#4c84e6","#fc033d","#03fc35","#000000"]
+                    for idx,d in enumerate(data): 
+                        axes[i1].plot(range(len(d)), d, color=colors[idx], label=labels[idx])
+                    axes[i1].grid(axis='y', which='both')
+                    axes[i1].grid(axis='x', which='major')
+                    if i1 == 0:
+                        axes[i1].set_ylabel(table.get_label(axis=0, index=i0)+"\nTest acc.")
+                    if i0 == 0 and i1 == 0:
+                        axes[i1].legend(frameon=True, prop={'size': 7})
 
-            vanilla_abcd_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "optimizer":"abcd", "architecture":architecture, "n_attack_steps":n_attack_steps})
-            vanilla_abcd_data_acc = onp.array([el[0] for el in vanilla_abcd_data])
-            vanilla_abcd_data_loss = onp.array([el[1] for el in vanilla_abcd_data])
-
-            vanilla_awp_data = query(grid, identifier, where={"beta_robustness":0.0, "boundary_loss":boundary_loss, "awp":True, "architecture":architecture, "n_attack_steps":n_attack_steps})
-            vanilla_awp_data_acc = onp.array([el[0] for el in vanilla_awp_data])
-            vanilla_awp_data_loss = onp.array([el[1] for el in vanilla_awp_data])
-
-            return (vanilla_data_acc,vanilla_data_loss), (vanilla_dropout_data_acc,vanilla_dropout_data_loss), (robust_data_acc,robust_data_loss), (vanilla_esgd_data_acc,vanilla_esgd_data_loss), (vanilla_abcd_data_acc,vanilla_abcd_data_loss), (vanilla_awp_data_acc,vanilla_awp_data_loss)
-
-        def print_worst_case_test(data, attack_sizes, beta, dropout, n_attack_steps, typ, arch):
-            print("\\begin{table}[!htb]\n\\begin{tabular}{lllllll}")
-            if(typ == ACC):
-                print("%s \t %s \t %s \t %s \t %s \t %s \t %s" % ("Attack size          & ","Test acc. ($\\beta=0$) & ",f"Test acc. (dropout = {dropout}) & ",f"Test acc. ($\\beta={beta}$) &", "Test acc. (ESGD)     & ", "Test acc. (ABCD)    & ","Test acc. (AWP)   \\\\"))
-            else:
-                print("%s \t %s \t %s \t %s \t %s \t %s \t %s" % ("Attack size          & ","Loss ($\\beta=0$)       & ",f"Loss (dropout = {dropout}) & ",f"Loss ($\\beta={beta}$) &", "Loss (ESGD)          & ", "Loss (ABCD)          & ","Loss (AWP)         \\\\"))
-            for idx,attack_size in enumerate(attack_sizes):
-                m = 1
-                if(typ == ACC):
-                    m = 100 # - Percentage
-                dn = 100*onp.ravel(data[0][typ])[idx]
-                dnd = 100*onp.ravel(data[1][typ])[idx]
-                dr = 100*onp.ravel(data[2][typ])[idx]
-                desgd = 100*onp.ravel(data[3][typ])[idx]
-                dabcd = 100*onp.ravel(data[4][typ])[idx]
-                dawp = 100*onp.ravel(data[5][typ])[idx]
-                print("%.3f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t %.2f & \t\t\t\t %.2f & \t\t\t\t %.2f \\\\" % (attack_size,dn,dnd,dr,desgd,dabcd,dawp))
-            print("\\end{tabular}")
-            typ_string = "Loss"
-            if(typ == ACC):
-                typ_string = "Acc."
-            print("\\caption{Architecture",arch," Type",typ_string," N",str(n_attack_steps),"}")
-            print("\\end{table}")
-
-        def _plot(ax, data, typ=ACC, labels=None, ylabel=None, title=None):
-            data = data[:3] + (data[5],)
-            colors = ["#4c84e6","#fc033d","#03fc35","#000000"]
-            for idx in range(len(data)):
-                d = onp.ravel(data[idx][typ])
-                if(labels is None):
-                    ax.plot(range(len(d)), d, color=colors[idx])
-                else:
-                    ax.plot(range(len(d)), d, color=colors[idx], label=labels[idx])
-            ax.grid(axis='y', which='both')
-            ax.grid(axis='x', which='major')
-            if(ylabel is not None):
-                ax.set_ylabel(ylabel)
-            if(labels is not None):
-                ax.legend(frameon=True, prop={'size': 7})
-            if(title is not None):
-                ax.set_title(title)
-
-        def plot_all(boundary_loss):
-
+        def plot(boundary_loss, loss_or_acc):
+            sub_grid = [g for g in grid_worst_case if g["boundary_loss"]==boundary_loss and g["optimizer"]=="adam"]
             fig = plt.figure(figsize=(10, 4), constrained_layout=True)
             axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
-            def ij_x(i,j):
-                return i*3+j
-
-            for idx,n in enumerate(n_attack_steps):
-
-                data_ecg_worst_case = _get_data_acc("ecg_lsnn", beta, attack_size_mismatch_ecg, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
-                data_speech_worst_case = _get_data_acc("speech_lsnn", beta, attack_size_mismatch_speech, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
-                data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
-
-                if(idx == 0):
-                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, ylabel="Test acc. Speech", labels=["Normal","Dropout","Robust","AWP"], title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
-                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC, ylabel="Test acc. ECG")
-                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC, ylabel="Test acc. CNN")
-                    
-                else:
-                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=ACC, title=(r"$N_{\textnormal{steps}}=$ %s" % str(n)))
-                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=ACC)
-                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=ACC)
-
-                print("\n")
-                print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="ECG")
-                print("\n")
-                print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="Speech")
-                print("\n")
-                print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=ACC, arch="CNN")
-
-            plt.savefig(f"Resources/Figures/figure_worst_case_test_acc_boundary_{boundary_loss}.pdf", dpi=1200)
+            axes_dict = axes_dict = {"Speech LSNN":[ax for ax in axes[:3]], "ECG LSNN":[ax for ax in axes[3:6]], "CNN":[ax for ax in axes[6:]]}
+            independent_keys = ["architecture","n_attack_steps","attack_size","awp","beta_robustness","dropout_prob"]
+            dependent_keys = [loss_or_acc]
+            grid_plot(sub_grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes_dict=axes_dict, order=None)
+            plt.savefig(f"Resources/Figures/figure_worst_case_{loss_or_acc}_boundary_{boundary_loss}.pdf", dpi=1200)
             plt.show()
 
-            fig = plt.figure(figsize=(10, 4), constrained_layout=True)
-            axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
+        plot("madry", loss_or_acc="acc")
+        plot("madry", loss_or_acc="loss")
+        plot("kl", loss_or_acc="acc")
+        plot("kl", loss_or_acc="loss")
 
-            for idx,n in enumerate(n_attack_steps):
-
-                data_ecg_worst_case = _get_data_acc("ecg_lsnn", beta, attack_size_mismatch_ecg, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
-                data_speech_worst_case = _get_data_acc("speech_lsnn", beta, attack_size_mismatch_speech, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
-                data_cnn_worst_case = _get_data_acc("cnn", beta, attack_size_mismatch_cnn, "min_acc_test_set_acc", grid_worst_case, n_attack_steps=n, boundary_loss=boundary_loss)
-
-                if(idx == 0):
-                    
-                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS, ylabel="Loss Speech", labels=["Normal","Dropout","Robust","AWP"])
-                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS, ylabel="Loss ECG")
-                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS, ylabel="Loss CNN")
-                else:
-                    _plot(axes[ij_x(0,idx)], data_speech_worst_case, typ=LOSS)
-                    _plot(axes[ij_x(1,idx)], data_ecg_worst_case, typ=LOSS)
-                    _plot(axes[ij_x(2,idx)], data_cnn_worst_case, typ=LOSS)
-
-                print("\n")
-                print_worst_case_test(data_ecg_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="ECG")
-                print("\n")
-                print_worst_case_test(data_speech_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="Speech")
-                print("\n")
-                print_worst_case_test(data_cnn_worst_case, attack_sizes, beta, dropout, n_attack_steps=n, typ=LOSS, arch="CNN")
-
-            plt.savefig(f"Resources/Figures/figure_worst_case_KL_boundary_{boundary_loss}.pdf", dpi=1200)
-            plt.show()
-
-        plot_all("madry")
-        plot_all("kl")
+        print("--------- Speech LSNN ---------")
+        get_table("speech_lsnn","kl",loss_or_acc="acc")
+        get_table("speech_lsnn","madry",loss_or_acc="acc")
+        print("--------- ECG LSNN ---------")
+        get_table("ecg_lsnn","kl",loss_or_acc="acc")
+        get_table("ecg_lsnn","madry",loss_or_acc="acc")
+        print("--------- CNN ---------")
+        get_table("cnn","kl",loss_or_acc="acc")
+        get_table("cnn","madry",loss_or_acc="acc")

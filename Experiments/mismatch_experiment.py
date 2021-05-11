@@ -1,8 +1,11 @@
 from architectures import ecg_lsnn, speech_lsnn, cnn
-from datajuicer import run, split, configure, query, run
+from datajuicer import run, split, configure, query, run, reduce_keys
+from datajuicer.visualizers import *
 from experiment_utils import *
 from matplotlib.lines import Line2D
 from scipy import stats
+import numpy as np
+import seaborn as sns
 
 class mismatch_experiment:
     
@@ -44,10 +47,11 @@ class mismatch_experiment:
 
     @staticmethod
     def visualize():
-        speech_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
+
+        speech_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         ecg_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
-        cnn_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
-        seeds = [0,1]
+        cnn_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
+        seeds = [0]
         dropout = 0.3
         beta_ecg = 0.25
         beta_speech = 0.25
@@ -81,38 +85,71 @@ class mismatch_experiment:
         grid_mm = configure(grid_mm, {"mode":"direct"})        
         grid_mm = run(grid_mm, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
-        def unravel(arr):
-            mm_lvls = arr.shape[1]
-            res = [[] for _ in range(mm_lvls)]
-            for seed in range(len(seeds)):
-                for i in range(mm_lvls):
-                    res[i].extend(list(arr[seed,i]))
-            return res
+        @visualizer(dim=4)
+        def violin(table, axes_dict):
 
-        def _get_data_acc(architecture, beta,attack_size_mismatch, awp_gamma, identifier, grid):
-            robust_data = onp.array(query(grid, identifier, where={"beta_robustness":beta, "attack_size_mismatch":attack_size_mismatch, "dropout_prob":0.0, "architecture":architecture})).reshape((len(seeds),-1))
-            vanilla_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.0, "awp":False, "optimizer":"adam", "architecture":architecture})).reshape((len(seeds),-1))
-            vanilla_dropout_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":architecture})).reshape((len(seeds),-1))
-            abcd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"abcd", "architecture":architecture})).reshape((len(seeds),-1))
-            esgd_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "optimizer":"esgd", "architecture":architecture})).reshape((len(seeds),-1))
-            awp_data = onp.array(query(grid, identifier, where={"beta_robustness":0.0, "awp":True, "awp_gamma":awp_gamma, "boundary_loss":"madry", "architecture":architecture})).reshape((len(seeds),-1))
-            return vanilla_data, vanilla_dropout_data ,robust_data, abcd_data, esgd_data, awp_data
+            shape= table.shape()
+            for i0 in range(shape[0]):
+                axes = axes_dict[table.get_label(axis=0, index=i0)]
+                legend=False
+                if i0 == shape[0]-1:
+                    legend=True
+                colors = ["#4c84e6","#03fc35"]
 
-        def get_data_acc(architecture, beta, attack_size_mismatch,identifier, grid):
-            vanilla_data, vanilla_dropout_data, robust_data, abcd_data, esgd_data, awp_data = _get_data_acc(architecture, beta,attack_size_mismatch, awp_gamma, identifier, grid)
-            return list(zip(unravel(vanilla_data), unravel(vanilla_dropout_data), unravel(robust_data), unravel(abcd_data), unravel(esgd_data), unravel(awp_data)))
+                offset = 0
+                for i1 in range(shape[2]):
+                    if table.get_val(i0, 0, i1, 0) == None or len(table.get_val(i0, 0, i1, 0)) == 1:
+                        offset += 1
+                        continue
+                    a_idx = i1-offset
+                    el = [np.array(table.get_val(i0, i2, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
+                    x = []
+                    y = []
+                    hue = []
+                    x = onp.hstack([x, [0] * (len(el[0]) + len(el[1]))])
+                    y = onp.hstack([y, el[0]])
+                    y = onp.hstack([y, el[1]])
+                    hue = onp.hstack([hue, [0] * len(el[0])])
+                    hue = onp.hstack([hue, [1] * len(el[1])])
+                    sns.violinplot(ax = axes[a_idx],
+                        x = x,
+                        y = y,
+                        split = True,
+                        hue = hue,
+                        inner = 'quartile', cut=0,
+                        scale = "width", palette = colors, saturation=1.0, linewidth=0.5)
+                    axes[a_idx].set_xticks([])
+                    if(not (legend and i1==shape[2]-1)):
+                        axes[a_idx].get_legend().remove()
+                
+                if(legend):
+                    a = axes[a_idx]
+                    lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
+                    labels = [table.get_label(axis=1, index=i) for i in range(shape[1])]
+                    a.legend(lines, labels, frameon=False, loc=1, prop={'size': 7})
 
-        val_acc_speech = [max(a[0]) for a in _get_data_acc("speech_lsnn", beta_speech, attack_size_mismatch_speech, awp_gamma, "validation_accuracy", grid)]
-        val_acc_ecg = [max(a[0]) for a in _get_data_acc("ecg_lsnn", beta_ecg, attack_size_mismatch_ecg, awp_gamma, "validation_accuracy", grid)]
-        val_acc_cnn = [max(a[0]) for a in _get_data_acc("cnn", beta_cnn, attack_size_mismatch_cnn, awp_gamma, "validation_accuracy", grid)]
+        label_dict = {
+            "beta_robustness": "Beta",
+            "optimizer": "Optimizer",
+            "mismatch_list_mean": "Mean Acc.",
+            "mismatch_list_std":"Std.",
+            "mismatch_list_min":"Min.",
+            "dropout_prob":"Dropout",
+            "mm_level": "Mismatch",
+            "cnn" : "CNN",
+            "speech_lsnn": "Speech LSNN",
+            "ecg_lsnn": "ECG LSNN",
+            "awp": "AWP",
+            "AWP = True":"AWP",
+            "Optimizer = abcd":"ABCD",
+            "Optimizer = esgd":"ESGD"
+        }
 
-        data_speech_lsnn = get_data_acc("speech_lsnn", beta_speech, attack_size_mismatch_speech, "mismatch_list", grid_mm)
-        data_ecg_lsnn = get_data_acc("ecg_lsnn", beta_ecg, attack_size_mismatch_ecg, "mismatch_list", grid_mm)
-        data_cnn = get_data_acc("cnn", beta_cnn, attack_size_mismatch_cnn, "mismatch_list", grid_mm)
-
-        plot_mm_distributions(axes_speech["btm"], data=data_speech_lsnn, labels=["Normal","Robust"])
-        plot_mm_distributions(axes_ecg["btm"], data=data_ecg_lsnn, labels=["Normal","Robust"])
-        plot_mm_distributions(axes_cnn["btm"], data=data_cnn, labels=["Normal","Robust"],legend=True)
+        independent_keys = ["architecture", "beta_robustness", "mm_level"]
+        dependent_keys = ["mismatch_list"]
+        axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
+        order = [[2,1,0], None, None, None]
+        violin(grid_mm, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order)
 
         # - Get the sample data for speech
         X_speech, y_speech = get_data("speech")
@@ -129,47 +166,17 @@ class mismatch_experiment:
         plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
         plt.show()
 
-        def print_experiment_info(data, mismatch_levels, beta, dropout):
-            print("\\begin{table}[!htb]\n\\begin{tabular}{lllll}")
-            print("%s \t\t %s \t %s \t %s \t %s \t %s \t %s" % ("Mismatch level","Test acc. ($\\beta=0$)",f"Test acc. (dropout = {dropout})",f"Test acc. ($\\beta={beta}$)","Test acc. ABCD", "Test acc. ESGD", "Test acc. AWP"))
-            for idx,mm in enumerate(mismatch_levels):
-                dn = 100*onp.array(data[idx][0])
-                dnd = 100*onp.array(data[idx][1])
-                dr = 100*onp.array(data[idx][2])
-                dabcd = 100*onp.array(data[idx][3])
-                desgd = 100*onp.array(data[idx][4])
-                dawp = 100*onp.array(data[idx][5])
-                mn = onp.mean(dn)
-                mnd = onp.mean(dnd)
-                mr = onp.mean(dr)
-                mabcd = onp.mean(dabcd)
-                mesgd = onp.mean(desgd)
-                mawp = onp.mean(dawp)
-                sn = onp.std(dn)
-                snd = onp.std(dnd)
-                sr = onp.std(dr)
-                sabcd = onp.std(dabcd)
-                sesgd = onp.std(desgd)
-                sawp = onp.std(dawp)
-                print("%.2f \t\t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t\t %.2f$\pm$%.2f \t %.2f$\pm$%.2f \t %.2f$\pm$%.2f" % (mm,mn,sn,mnd,snd,mr,sr,mabcd,sabcd,mesgd,sesgd,mawp,sawp))
-            print("\\end{table} \n")
+        group_by = ["architecture", "awp", "beta_robustness", "dropout_prob", "optimizer", "mm_level"]
+        for g in grid_mm:
+            g["mismatch_list"] = list(100 * np.array(g["mismatch_list"])) 
+        reduced = reduce_keys(grid_mm, "mismatch_list", reduction={"mean": lambda l: float(np.mean(l)), "std": lambda l: float(np.std(l)), "min": lambda l: float(np.min(l))}, group_by=group_by)
 
-        def print_val_acc(data):
-            print("%s \t %s \t %s \t %s \t %s \t %s" % ("Val acc. normal",f"Val acc. dropout",f"Val acc. robust","Val acc. ABCD", "Val acc. ESGD", "Val acc. AWP"))
-            dn = 100*data[0]
-            dnd = 100*data[1]
-            dr = 100*data[2]
-            dabcd = 100*data[3]
-            desgd = 100*data[4]
-            dawp = 100*data[5]
-            print("%.2f \t\t\t %.2f \t\t\t %.2f \t\t\t %.2f \t\t %.2f \t\t %.2f" % (dn,dnd,dr,dabcd,desgd,dawp))
+        independent_keys = ["architecture",Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam"}, label="Method"),  "mm_level"]
+        dependent_keys = ["mismatch_list_mean", "mismatch_list_std","mismatch_list_min"]
+        order = [None, [3,2,1,4,0,5], None, None, None, None]
 
-        print_val_acc(val_acc_speech)
-        print_val_acc(val_acc_ecg)
-        print_val_acc(val_acc_cnn)
+        print(latex(reduced, independent_keys, dependent_keys, label_dict, order, bold_order=[max,min,max]))
 
-        print_experiment_info(data_speech_lsnn, speech_mm_levels, beta_speech, dropout)
-        print_experiment_info(data_ecg_lsnn, ecg_mm_levels, beta_ecg, dropout)
-        print_experiment_info(data_cnn, cnn_mm_levels, beta_cnn, dropout)
-
-        
+        reduced2 = reduce_keys(grid, "validation_accuracy", reduction=lambda a: float(np.max(a)), group_by=group_by[:-1])
+        order = [None, None, [3,2,1,4,0,5], None]
+        print(latex(reduced2, independent_keys[:-1], dependent_keys=["validation_accuracy"], label_dict=label_dict, order=order))

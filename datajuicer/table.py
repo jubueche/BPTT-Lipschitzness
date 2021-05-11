@@ -43,7 +43,7 @@ class Table():
         
 
         def prepare(self, label_dict, grid):
-            keys = [var.prepare(independent_keys, label_dict, grid) for var in self.vars]
+            keys = [var.prepare(self.independent_keys, label_dict, grid) for var in self.vars]
                 
             i = random.randint(1000000000, 9999999999)
             label_dict[f"__{i}__"] = self.label

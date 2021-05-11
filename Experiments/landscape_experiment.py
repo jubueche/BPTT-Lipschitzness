@@ -84,7 +84,8 @@ class landscape_experiment:
         axes_cnn.spines['right'].set_visible(False)
         axes_cnn.spines['top'].set_visible(False)
 
-        def ma(x, N, fill=True): return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
+        def ma(x, N, fill=True):
+            return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
 
         def moving_average(x, N):
             result = onp.zeros_like(x)
