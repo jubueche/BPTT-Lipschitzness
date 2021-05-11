@@ -125,8 +125,12 @@ def log(session_id, key, value, save_dir = None):
     if not os.path.isdir(directory):
         os.makedirs(directory)
     if exists:
-        data = open(file).read()
-        d = json.loads(data)
+        try:
+            data = open(file).read()
+            d = json.loads(data)
+        except:
+            print("WARNING: Log failed")
+            return
     else:
         d = {}
     with open(file,'w+') as f:
