@@ -47,7 +47,7 @@ class mismatch_experiment:
         speech_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
         ecg_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         cnn_mm_levels = [0.0,0.2,0.3,0.5,0.7,0.9]
-        seeds = [0]
+        seeds = [0,1]
         dropout = 0.3
         beta_ecg = 0.25
         beta_speech = 0.25
