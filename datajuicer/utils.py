@@ -239,15 +239,16 @@ def query(grid, select, where={}, group_by=[], reduction=lambda x:x, return_func
         return lambda group: ret[get_index(group)]
     return groups, ret
 
-def reduce_keys(grid, keys, reduction, where=[]):
-    if type(keys) is str:
-        group_by = [k for k in grid[0].keys() if not k == keys]
-    else:
-        group_by = [k for k in grid[0].keys() if not k in keys]
-    for data in grid:
-        for key in group_by:
-            if not key in data:
-                group_by.pop('key')
+def reduce_keys(grid, keys, reduction, where=[], group_by=None):
+    if group_by is None:
+        if type(keys) is str:
+            group_by = [k for k in grid[0].keys() if not k == keys]
+        else:
+            group_by = [k for k in grid[0].keys() if not k in keys]
+        for data in grid:
+            for i, key in enumerate(group_by):
+                if not key in data:
+                    del group_by[i]
     groups, q = query(grid, keys, where=where, group_by=group_by, reduction=reduction, return_func=False, flatten_reductions=True)
     return [{**group,**qe} for group, qe in zip(groups, q)]
 
