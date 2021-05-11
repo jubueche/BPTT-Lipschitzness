@@ -33,9 +33,10 @@ def latex(table, decimals=2):
             + "".join([r"\cline{" + f"{i*(shape[3]+1) +3}-{(i+1)*(shape[3]+1) + 1}" + "}" for i in range(shape[1])]) \
             + "\n"
         
-        string += format_value(table.get_label(axis=2)) \
-            + (" && " + " & ".join([format_value(table.get_label(axis=3, index=i)) for i in range(shape[3])]) ) * shape[1] \
-            + r" \Tstrut\\" + "\n"
+        if shape[3] > 1:
+            string += format_value(table.get_label(axis=2)) \
+                + (" && " + " & ".join([format_value(table.get_label(axis=3, index=i)) for i in range(shape[3])]) ) * shape[1] \
+                + r" \Tstrut\\" + "\n"
         
         for i2 in range(shape[2]):
             vals = [[format_value(table.get_val(i0, i1, i2, i3)) for i3 in range(shape[3])] for i1 in range(shape[1])]
