@@ -139,6 +139,8 @@ def log(session_id, key, value, save_dir = None):
         else:
             d[key]=[value]
         out = re.sub('(?<!")NaN(?!")','"NaN"', json.dumps(d))
+        out = re.sub('(?<!")-Inf(?!")','"-Inf"', out)
+        out = re.sub('(?<!")Inf(?!")','"Inf"', out)
         f.write(out)
 
 class speech_lsnn:
