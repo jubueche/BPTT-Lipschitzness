@@ -51,7 +51,7 @@ class mismatch_experiment:
         speech_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         ecg_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         cnn_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
-        seeds = [0]
+        seeds = [0,1]
         dropout = 0.3
         beta_ecg = 0.25
         beta_speech = 0.25
@@ -83,7 +83,7 @@ class mismatch_experiment:
         grid_mm = configure(grid_mm, {"n_iterations":100})
         grid_mm = configure(grid_mm, {"n_iterations":1}, where={"mm_level":0.0})
         grid_mm = configure(grid_mm, {"mode":"direct"})        
-        grid_mm = run(grid_mm, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
+        grid_mm = run(grid_mm, get_mismatch_list, n_threads=1, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
         @visualizer(dim=4)
         def violin(table, axes_dict):
@@ -177,6 +177,6 @@ class mismatch_experiment:
 
         print(latex(reduced, independent_keys, dependent_keys, label_dict, order, bold_order=[max,min,max]))
 
-        reduced2 = reduce_keys(grid, "validation_accuracy", reduction=lambda a: float(np.max(a)), group_by=group_by[:-1])
+        reduced2 = reduce_keys(grid, "validation_accuracy", reduction=lambda a: float(100 * np.mean([np.max(aa) for aa in a])), group_by=group_by[:-1])
         order = [None, None, [3,2,1,4,0,5], None]
         print(latex(reduced2, independent_keys[:-1], dependent_keys=["validation_accuracy"], label_dict=label_dict, order=order))

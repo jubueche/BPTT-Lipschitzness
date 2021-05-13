@@ -10,31 +10,35 @@ class landscape_experiment:
     def train_grid():
         betas = [0.25,0.5]
         seeds = [0]
-        grid_speech_ = speech_lsnn.make()
-        grid_speech = configure([grid_speech_], dictionary={"attack_size_mismatch":0.1})
-        grid_speech = split(grid_speech, "beta_robustness", betas)
-        grid_speech += configure([grid_speech_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
-        grid_speech += configure([grid_speech_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
-        grid_speech += configure([grid_speech_], dictionary={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
-        grid_speech = split(grid_speech, "seed", seeds)
 
-        grid_ecg_ = ecg_lsnn.make()
-        grid_ecg = configure([grid_ecg_], dictionary={"attack_size_mismatch":0.1})
-        grid_ecg = split(grid_ecg, "beta_robustness", betas)
-        grid_ecg += configure([grid_ecg_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
-        grid_ecg += configure([grid_ecg_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
-        grid_ecg += configure([grid_ecg_], dictionary={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
-        grid_ecg = split(grid_ecg, "seed", seeds)
+        speech = [speech_lsnn.make()]
+        speech0 = configure(speech, {"beta_robustness": 0.0})
+        speech1 = split(speech, "beta_robustness", betas)
+        speech1 = configure(speech1, {"attack_size_mismatch": 0.1})
+        speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        speech3 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        grid_speech = speech0 + speech1 + speech2 + speech3
 
-        grid_cnn_ = cnn.make()
-        grid_cnn = configure([grid_cnn_], dictionary={"attack_size_mismatch":0.1})
-        grid_cnn = split(grid_cnn, "beta_robustness", betas)
-        grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.0, "beta_robustness":0.0})
-        grid_cnn += configure([grid_cnn_], dictionary={"dropout_prob":0.3, "beta_robustness":0.0})
-        grid_cnn += configure([grid_cnn_], dictionary={"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.0001,0.00001"})
-        grid_cnn = split(grid_cnn, "seed", seeds)
+        ecg = [ecg_lsnn.make()]
+        ecg0 = configure(ecg, {"beta_robustness": 0.0})
+        ecg1 = split(ecg, "beta_robustness", betas)
+        ecg1 = configure(ecg1, {"attack_size_mismatch": 0.1})
+        ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
+        ecg3 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        grid_ecg = ecg0 + ecg1 + ecg2 + ecg3
 
-        return grid_speech + grid_ecg + grid_cnn
+        cnn_grid = [cnn.make()]
+        cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
+        cnn_grid1 = split(cnn_grid, "beta_robustness", betas)
+        cnn_grid1 = configure(cnn_grid1, {"attack_size_mismatch": 0.1})
+        cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        cnn_grid3 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.0001,0.00001"})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
+
+        final_grid = grid_ecg + grid_speech + cnn_grid
+        final_grid = split(final_grid, "seed", seeds)
+
+        return final_grid
 
     @staticmethod
     def visualize():
@@ -52,7 +56,7 @@ class landscape_experiment:
         to_ = 2.0
         n_repeat = 15
 
-        grid = run(grid, get_landscape_sweep, n_threads=1, store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
+        grid = run(grid, get_landscape_sweep, n_threads=1, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
 
         def get_data(arch):
             data_dict = {}
@@ -60,7 +64,7 @@ class landscape_experiment:
                 data_tmp = query(grid, "landscape", where={"beta_robustness":beta, "dropout_prob":0.0, "architecture":arch})
                 data_dict[beta] = data_tmp
             data_dict["Dropout"] = query(grid, "landscape", where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":arch})
-            data_dict["AWP"] = query(grid, "landscape", where={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry"})
+            data_dict["AWP"] = query(grid, "landscape", where={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry", "architecture":arch})
             return data_dict
 
         keys = betas + ["Dropout","AWP"]
@@ -69,20 +73,19 @@ class landscape_experiment:
         data_ecg = get_data(arch="ecg_lsnn")
         data_cnn = get_data(arch="cnn")
 
-        fig = plt.figure(figsize=(10,4), constrained_layout=False)
-        axes_speech = plt.subplot(1,3,1) # - Speech
-        axes_speech.set_xlabel(r"$\alpha$")
-        axes_speech.set_ylabel("Cross-entropy loss")
-        axes_speech.spines['right'].set_visible(False)
-        axes_speech.spines['top'].set_visible(False)
-
-        axes_ecg = plt.subplot(1,3,2)
-        axes_ecg.spines['right'].set_visible(False)
-        axes_ecg.spines['top'].set_visible(False)
-
-        axes_cnn = plt.subplot(1,3,3)
-        axes_cnn.spines['right'].set_visible(False)
-        axes_cnn.spines['top'].set_visible(False)
+        fig = plt.figure(figsize=(12,3), constrained_layout=True)
+        gridspec = fig.add_gridspec(1, 3, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
+        axes = [fig.add_subplot(gridspec[0,j]) for j in range(3)]
+        axes[0].set_xlabel(r"$\alpha$")
+        axes[0].set_ylabel("Cross-entropy loss")
+        axes[0].spines['right'].set_visible(False)
+        axes[0].spines['top'].set_visible(False)
+        axes[1].spines['right'].set_visible(False)
+        axes[1].set_xlabel(r"$\alpha$")
+        axes[1].spines['top'].set_visible(False)
+        axes[2].spines['right'].set_visible(False)
+        axes[2].spines['top'].set_visible(False)
+        axes[2].set_xlabel(r"$\alpha$")
 
         def ma(x, N, fill=True):
             return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
@@ -126,20 +129,20 @@ class landscape_experiment:
                         label = "AWP"
                     else:
                         label = r"$\beta_{\textnormal{robust}}=$" + ("%s" % str(beta))               
-                # axes_speech.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
-            axes_speech.plot(onp.linspace(from_,to_,len(smoothed_mean_speech_over_seed)), smoothed_mean_speech_over_seed, c=colors[beta_idx], alpha=1.0, label=label)
+                # axes[0].plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
+            axes[0].plot(onp.linspace(from_,to_,len(smoothed_mean_speech_over_seed)), smoothed_mean_speech_over_seed, c=colors[beta_idx], alpha=1.0, label=label)
             
             # for idx_d,d in enumerate(data_beta_ecg):
-            #     axes_ecg.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
-            axes_ecg.plot(onp.linspace(from_,to_,len(smoothed_mean_ecg_over_seed)), smoothed_mean_ecg_over_seed, c=colors[beta_idx], alpha=1.0)
+            #     axes[1].plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
+            axes[1].plot(onp.linspace(from_,to_,len(smoothed_mean_ecg_over_seed)), smoothed_mean_ecg_over_seed, c=colors[beta_idx], alpha=1.0)
 
             # for idx_d,d in enumerate(data_beta_cnn):
-            #     axes_cnn.plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
-            axes_cnn.plot(onp.linspace(from_,to_,len(smoothed_mean_cnn_over_seed)), smoothed_mean_cnn_over_seed, c=colors[beta_idx], alpha=1.0)
+            #     axes[2].plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
+            axes[2].plot(onp.linspace(from_,to_,len(smoothed_mean_cnn_over_seed)), smoothed_mean_cnn_over_seed, c=colors[beta_idx], alpha=1.0)
 
-        axes_ecg.set_title("ECG")
-        axes_speech.set_title("Speech")
-        axes_cnn.set_title("CNN")
-        axes_speech.legend(fontsize=5)
+        axes[1].set_title("ECG")
+        axes[0].set_title("Speech")
+        axes[2].set_title("CNN")
+        axes[0].legend(fontsize=6)
         plt.savefig("Resources/Figures/landscape.pdf", dpi=1200)
         plt.plot()

@@ -84,8 +84,8 @@ class worst_case_experiment:
             "acc": "Mean Acc.",
             "dropout_prob":"Dropout",
             "cnn" : "CNN",
-            "speech_lsnn": "Speech LSNN",
-            "ecg_lsnn": "ECG LSNN",
+            "speech_lsnn": "Speech SRNN",
+            "ecg_lsnn": "ECG SRNN",
             "awp": "AWP",
             "AWP = True":"AWP",
             "Optimizer = abcd":"ABCD",
@@ -124,12 +124,14 @@ class worst_case_experiment:
                         axes[i1].set_ylabel(table.get_label(axis=0, index=i0)+"\nTest acc.")
                     if i0 == 0 and i1 == 0:
                         axes[i1].legend(frameon=True, prop={'size': 7})
+                    if i0 == shape[0]-1:
+                        axes[i1].set_title(r"$N_{\textnormal{steps}}=$"+str(n_attack_steps))
 
         def plot(boundary_loss, loss_or_acc):
             sub_grid = [g for g in grid_worst_case if g["boundary_loss"]==boundary_loss and g["optimizer"]=="adam"]
             fig = plt.figure(figsize=(10, 4), constrained_layout=True)
             axes = get_axes_worst_case(fig, N_rows=3, N_cols=3, attack_sizes=attack_sizes)
-            axes_dict = axes_dict = {"Speech LSNN":[ax for ax in axes[:3]], "ECG LSNN":[ax for ax in axes[3:6]], "CNN":[ax for ax in axes[6:]]}
+            axes_dict = axes_dict = {"Speech SRNN":[ax for ax in axes[:3]], "ECG SRNN":[ax for ax in axes[3:6]], "CNN":[ax for ax in axes[6:]]}
             independent_keys = ["architecture","n_attack_steps","attack_size","awp","beta_robustness","dropout_prob"]
             dependent_keys = [loss_or_acc]
             grid_plot(sub_grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes_dict=axes_dict, order=None)
@@ -141,10 +143,10 @@ class worst_case_experiment:
         plot("kl", loss_or_acc="acc")
         plot("kl", loss_or_acc="loss")
 
-        print("--------- Speech LSNN ---------")
+        print("--------- Speech SRNN ---------")
         get_table("speech_lsnn","kl",loss_or_acc="acc")
         get_table("speech_lsnn","madry",loss_or_acc="acc")
-        print("--------- ECG LSNN ---------")
+        print("--------- ECG SRNN ---------")
         get_table("ecg_lsnn","kl",loss_or_acc="acc")
         get_table("ecg_lsnn","madry",loss_or_acc="acc")
         print("--------- CNN ---------")

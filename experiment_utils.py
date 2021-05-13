@@ -49,17 +49,6 @@ def get_batched_accuracy(y, logits):
     correct_prediction = jnp.array(jnp.argmax(logits, axis=1) == y, dtype=jnp.float32)
     return jnp.mean(correct_prediction)
 
-def quantise(M, bits):
-    if(bits == -1):
-        return M
-    else:
-        # - Include 0 in number of possible states
-        base_weight = (onp.max(M)-onp.min(M)) / (2**bits - 1)
-        if(base_weight == 0):
-            return M
-        else:
-            return base_weight * onp.round(M / base_weight)
-
 def get_lr_schedule(iteration, lrs):
     iteration_ = deepcopy(iteration)
     ts = onp.arange(1,sum(iteration_),1)
@@ -183,7 +172,6 @@ def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):
         X = loader.X_test
         y = loader.y_test
 
-        logits = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta)
         # - Choose theta star using the adversary
         rng_key = jax_random.PRNGKey(onp.random.randint(1e15))
         losses = []
@@ -216,15 +204,6 @@ def min_whole_attacked_test_acc(num, model, data_dir, n_attack_steps, attack_siz
     parallel_results = sorted(parallel_results, key=lambda k: k[0])
     min_acc, loss = parallel_results[0]
     return float(min_acc), float(loss)
-
-@cachable(dependencies= ["model:{architecture}_session_id", "bits", "model:architecture"])
-def get_quantized_acc(bits, model, data_dir):
-    theta_star = {}
-    theta = model["theta"]
-    for key in theta:
-        theta_star[key] = quantise(theta[key], bits)
-    test_acc, _ = get_test_acc(model, theta_star, data_dir, ATTACK=False)
-    return test_acc
 
 @cachable(dependencies = ["model:{architecture}_session_id", "n_iterations", "mm_level", "model:architecture"])
 def get_mismatch_list(n_iterations, model, mm_level, data_dir):
@@ -367,7 +346,6 @@ def get_axes_worst_case(fig, N_rows, N_cols, attack_sizes):
     axes = [fig.add_subplot(gridspec[i,j]) for i in range(N_rows) for j in range(N_cols)]
     remove_all_but_left_btm(axes)
     for ax in axes:
-        # ax.set_xlim([-0.1,len(attack_sizes)])
         ax.set_xticks(range(len(attack_sizes)))
         ax.set_xticklabels(attack_sizes)
         ax.set_xlabel(r"$\epsilon$")
@@ -457,7 +435,6 @@ def plot_images(axes, X, y):
             plt.setp(ax.spines.values(), color="g", linewidth=1)
         else:
             plt.setp(ax.spines.values(), color="r", linewidth=1)
-    axes[0].set_title(r"$\textbf{c}$", x=0, fontdict={'fontsize':15})
 
 def plot_spectograms(axes, X, y):
     x = onp.linspace(0,1,X.shape[2])
@@ -475,7 +452,6 @@ def plot_spectograms(axes, X, y):
     norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
     for im in ims:
         im.set_norm(norm)
-    axes[0].set_title(r"$\textbf{a}$", x=0, fontdict={'fontsize':15})
 
 def get_y(y, p):
     y_hat = copy(y)
@@ -496,4 +472,3 @@ def plot_ecg(axes, X, y):
     plt_ax(axes[0], y, label="Groundtruth")
     plt_ax(axes[1], get_y(y,0.6), label="Normal")
     plt_ax(axes[2], get_y(y,0.9), label="Robust")
-    axes[0].set_title(r"$\textbf{b}$", x=0, fontdict={'fontsize':15})

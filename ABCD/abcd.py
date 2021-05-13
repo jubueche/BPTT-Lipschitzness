@@ -39,7 +39,7 @@ def ABCD_Jax(step_size,config):
                 if key == "W_rec":
                     diag_indices = jnp.arange(0,g.shape[0],1)
                     g = g.at[diag_indices,diag_indices].set(0.0)
-                w_l_0_5[key] = params[key] + FLAGS.abcd_etaA * M_a[key] * g
+                w_l_0_5[key] = params[key] + FLAGS.abcd_etaA * step_size(batch_id) * M_a[key] * g
                 # - Clip between [w-|w|attack,w+|w|attack]
                 w_l_0_5[key] = jnp.clip(w_l_0_5[key], w_l_0_5[key]-FLAGS.attack_size_mismatch*jnp.abs(w_l_0_5[key]),w_l_0_5[key]+FLAGS.attack_size_mismatch*jnp.abs(w_l_0_5[key]))
 
