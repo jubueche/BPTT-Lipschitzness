@@ -34,7 +34,7 @@ def standard_defaults():
         "batch_size":100,
         "boundary_loss":"kl",
         "treat_as_constant":False,
-        "abcd_etaA":0.001,
+        "abcd_etaA":0.1,
         "abcd_L":2,
         "p_norm":"inf",
         "hessian_robustness":False,
