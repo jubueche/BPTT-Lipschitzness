@@ -27,7 +27,7 @@ def standard_defaults():
         "reg":0.001,
         "learning_rate":"0.001,0.0001",
         "n_attack_steps": 10,
-        "beta_robustness": 0.125,
+        "beta_robustness": 0.125, #TODO
         "seed":0,
         "n_hidden":256,
         "n_layer":1,
@@ -39,7 +39,7 @@ def standard_defaults():
         "p_norm":"inf",
         "hessian_robustness":False,
         "awp":False,
-        "noisy_forward":False,
+        "noisy_forward_std":0.0,
         "warmup":0,
         "awp_gamma":0.1
         }
@@ -452,6 +452,7 @@ class cnn:
         d["Kernels"]="[[64,1,4,4],[64,64,4,4]]"
         d["Dense"]="[[1600,256],[256,64],[64,10]]"
         d["optimizer"]="adam"
+        d["learning_rate"] = "0.0001,0.00001"
         return d
 
     @staticmethod

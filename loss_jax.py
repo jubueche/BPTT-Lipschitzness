@@ -48,12 +48,9 @@ def split_and_sample(key, shape):
 
 def _training_loss(X, y, params, FLAGS, model, dropout_mask, rand_key):
     theta = {}
-    if FLAGS.noisy_forward:
-        for key in params:
-            rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
-            theta[key] = params[key] + stop_gradient(jnp.abs(params[key]) * FLAGS.initial_std_mismatch*random_normal_var1)
-    else:
-        theta = params
+    for key in params:
+        rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
+        theta[key] = params[key] + stop_gradient(jnp.abs(params[key]) * FLAGS.noisy_forward_std*random_normal_var1)
 
     logits, spikes = model.call(X, dropout_mask, **theta)
     avg_firing = jnp.mean(spikes, axis=1) 
