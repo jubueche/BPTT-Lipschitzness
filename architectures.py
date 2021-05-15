@@ -39,6 +39,7 @@ def standard_defaults():
         "p_norm":"inf",
         "hessian_robustness":False,
         "awp":False,
+        "noisy_forward":False,
         "warmup":0,
         "awp_gamma":0.1
         }
