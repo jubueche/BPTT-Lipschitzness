@@ -10,23 +10,20 @@ class noisy_forward_experiment:
     
     @staticmethod
     def train_grid():
-        seeds = [0]
-        initial_std_mismatch = [0.3]
 
         ecg = [ecg_lsnn.make()]
-        ecg0 = configure(ecg, {"beta_robustness": 0.0, "noisy_forward":True})
+        ecg0 = configure(ecg, {"attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         ecg = ecg0
 
         speech = [speech_lsnn.make()]
-        speech0 = configure(speech, {"beta_robustness": 0.0, "noisy_forward":True})
+        speech0 = configure(speech, {"attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         speech = speech0
 
         cnn_grid = [cnn.make()]
-        cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0, "noisy_forward":True, "learning_rate":"0.0001,0.00001"})
+        cnn_grid0 = configure(cnn_grid, {"attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid = cnn_grid0
 
         final_grid = ecg + speech + cnn_grid
-        final_grid = split(final_grid, "initial_std_mismatch", initial_std_mismatch)
-        final_grid = split(final_grid, "seed", seeds)
+        final_grid = split(final_grid, "beta_robustness", [0.1,0.5])
 
         return final_grid
