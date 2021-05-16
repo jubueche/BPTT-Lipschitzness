@@ -68,7 +68,7 @@ class Table():
         self.independent_keys = [Table.Key_Var(key) if type(key) is str else key for key in independent_keys]
         if not dim is None:
             if len(self.independent_keys)+1 > dim:
-                self.independent_keys = [Table.Product_Var(independent_keys[0:len(independent_keys)-dim])] + independent_keys[len(independent_keys)-dim:-1]
+                self.independent_keys = [Table.Product_Var(self.independent_keys[0:len(self.independent_keys)-dim])] + self.independent_keys[len(self.independent_keys)-dim:-1]
             elif len(self.independent_keys) +1 < dim:
                 self.independent_keys = [Table.Dummy_Var()] * (dim - len(self.independent_keys) -1) + self.independent_keys
         self.independent_keys = [var.prepare(label_dict, grid) for var in self.independent_keys]

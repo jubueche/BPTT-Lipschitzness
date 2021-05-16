@@ -1,5 +1,6 @@
 from jax.nn import softmax, log_softmax
 from jax import jit, random, partial, grad, value_and_grad
+from jax.lax import stop_gradient
 import jax.numpy as jnp
 import numpy as onp
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,17 +46,23 @@ def split_and_sample(key, shape):
     val = random.normal(subkey, shape=shape)
     return key, val
 
-def _training_loss(X, y, params, FLAGS, model, dropout_mask):
-    logits, spikes = model.call(X, dropout_mask, **params)
+def _training_loss(X, y, params, FLAGS, model, dropout_mask, rand_key):
+    theta = {}
+    for key in params:
+        rand_key, random_normal_var1 = split_and_sample(rand_key, params[key].shape)
+        theta[key] = params[key] + stop_gradient(jnp.abs(params[key]) * FLAGS.noisy_forward_std*random_normal_var1)
+
+    logits, spikes = model.call(X, dropout_mask, **theta)
     avg_firing = jnp.mean(spikes, axis=1) 
     l2 = FLAGS.l2_weight_decay * jnp.sum(jnp.array([jnp.linalg.norm(params[el],'fro') for el in FLAGS.l2_weight_decay_params]))
     l1 = FLAGS.l1_weight_decay * jnp.sum(jnp.array([jnp.sum(jnp.abs(params[el])) for el in FLAGS.l1_weight_decay_params]))
     return loss_normal(y, logits, avg_firing, FLAGS.reg) + l2 + l1
 
-def training_loss(X, y, params, FLAGS, model, dropout_mask):
-    grads = grad(_training_loss, argnums=2)(X, y, params, FLAGS, model, model.unmasked())
+def training_loss(X, y, params, FLAGS, model, dropout_mask, rand_key):
+    grads = grad(_training_loss, argnums=2)(X, y, params, FLAGS, model, model.unmasked(),rand_key)
     loss_contractive = FLAGS.contractive * jnp.sum(jnp.array([jnp.linalg.norm(jnp.ravel(grads[el]), ord=jnp.inf) for el in FLAGS.contractive_params]))
-    return _training_loss(X, y, params, FLAGS, model, dropout_mask) + loss_contractive
+    _, subkey = random.split(rand_key)
+    return _training_loss(X, y, params, FLAGS, model, dropout_mask, subkey) + loss_contractive
 
 def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits):
     make_step = {
@@ -72,12 +79,12 @@ def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits):
         step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key]) + FLAGS.attack_size_constant) /FLAGS.n_attack_steps
 
     for _ in range(FLAGS.n_attack_steps):
-        grads_theta_star = grad(lip_loss, argnums=2)(X,y, theta_star, logits, FLAGS, model, dropout_mask)
+        grads_theta_star = grad(lip_loss, argnums=2)(X,y, theta_star, logits, FLAGS, model, dropout_mask, rand_key)
         for key in theta_star.keys():
             theta_star[key] = theta_star[key] + step_size[key] * make_step[FLAGS.p_norm](grads_theta_star[key])
     return theta_star
 
-def lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask):
+def lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask, rand_key):
     logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
     if FLAGS.boundary_loss == "kl":
         return loss_kl(logits, logits_theta_star)
@@ -88,7 +95,7 @@ def lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask):
     if FLAGS.boundary_loss == "js":
         return loss_js(logits_theta_star, logits)
     if FLAGS.boundary_loss == "madry":
-        return training_loss(X, y, theta_star, FLAGS, model, dropout_mask)
+        return training_loss(X, y, theta_star, FLAGS, model, dropout_mask, rand_key)
 
 def dict_difference(dict1, dict2):
     diff = 0
@@ -101,15 +108,18 @@ def robust_loss(X, y, params, FLAGS, model, rand_key, dropout_mask, theta_star):
     if theta_star is None:
         theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
     if FLAGS.hessian_robustness:
-        nabla_theta = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask)
-        nabla_theta_star = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask)
+        _, subkey = random.split(rand_key)
+        nabla_theta = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask, subkey)
+        _, subkey = random.split(subkey)
+        nabla_theta_star = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask, subkey)
         return dict_difference(nabla_theta, nabla_theta_star)
-
-    return lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask)
+    _, subkey = random.split(rand_key)
+    return lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask, subkey)
 
 def loss_general(X, y, params, FLAGS, model, rand_key, dropout_mask, theta_star):
-    loss_n = training_loss(X, y, params, FLAGS, model, dropout_mask)
-    loss_r = robust_loss(X, y, params, FLAGS, model, rand_key, dropout_mask, theta_star)
+    loss_n = training_loss(X, y, params, FLAGS, model, dropout_mask, rand_key)
+    _, subkey = random.split(rand_key)
+    loss_r = robust_loss(X, y, params, FLAGS, model, subkey, dropout_mask, theta_star)
     return loss_n + FLAGS.beta_robustness*loss_r
 
 def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
@@ -117,18 +127,14 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
     _, subkey = random.split(rand_key)
     subkey, dropout_mask = model.split_and_get_dropout_mask(rand_key, FLAGS.dropout_prob)
     
-    #todo warmup if statment
     if(FLAGS.awp and epoch>=FLAGS.warmup):
         logits, _ = model.call(X, dropout_mask, **params)
         theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
         for key in theta_star:
             theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])  
-        grads = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask)
-        
-
+        grads = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask, subkey)
     elif(FLAGS.beta_robustness==0 or epoch < FLAGS.warmup):
-        grads = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask)
-    
+        grads = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask, subkey)
     else:
         if FLAGS.treat_as_constant:
             logits, _ = model.call(X, dropout_mask, **params)
@@ -136,79 +142,6 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
         else:
             theta_star=None
         grads = grad(loss_general, argnums=2)(X, y, params, FLAGS, model, subkey, dropout_mask, theta_star)
-
-        # logits, _ = model.call(X, dropout_mask, **params)
-        # from jax import jacfwd
-        # import matplotlib.pyplot as plt
-        # # "args": ["-beta_robustness=0.125", "-attack_size_mismatch=0.1", "-treat_as_constant", "-batch_size=1", "-n_hidden=16", "-n_attack_steps=10", "-initial_std_mismatch=0.0001"],
-
-        # def lip_loss_(X,y,theta_star,logits,model,dropout_mask):
-        #     logits_theta_star, _ = model.call(X, dropout_mask, **theta_star)
-        #     return loss_kl(logits, logits_theta_star)
-
-        # def f(params):
-        #     step_size = {}
-        #     theta_star = {}
-        #     N_steps = FLAGS.n_attack_steps
-        #     # - Initialize theta_star randomly 
-        #     for key in params.keys():
-        #         _, random_normal_var1 = split_and_sample(subkey, params[key].shape)
-        #         theta_star[key] = params[key] + jnp.abs(params[key]) * FLAGS.initial_std_mismatch*jnp.ones(params[key].shape)
-        #         step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key])) / N_steps
-        #     for _ in range(N_steps):
-        #         grads_theta_star = grad(lip_loss_, argnums=2)(X,y, theta_star, logits, model, dropout_mask)
-        #         for key in theta_star.keys():
-        #             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
-        #     return theta_star
-
-        # def get_diagonal(params):
-        #     step_size = {}
-        #     theta_star = {}
-        #     diagonal = {}
-        #     for key in params:
-        #         diagonal[key] = jnp.zeros_like(params[key])
-        #     N_steps = FLAGS.n_attack_steps
-        #     # - Initialize theta_star randomly 
-        #     for key in params.keys():
-        #         _, random_normal_var1 = split_and_sample(subkey, params[key].shape)
-        #         theta_star[key] = params[key] + jnp.abs(params[key]) * FLAGS.initial_std_mismatch*jnp.ones(params[key].shape)
-        #         step_size[key] = (FLAGS.attack_size_mismatch * jnp.abs(params[key])) / N_steps
-        #     for _ in range(N_steps):
-        #         grads_theta_star = grad(lip_loss_, argnums=2)(X,y, theta_star, logits, model, dropout_mask)
-        #         for key in theta_star.keys():
-        #             diagonal[key] += (FLAGS.attack_size_mismatch * jnp.sign(params[key])) / N_steps * jnp.sign(grads_theta_star[key]) 
-        #             theta_star[key] = theta_star[key] + step_size[key] * jnp.sign(grads_theta_star[key])
-        #     for key in params:
-        #         diagonal[key] = 1 + jnp.reshape(diagonal[key], (-1,))
-        #     return diagonal
-
-
-        # J = jacfwd(f)(params)
-        # W = {}
-        # for key in params:
-        #     W[key] = jnp.reshape(J[key][key], (onp.prod(params[key].shape),onp.prod(params[key].shape)))
-
-        # v = {}
-        # theta_v = {}
-
-        # for key in params:
-        #     v[key] = onp.random.random(size=onp.prod(params[key].shape))-0.5
-        #     v[key] = (v[key] / jnp.linalg.norm(v[key])) * 1e-4
-        #     theta_v[key] = params[key] + onp.reshape(v[key], params[key].shape)
-
-        # theta_star_v = f(theta_v)
-        # theta_star = f(params)
-
-        # diff = onp.reshape(theta_star_v["W_in"] - theta_star["W_in"], params["W_in"].shape)
-        # diff_jac = onp.reshape(W["W_in"] @ v["W_in"], params["W_in"].shape)
-
-        # key = "W_in"
-        # W = jnp.reshape(J[key][key], (onp.prod(params[key].shape),onp.prod(params[key].shape)))
-        # x = onp.diagonal(W)
-        
-
-        # diagonal = get_diagonal(params)
-        # plt.plot(x[:100]); plt.plot(diagonal[key][:100]); plt.ylim([0.75,1.25]); plt.show()
 
     if("W_rec" in grads.keys()):
         diag_indices = jnp.arange(0,grads["W_rec"].shape[0],1)
