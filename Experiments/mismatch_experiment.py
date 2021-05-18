@@ -22,7 +22,7 @@ class mismatch_experiment:
         ecg5 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         ecg6 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
         ecg7 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5 + ecg6 # + ecg7
+        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5 + ecg6 + ecg7
 
         speech = [speech_lsnn.make()]
         speech0 = configure(speech, {"beta_robustness": 0.0})
@@ -32,7 +32,7 @@ class mismatch_experiment:
         speech4 = configure(speech, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         speech5 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         speech6 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        speech7 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        speech7 = configure(speech, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5 + speech6 + speech7
 
         cnn_grid = [cnn.make()]
@@ -44,7 +44,7 @@ class mismatch_experiment:
         cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2"})
         cnn_grid6 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
         cnn_grid7 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 # + cnn_grid7
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 + cnn_grid7
 
         final_grid = ecg + speech + cnn_grid
         final_grid = split(final_grid, "seed", seeds)
@@ -91,7 +91,7 @@ class mismatch_experiment:
         grid_mm = configure(grid_mm, {"mode":"direct"})        
         grid_mm = run(grid_mm, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
-        @visualizer(dim=5)
+        @visualizer(dim=4)
         def violin(table, axes_dict):
 
             shape= table.shape()
@@ -103,12 +103,13 @@ class mismatch_experiment:
                 colors = ["#4c84e6","#03fc35"]
 
                 offset = 0
-                for i1 in range(shape[3]):
-                    if table.get_val(i0, 0, 0, i1, 0) == None or len(table.get_val(i0, 0, 0, i1, 0)) == 1:
+                for i1 in range(shape[2]):
+                    if len([a for a in [(None == table.get_val(i0, i2, i1, 0)) or (len(table.get_val(i0, i2, i1, 0))==1) for i2 in range(shape[1])] if a==False]) != 2:
                         offset += 1
                         continue
                     a_idx = i1-offset
-                    el = [np.array(table.get_val(i0, i2, 0, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
+                    el = [np.array(table.get_val(i0, i2, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
+                    el = [e for e in el if all(e != [None])]
                     x = []
                     y = []
                     hue = []
@@ -125,14 +126,14 @@ class mismatch_experiment:
                         inner = 'quartile', cut=0,
                         scale = "width", palette = colors, saturation=1.0, linewidth=0.5)
                     axes[a_idx].set_xticks([])
-                    if(not (legend and i1==shape[3]-1)):
+                    if(not (legend and i1==shape[2]-1)):
                         axes[a_idx].get_legend().remove()
                 
-                if(legend):
-                    a = axes[a_idx]
-                    lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
-                    labels = [table.get_label(axis=1, index=i) for i in range(shape[1])]
-                    a.legend(lines, labels, frameon=False, loc=1, prop={'size': 7})
+                # if(legend):
+                #     a = axes[a_idx]
+                #     lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
+                #     labels = [table.get_label(axis=1, index=i) for i in range(shape[1])]
+                #     a.legend(lines, labels, frameon=False, loc=1, prop={'size': 7})
 
         label_dict = {
             "beta_robustness": "Beta",
@@ -152,26 +153,27 @@ class mismatch_experiment:
             "Optimizer = esgd":"ESGD"
         }
 
-        independent_keys = ["architecture", "beta_robustness", "noisy_forward_std", "mm_level"]
-        dependent_keys = ["mismatch_list"]
-        axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
-        order = [[2,1,0], None, None, None, None]
-        violin(grid_mm, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order)
+        # grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0))]
+        # independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="method"), "mm_level"]
+        # dependent_keys = ["mismatch_list"]
+        # axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
+        # order = [[2,1,0], [2,1,0], None, None]
+        # violin(grid_plot, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order)
 
-        # - Get the sample data for speech
-        X_speech, y_speech = get_data("speech")
-        X_ecg, y_ecg = get_data("ecg")
-        X_cnn, y_cnn = get_data("cnn")
+        # # - Get the sample data for speech
+        # X_speech, y_speech = get_data("speech")
+        # X_ecg, y_ecg = get_data("ecg")
+        # X_cnn, y_cnn = get_data("cnn")
 
-        plot_images(axes_cnn["top"], X_cnn, y_cnn)
-        plot_spectograms(axes_speech["top"], X_speech, y_speech)
-        plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
+        # plot_images(axes_cnn["top"], X_cnn, y_cnn)
+        # plot_spectograms(axes_speech["top"], X_speech, y_speech)
+        # plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
 
-        axes_speech["btm"][0].set_ylabel("Accuracy")
-        axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
+        # axes_speech["btm"][0].set_ylabel("Accuracy")
+        # axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
 
-        plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
-        plt.show()
+        # # plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
+        # plt.show()
 
         group_by = ["architecture", "awp", "beta_robustness", "dropout_prob", "optimizer", "noisy_forward_std", "mm_level"]
         for g in grid_mm:

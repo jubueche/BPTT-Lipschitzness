@@ -29,18 +29,31 @@ def latex(table, decimals=2, bold_order=None):
             + format_value(table.get_label(axis=0, index=i0)) \
             + r"}" + struts + r"\\ \midrule" + "\n"
 
-        string += "".join([r"&& \multicolumn{" + str(shape[3]) +r"}{l}{" + format_value(table.get_label(axis=1, index=i)) + r"} " for i in range(shape[1])]) \
-            + r"\\" \
-            + "".join([r"\cmidrule(r){" + f"{i*(shape[3]+1) +3}-{(i+1)*(shape[3]+1) + 1}" + "}" for i in range(shape[1])]) \
+        relevant = set([])
+
+        for i1 in range(shape[1]):
+            for i2 in range(shape[2]):
+                for i3 in range(shape[3]):
+                    if not format_value(table.get_val(i0, i1, i2, i3)) == 'None':
+                        relevant.add(i1)
+        
+        relevant = sorted(list(relevant))
+        diff = shape[1] - len(relevant)
+        padding = " & " * (diff * shape[3] + diff - 1)
+
+        string += "".join([r"&& \multicolumn{" + str(shape[3]) +r"}{l}{" + format_value(table.get_label(axis=1, index=i)) + r"} " for i in relevant]) \
+            + padding + r"\\" \
+            + "".join([r"\cmidrule(r){" + f"{i*(shape[3]+1) +3}-{(i+1)*(shape[3]+1) + 1}" + "}" for i in range(len(relevant))]) \
             + "\n"
         
         if shape[3] > 1:
             string += format_value(table.get_label(axis=2)) \
-                + (" && " + " & ".join([format_value(table.get_label(axis=3, index=i)) for i in range(shape[3])]) ) * shape[1] \
-                + r" \\" + "\n"
+                + (" && " + " & ".join([format_value(table.get_label(axis=3, index=i)) for i in range(shape[3])]) ) * len(relevant) \
+                + padding + r" \\" + "\n"
         
         for i2 in range(shape[2]):
-            vals = [[format_value(table.get_val(i0, i1, i2, i3)) for i3 in range(shape[3])] for i1 in range(shape[1])]
+            vals = [[format_value(table.get_val(i0, i1, i2, i3)) for i3 in range(shape[3])] for i1 in relevant]
+            vals = [[vv if not vv=='None' else '-1' for vv in v] for v in vals]
             if not all([all([val =='None' for val in v]) for v in vals]):
                 if bold_order is None:
                     val_bold = [max([float(v[i]) for v in vals]) for i in range(len(vals[0]))]
@@ -49,7 +62,7 @@ def latex(table, decimals=2, bold_order=None):
                 bold_vals = [[f"{v}" if float(v) != val_bold[idx] else r"\bf{"+str(v)+r"}" for idx,v in enumerate(vv)] for vv in vals]
                 string += format_value(table.get_label(axis=2, index=i2)) \
                     + "".join([" && "  + " & ".join(v) for v in bold_vals]) \
-                    + r"\\" + "\n"
+                    + padding + r"\\" + "\n"
 
     string += r"\bottomrule" + "\n"
     string += r"\end{tabular}%" + "\n"
