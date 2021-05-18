@@ -1,0 +1,14 @@
+2021-05-11 22:47:41.172067: W tensorflow/stream_executor/platform/default/dso_loader.cc:59] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+WARNING:absl:Compiling _split for args (ShapedArray(uint32[2]),).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling compute_gradient_and_update for args (ShapedArray(int32[], weak_type=True), ShapedArray(float32[100,1,28,28]), ShapedArray(int32[100]), ShapedArray(float32[256]), ShapedArray(float32[256]), ShapedArray(float32[256]), ShapedArray(float32[64]), ShapedArray(float32[64]), ShapedArray(float32[64]), ShapedArray(float32[10]), ShapedArray(float32[10]), ShapedArray(float32[10]), ShapedArray(float32[1,1,1,1]), ShapedArray(float32[1,1,1,1]), ShapedArray(float32[1,1,1,1]), ShapedArray(float32[1,64,1,1]), ShapedArray(float32[1,64,1,1]), ShapedArray(float32[1,64,1,1]), ShapedArray(float32[64,1,4,4]), ShapedArray(float32[64,1,4,4]), ShapedArray(float32[64,1,4,4]), ShapedArray(float32[64,64,4,4]), ShapedArray(float32[64,64,4,4]), ShapedArray(float32[64,64,4,4]), ShapedArray(float32[1600,256]), ShapedArray(float32[1600,256]), ShapedArray(float32[1600,256]), ShapedArray(float32[256,64]), ShapedArray(float32[256,64]), ShapedArray(float32[256,64]), ShapedArray(float32[64,10]), ShapedArray(float32[64,10]), ShapedArray(float32[64,10]), ShapedArray(uint32[2])).
+2021-05-11 22:50:10.230677: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
