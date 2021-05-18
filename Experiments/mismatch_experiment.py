@@ -21,7 +21,7 @@ class mismatch_experiment:
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         ecg5 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         ecg6 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        ecg7 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        ecg7 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5 + ecg6 # + ecg7
 
         speech = [speech_lsnn.make()]
@@ -32,8 +32,8 @@ class mismatch_experiment:
         speech4 = configure(speech, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         speech5 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         speech6 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        speech7 = configure(speech, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5 + speech6 # + speech7
+        speech7 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5 + speech6 + speech7
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
@@ -91,7 +91,7 @@ class mismatch_experiment:
         grid_mm = configure(grid_mm, {"mode":"direct"})        
         grid_mm = run(grid_mm, get_mismatch_list, n_threads=10, store_key="mismatch_list")("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
-        @visualizer(dim=4)
+        @visualizer(dim=5)
         def violin(table, axes_dict):
 
             shape= table.shape()
@@ -103,12 +103,12 @@ class mismatch_experiment:
                 colors = ["#4c84e6","#03fc35"]
 
                 offset = 0
-                for i1 in range(shape[2]):
-                    if table.get_val(i0, 0, i1, 0) == None or len(table.get_val(i0, 0, i1, 0)) == 1:
+                for i1 in range(shape[3]):
+                    if table.get_val(i0, 0, 0, i1, 0) == None or len(table.get_val(i0, 0, 0, i1, 0)) == 1:
                         offset += 1
                         continue
                     a_idx = i1-offset
-                    el = [np.array(table.get_val(i0, i2, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
+                    el = [np.array(table.get_val(i0, i2, 0, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
                     x = []
                     y = []
                     hue = []
@@ -125,7 +125,7 @@ class mismatch_experiment:
                         inner = 'quartile', cut=0,
                         scale = "width", palette = colors, saturation=1.0, linewidth=0.5)
                     axes[a_idx].set_xticks([])
-                    if(not (legend and i1==shape[2]-1)):
+                    if(not (legend and i1==shape[3]-1)):
                         axes[a_idx].get_legend().remove()
                 
                 if(legend):
@@ -152,10 +152,10 @@ class mismatch_experiment:
             "Optimizer = esgd":"ESGD"
         }
 
-        independent_keys = ["architecture", "beta_robustness", "mm_level"]
+        independent_keys = ["architecture", "beta_robustness", "noisy_forward_std", "mm_level"]
         dependent_keys = ["mismatch_list"]
         axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
-        order = [[2,1,0], None, None, None]
+        order = [[2,1,0], None, None, None, None]
         violin(grid_mm, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order)
 
         # - Get the sample data for speech
