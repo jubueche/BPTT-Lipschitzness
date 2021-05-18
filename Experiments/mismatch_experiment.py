@@ -32,7 +32,7 @@ class mismatch_experiment:
         speech4 = configure(speech, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         speech5 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         speech6 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        speech7 = configure(speech, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        speech7 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5 + speech6 + speech7
 
         cnn_grid = [cnn.make()]
@@ -153,27 +153,27 @@ class mismatch_experiment:
             "Optimizer = esgd":"ESGD"
         }
 
-        # grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0))]
-        # independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="method"), "mm_level"]
-        # dependent_keys = ["mismatch_list"]
-        # axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
-        # order = [[2,1,0], [2,1,0], None, None]
-        # violin(grid_plot, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order)
+        grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0))]
+        independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="method"), "mm_level"]
+        dependent_keys = ["mismatch_list"]
+        axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
+        order = [[2,1,0], [2,1,0], None, None]
+        violin(grid_plot, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order)
 
-        # # - Get the sample data for speech
-        # X_speech, y_speech = get_data("speech")
-        # X_ecg, y_ecg = get_data("ecg")
-        # X_cnn, y_cnn = get_data("cnn")
+        # - Get the sample data for speech
+        X_speech, y_speech = get_data("speech")
+        X_ecg, y_ecg = get_data("ecg")
+        X_cnn, y_cnn = get_data("cnn")
 
-        # plot_images(axes_cnn["top"], X_cnn, y_cnn)
-        # plot_spectograms(axes_speech["top"], X_speech, y_speech)
-        # plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
+        plot_images(axes_cnn["top"], X_cnn, y_cnn)
+        plot_spectograms(axes_speech["top"], X_speech, y_speech)
+        plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
 
-        # axes_speech["btm"][0].set_ylabel("Accuracy")
-        # axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
+        axes_speech["btm"][0].set_ylabel("Accuracy")
+        axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
 
-        # # plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
-        # plt.show()
+        plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
+        plt.show()
 
         group_by = ["architecture", "awp", "beta_robustness", "dropout_prob", "optimizer", "noisy_forward_std", "mm_level"]
         for g in grid_mm:
