@@ -8,34 +8,36 @@ class landscape_experiment:
 
     @staticmethod
     def train_grid():
-        betas = [0.25,0.5]
         seeds = [0]
-
-        speech = [speech_lsnn.make()]
-        speech0 = configure(speech, {"beta_robustness": 0.0})
-        speech1 = split(speech, "beta_robustness", betas)
-        speech1 = configure(speech1, {"attack_size_mismatch": 0.1})
-        speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
-        speech3 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        grid_speech = speech0 + speech1 + speech2 + speech3
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
-        ecg1 = split(ecg, "beta_robustness", betas)
-        ecg1 = configure(ecg1, {"attack_size_mismatch": 0.1})
+        ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
-        ecg3 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        grid_ecg = ecg0 + ecg1 + ecg2 + ecg3
+        ecg3 = configure(ecg, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
+        ecg4 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        ecg5 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5
+
+        speech = [speech_lsnn.make()]
+        speech0 = configure(speech, {"beta_robustness": 0.0})
+        speech1 = configure(speech, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1})
+        speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        speech3 = configure(speech, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
+        speech4 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        speech5 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
-        cnn_grid1 = split(cnn_grid, "beta_robustness", betas)
-        cnn_grid1 = configure(cnn_grid1, {"attack_size_mismatch": 0.1})
+        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
-        cnn_grid3 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry", "learning_rate":"0.0001,0.00001"})
-        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
+        cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
+        cnn_grid4 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
+        cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5
 
-        final_grid = grid_ecg + grid_speech + cnn_grid
+        final_grid = ecg + speech + cnn_grid
         final_grid = split(final_grid, "seed", seeds)
 
         return final_grid
@@ -49,14 +51,14 @@ class landscape_experiment:
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
 
-        num_steps = 100
+        num_steps = 50
         std = 0.2
         alpha_val = 0.2
         from_ = -2.0
         to_ = 2.0
-        n_repeat = 15
+        n_repeat = 5
 
-        grid = run(grid, get_landscape_sweep, n_threads=1, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
+        grid = run(grid, get_landscape_sweep, n_threads=10, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
 
         def get_data(arch):
             data_dict = {}
