@@ -15,7 +15,7 @@ def visualizer(dim=None):
 @visualizer(dim=4)
 def latex(table, decimals=2, bold_order=None):
     shape = table.shape()
-    cols = "lc" + "c".join(["l"*shape[3]]*shape[1])
+    cols = "lc" + "c".join(["l"*shape[3]]*len(list(set([table.get_label(1,idx) for idx in range(shape[1])]))))
     string = r"\resizebox{\columnwidth}{!}{%" + "\n"
     string += r"\begin{tabular}{" + cols + "}\n"
     string += r"\toprule" + "\n"
@@ -43,8 +43,9 @@ def latex(table, decimals=2, bold_order=None):
                     if not format_value(table.get_val(i0, i1, i2, i3)) == 'None':
                         relevant.add(i1)
         
-        relevant = sorted(list(relevant))
-        diff = shape[1] - len(relevant)
+        # relevant = sorted(list(relevant))
+        # diff = shape[1] - len(relevant)
+        diff = 0
         padding = " & " * (diff * shape[3] + diff - 1)
 
         string += "".join([r"&& \multicolumn{" + str(shape[3]) +r"}{l}{" + format_value(table.get_label(axis=1, index=i)) + r"} " for i in relevant]) \
