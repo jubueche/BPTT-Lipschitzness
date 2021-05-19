@@ -3,6 +3,9 @@ from datajuicer import run, split, configure, query
 from experiment_utils import *
 import numpy as onp
 import matplotlib as mpl
+from datajuicer.table import Table
+from datajuicer.visualizers import latex, visualizer, METHOD_COLORS, METHOD_LINESTYLE, METHOD_LINEWIDTH
+from datajuicer.utils import reduce_keys
 
 class landscape_experiment:
 
@@ -12,7 +15,7 @@ class landscape_experiment:
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
-        ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
+        ecg1 = configure(ecg, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
@@ -45,8 +48,6 @@ class landscape_experiment:
     @staticmethod
     def visualize():
         seeds = [0]
-        betas = [0.0,0.25,0.5]
-        colors = ["#4c84e6","#fc033d","#03fc35","#f803fc","#eba434","#42e6f5","#f542e0"]
         grid = [model for model in landscape_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -60,20 +61,44 @@ class landscape_experiment:
 
         grid = run(grid, get_landscape_sweep, n_threads=10, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
 
-        def get_data(arch):
-            data_dict = {}
-            for beta in betas:
-                data_tmp = query(grid, "landscape", where={"beta_robustness":beta, "dropout_prob":0.0, "architecture":arch})
-                data_dict[beta] = data_tmp
-            data_dict["Dropout"] = query(grid, "landscape", where={"beta_robustness":0.0, "dropout_prob":0.3, "architecture":arch})
-            data_dict["AWP"] = query(grid, "landscape", where={"beta_robustness":0.0, "awp":True, "boundary_loss":"madry", "architecture":arch})
-            return data_dict
-
-        keys = betas + ["Dropout","AWP"]
-
-        data_speech = get_data(arch="speech_lsnn")
-        data_ecg = get_data(arch="ecg_lsnn")
-        data_cnn = get_data(arch="cnn")
+        label_dict = {
+            "beta_robustness": "Beta",
+            "n_attack_steps": "Attack steps",
+            "attack_size": "Attack size",
+            "optimizer": "Optimizer",
+            "acc": "Mean Acc.",
+            "dropout_prob":"Dropout",
+            "cnn" : "CNN",
+            "speech_lsnn": "Speech SRNN",
+            "ecg_lsnn": "ECG SRNN",
+            "awp": "AWP",
+            "AWP = True":"AWP",
+            "Beta = 0.25":"Beta",
+            "Beta = 0.5":"Beta",
+            "Dropout = 0.3": "Dropout",
+            "noisy_forward_std = 0.3": "Forward Noise",
+            "Beta = 0.5, Forward Noise": "Forward + Beta",
+            "Beta = 0.25, Forward Noise": "Forward + Beta",
+            "Beta = 0.1, Forward Noise": "Forward + Beta",
+            "noisy_forward_std = 0.0": "No Forward Noise",
+            "Beta, Forward Noise":"Forward + Beta",
+            "Optimizer = abcd":"ABCD",
+            "Optimizer = esgd":"ESGD"
+        }
+        def ma(x, N, fill=True):
+            return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
+        def moving_average(x, N):
+            result = onp.zeros_like(x)
+            if x.ndim > 1:
+                over = x.shape[0]
+                for i in range(over):
+                    result[i] = ma(x[i], N)
+            else:
+                result = ma(x, N)
+            return result
+        def get_ma(data,N=5):
+            smoothed_mean = moving_average(onp.mean(onp.array(data), axis=0), N=N)
+            return smoothed_mean
 
         fig = plt.figure(figsize=(12,3), constrained_layout=True)
         gridspec = fig.add_gridspec(1, 3, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
@@ -89,62 +114,25 @@ class landscape_experiment:
         axes[2].spines['top'].set_visible(False)
         axes[2].set_xlabel(r"$\alpha$")
 
-        def ma(x, N, fill=True):
-            return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
+        @visualizer(dim=3)
+        def grid_plot(table, axes):
+            shape = table.shape()
+            for i0 in range(shape[0]):
+                data_dic = {table.get_label(axis=1, index=idx): table.get_val(i0,idx,0) for idx in range(shape[1]) if not table.get_val(i0,idx,0) is None}
+                for idx,label in enumerate(data_dic):
+                    if not data_dic[label] is None:
+                        d = get_ma(data_dic[label])
+                        axes[i0].plot(onp.linspace(from_,to_,len(d)), d, c=METHOD_COLORS[label], linestyle=METHOD_LINESTYLE[label], linewidth=METHOD_LINEWIDTH[label], label=label)
+                axes[i0].grid(axis='y', which='both')
+                axes[i0].grid(axis='x', which='major')
+                axes[i0].set_ylabel("Cross Entropy Loss")
+                axes[i0].set_title(table.get_label(axis=0, index=i0))
+                axes[i0].set_xlabel(r"$\alpha$")
+            axes[0].legend(frameon=True, prop={'size': 7})
 
-        def moving_average(x, N):
-            result = onp.zeros_like(x)
-            if x.ndim > 1:
-                over = x.shape[0]
-                for i in range(over):
-                    result[i] = ma(x[i], N)
-            else:
-                result = ma(x, N)
-            return result
+        independent_keys = ["architecture", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
+        dependent_keys = ["landscape"]
+        grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None)
 
-        def get_ma(data,N=5):
-            sum_data_over_seed = onp.array(data[0])
-            for d in data[1:]:
-                sum_data_over_seed += onp.array(d)
-            # - Mean over seeds
-            mean_data_over_seed = 1/len(data) * sum_data_over_seed
-            smoothed_mean_data_over_seed = moving_average(mean_data_over_seed, N=N)
-            return onp.mean(smoothed_mean_data_over_seed, axis=0)
-
-        for beta_idx,beta in enumerate(keys):
-            data_beta_speech = data_speech[beta]
-            data_beta_ecg = data_ecg[beta]
-            data_beta_cnn = data_cnn[beta]
-            
-            smoothed_mean_speech_over_seed = get_ma(data_beta_speech)
-            smoothed_mean_ecg_over_seed = get_ma(data_beta_ecg)
-            smoothed_mean_cnn_over_seed = get_ma(data_beta_cnn)
-
-            label = None
-            for idx_d,d in enumerate(data_beta_speech):
-                if idx_d == 0:
-                    if beta == 0.0:
-                        label = "Normal"
-                    elif beta == "Dropout":
-                        label = "Dropout"
-                    elif beta == "AWP":
-                        label = "AWP"
-                    else:
-                        label = r"$\beta_{\textnormal{robust}}=$" + ("%s" % str(beta))               
-                # axes[0].plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
-            axes[0].plot(onp.linspace(from_,to_,len(smoothed_mean_speech_over_seed)), smoothed_mean_speech_over_seed, c=colors[beta_idx], alpha=1.0, label=label)
-            
-            # for idx_d,d in enumerate(data_beta_ecg):
-            #     axes[1].plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
-            axes[1].plot(onp.linspace(from_,to_,len(smoothed_mean_ecg_over_seed)), smoothed_mean_ecg_over_seed, c=colors[beta_idx], alpha=1.0)
-
-            # for idx_d,d in enumerate(data_beta_cnn):
-            #     axes[2].plot(onp.linspace(from_,to_,num_steps), d.T, c=colors[beta_idx], alpha=alpha_val)
-            axes[2].plot(onp.linspace(from_,to_,len(smoothed_mean_cnn_over_seed)), smoothed_mean_cnn_over_seed, c=colors[beta_idx], alpha=1.0)
-
-        axes[1].set_title("ECG")
-        axes[0].set_title("Speech")
-        axes[2].set_title("CNN")
-        axes[0].legend(fontsize=6)
         plt.savefig("Resources/Figures/landscape.pdf", dpi=1200)
         plt.plot()

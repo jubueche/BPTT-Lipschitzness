@@ -1,5 +1,11 @@
 from datajuicer.table import Table
 
+METHOD_COLORS = {"Default":"#4c84e6", "AWP":"#fc033d", "ABCD":"#03fc35", "ESGD":"#000000", "Beta":"#9b32a8", "Forward + Beta":"#aaa2b8", "Forward Noise":"#ed64ed", "Dropout":"#32a83a"}
+METHOD_LINESTYLE = {"Default":"solid", "AWP":"solid", "ABCD":"solid", "ESGD":"solid", "Beta":"dotted", "Forward + Beta":"dashed", "Forward Noise":"solid", "Dropout":"solid"}
+default_lw = 1.0
+ours_lw = 3.0
+METHOD_LINEWIDTH = {"Default":default_lw, "AWP":default_lw, "ABCD":default_lw, "ESGD":default_lw, "Beta":ours_lw, "Forward + Beta":ours_lw, "Forward Noise":default_lw, "Dropout":default_lw}
+
 def visualizer(dim=None):
     def _func(func, table_args, kwargs):
         table = Table(*table_args)

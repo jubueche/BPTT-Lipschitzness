@@ -16,32 +16,34 @@ class mismatch_experiment:
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
         ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
-        ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
-        ecg3 = configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
+        ecg2 = []#configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
+        ecg3 = []#configure(ecg, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.1,0.01", "n_epochs":"20,10"})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
-        ecg5 = configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
+        ecg5 = []#configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         ecg6 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
         ecg7 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5 + ecg6 + ecg7
+        ecg8 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5 + ecg6 + ecg7 + ecg8
 
         speech = [speech_lsnn.make()]
         speech0 = configure(speech, {"beta_robustness": 0.0})
-        speech1 = configure(speech, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
-        speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
-        speech3 = configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"40,10"})
+        speech1 = configure(speech, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1})
+        speech2 = [] # configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        speech3 = [] # configure(speech, {"beta_robustness": 0.0, "optimizer": "esgd", "learning_rate":"0.001,0.0001", "n_epochs":"40,10"})
         speech4 = configure(speech, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
-        speech5 = configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
+        speech5 = [] #configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         speech6 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
         speech7 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5 + speech6 + speech7
+        speech8 = configure(speech, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5 + speech6 + speech8
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0})
         cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
-        cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
-        cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "n_epochs":"10,5"})
+        cnn_grid2 = [] #configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
+        cnn_grid3 = [] #configure(cnn_grid, {"beta_robustness": 0.0, "optimizer": "esgd", "n_epochs":"10,5"})
         cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
-        cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2"})
+        cnn_grid5 = [] #configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2"})
         cnn_grid6 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
         cnn_grid7 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 + cnn_grid7
@@ -58,14 +60,6 @@ class mismatch_experiment:
         ecg_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         cnn_mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
         seeds = [0]
-        dropout = 0.3
-        beta_ecg = 0.25
-        beta_speech = 0.25
-        beta_cnn = 0.25
-        attack_size_mismatch_speech = 0.1
-        attack_size_mismatch_ecg = 0.1
-        attack_size_mismatch_cnn = 0.1
-        awp_gamma = 0.1
 
         # - Per general column
         N_cols = 10 # - 10
@@ -129,11 +123,11 @@ class mismatch_experiment:
                     if(not (legend and i1==shape[2]-1)):
                         axes[a_idx].get_legend().remove()
                 
-                # if(legend):
-                #     a = axes[a_idx]
-                #     lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
-                #     labels = [table.get_label(axis=1, index=i) for i in range(shape[1])]
-                #     a.legend(lines, labels, frameon=False, loc=1, prop={'size': 7})
+                if(legend):
+                    a = axes[a_idx]
+                    lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
+                    labels = ["Ours","Standard"]
+                    a.legend(lines, labels, frameon=False, loc=3, prop={'size': 7})
 
         label_dict = {
             "beta_robustness": "Beta",
@@ -148,12 +142,16 @@ class mismatch_experiment:
             "ecg_lsnn": "ECG LSNN",
             "awp": "AWP",
             "AWP = True":"AWP",
-            "noisy_forward = True": "Forward Noise",
+            "noisy_forward_std = 0.3": "Forward Noise",
+            "Beta = 0.5, noisy_forward_std = 0.3": "Forward + Beta",
+            "Beta = 0.25, noisy_forward_std = 0.3": "Forward + Beta",
+            "Beta = 0.1, noisy_forward_std = 0.3": "Forward + Beta",
+            "noisy_forward_std = 0.0": "No Forward Noise",
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }
 
-        grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0))]
+        grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0.0))]
         independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="method"), "mm_level"]
         dependent_keys = ["mismatch_list"]
         axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
@@ -170,7 +168,7 @@ class mismatch_experiment:
         plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
 
         axes_speech["btm"][0].set_ylabel("Accuracy")
-        axes_speech["btm"][2].text(x = -0.5, y = -0.2, s="Mismatch level")
+        axes_speech["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta_{\textnormal{relative}}$)")
 
         plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
         plt.show()
@@ -182,10 +180,10 @@ class mismatch_experiment:
 
         independent_keys = ["architecture",Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method"),  "mm_level"]
         dependent_keys = ["mismatch_list_mean", "mismatch_list_std","mismatch_list_min"]
-        order = [None, [3,2,1,4,0,5], None, None, None, None]
+        order = [None, None, None, None, None, None]
 
         print(latex(reduced, independent_keys, dependent_keys, label_dict, order, bold_order=[max,min,max]))
 
         reduced2 = reduce_keys(grid, "validation_accuracy", reduction=lambda a: float(100 * np.mean([np.max(aa) for aa in a])), group_by=group_by[:-1])
-        order = [None, None, [3,2,1,4,0,5], None]
+        order = [None, None, None, None]
         print(latex(reduced2, independent_keys[:-1], dependent_keys=["validation_accuracy"], label_dict=label_dict, order=order))
