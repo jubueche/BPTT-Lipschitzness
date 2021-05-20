@@ -2,7 +2,7 @@ from architectures import speech_lsnn, ecg_lsnn, cnn
 from datajuicer import run, split, configure, query
 from experiment_utils import *
 import numpy as onp
-import matplotlib as mpl
+import matplotlib.pyplot as plt
 from datajuicer.table import Table
 from datajuicer.visualizers import latex, visualizer, METHOD_COLORS, METHOD_LINESTYLE, METHOD_LINEWIDTH
 from datajuicer.utils import reduce_keys
@@ -15,7 +15,7 @@ class landscape_experiment:
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
-        ecg1 = configure(ecg, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1})
+        ecg1 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
         ecg2 = configure(ecg, {"beta_robustness": 0.0, "dropout_prob": 0.3})
         ecg3 = configure(ecg, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         ecg4 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
@@ -28,7 +28,7 @@ class landscape_experiment:
         speech2 = configure(speech, {"beta_robustness": 0.0, "dropout_prob":0.3})
         speech3 = configure(speech, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         speech4 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        speech5 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        speech5 = configure(speech, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5
 
         cnn_grid = [cnn.make()]
@@ -115,12 +115,16 @@ class landscape_experiment:
         axes[2].set_xlabel(r"$\alpha$")
 
         @visualizer(dim=3)
-        def grid_plot(table, axes):
+        def grid_plot(table, axes, mean_only):
             shape = table.shape()
             for i0 in range(shape[0]):
                 data_dic = {table.get_label(axis=1, index=idx): table.get_val(i0,idx,0) for idx in range(shape[1]) if not table.get_val(i0,idx,0) is None}
                 for idx,label in enumerate(data_dic):
                     if not data_dic[label] is None:
+                        if not mean_only:
+                            d_raw = data_dic[label]
+                            for d in d_raw:
+                                axes[i0].plot(onp.linspace(from_,to_,len(d)), d, c=METHOD_COLORS[label], linestyle=METHOD_LINESTYLE[label], linewidth=METHOD_LINEWIDTH[label], alpha=0.2)    
                         d = get_ma(data_dic[label])
                         axes[i0].plot(onp.linspace(from_,to_,len(d)), d, c=METHOD_COLORS[label], linestyle=METHOD_LINESTYLE[label], linewidth=METHOD_LINEWIDTH[label], label=label)
                 axes[i0].grid(axis='y', which='both')
@@ -132,7 +136,13 @@ class landscape_experiment:
 
         independent_keys = ["architecture", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
         dependent_keys = ["landscape"]
-        grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None)
+        grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=True)
 
         plt.savefig("Resources/Figures/landscape.pdf", dpi=1200)
+        plt.plot()
+
+        for ax in axes:
+            ax.clear()
+        grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=False)
+        plt.savefig("Resources/Figures/landscape_raw.pdf", dpi=1200)
         plt.plot()

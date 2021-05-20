@@ -22,8 +22,7 @@ class mismatch_experiment:
         ecg5 = []#configure(ecg, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         ecg6 = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
         ecg7 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        ecg8 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5 + ecg6 + ecg7 + ecg8
+        ecg = ecg0 + ecg1 + ecg2 + ecg3 + ecg4 + ecg5 + ecg6 + ecg7
 
         speech = [speech_lsnn.make()]
         speech0 = configure(speech, {"beta_robustness": 0.0})
@@ -147,8 +146,12 @@ class mismatch_experiment:
             "noisy_forward_std = 0.3": "Forward Noise",
             "Beta, Forward Noise": "Forward + Beta",
             "Beta = 0.5, Forward Noise": "Forward + Beta",
+            "Beta = 0.2, Forward Noise": "Forward + Beta",
+            "Beta = 0.3, Forward Noise": "Forward + Beta",
             "Beta = 0.25, Forward Noise": "Forward + Beta",
             "Beta = 0.1, Forward Noise": "Forward + Beta",
+            "Beta = 0.2, noisy_forward_std = 0.3": "Forward + Beta",
+            "Beta = 0.3, noisy_forward_std = 0.3": "Forward + Beta",
             "Beta = 0.5, noisy_forward_std = 0.3": "Forward + Beta",
             "Beta = 0.25, noisy_forward_std = 0.3": "Forward + Beta",
             "Beta = 0.1, noisy_forward_std = 0.3": "Forward + Beta",
