@@ -84,8 +84,8 @@ def get_surface_data(model, surface_dist, data_dir):
     theta_star = {}
     theta = model["theta"]
     for key in theta:
-        theta_star[key] = theta[key] + surface_dist * onp.sign(onp.random.uniform(low=-1, high=1, size=theta[key].shape))
-    test_acc, _ = get_test_acc(model, theta_star, data_dir, ATTACK=False) 
+        theta_star[key] = theta[key] + onp.abs(theta[key]) * surface_dist * onp.sign(onp.random.uniform(low=-1, high=1, size=theta[key].shape))
+    test_acc, _, _, _ = get_test_acc(model, theta_star, data_dir, ATTACK=False) 
     return test_acc
 
 def _get_mismatch_data(model, theta, mm_level, data_dir, mode):
@@ -215,8 +215,9 @@ def get_mismatch_list(n_iterations, model, mm_level, data_dir):
 @cachable(dependencies = ["model:{architecture}_session_id", "n_iterations", "surface_dist", "model:architecture"])
 def get_surface_mean(n_iterations, model, surface_dist, data_dir):
     l = []
-    for _ in range(n_iterations):
-        l.append(get_surface_data(model,surface_dist, data_dir, False))
+    for i in range(n_iterations):
+        l.append(get_surface_data(model,surface_dist, data_dir))
+        print(i,"/",n_iterations,flush=True)
     return onp.mean(l)
 
 @cachable(dependencies = ["model:{architecture}_session_id", "model:architecture"])
