@@ -426,13 +426,13 @@ def plot_images(axes, X, y):
     for i,ax in enumerate(axes[:int(len(axes)/2)]):
         ax.imshow(X[i], cmap="binary")
         if(onp.random.rand() > 0.1):
-            plt.setp(ax.spines.values(), color="g", linewidth=1)
+            plt.setp(ax.spines.values(), linewidth=1)
         else:
             plt.setp(ax.spines.values(), color="r", linewidth=1)
     for i,ax in enumerate(axes[int(len(axes)/2):]):
         ax.imshow(X[i], cmap="binary")
         if(onp.random.rand() > 0.5):
-            plt.setp(ax.spines.values(), color="g", linewidth=1)
+            plt.setp(ax.spines.values(), linewidth=1)
         else:
             plt.setp(ax.spines.values(), color="r", linewidth=1)
 
@@ -444,11 +444,11 @@ def plot_spectograms(axes, X, y):
     for i,ax in enumerate(axes):
         if i == 6:
             p = 0.2
-        c = "g" if onp.random.rand() <= p else "r"
-        ims.append(ax.pcolormesh(x,y, X[i], cmap="RdBu_r"))
+        c = None if onp.random.rand() <= p else "r"
+        ims.append(ax.pcolormesh(x,y, X[i], cmap="Greys_r"))
         plt.setp(ax.spines.values(), color=c, linewidth=1)
     vmin = 0.0
-    vmax = 5.0
+    vmax = 1.0
     norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
     for im in ims:
         im.set_norm(norm)
@@ -469,6 +469,6 @@ def plot_ecg(axes, X, y):
         ax.plot(X[:,1], color=channel_colors[1])
         for idx,y in enumerate(pred.tolist()):
             ax.axvspan(idx*100, idx*100+100, facecolor=class_colors[int(y)], alpha=0.4)
-    plt_ax(axes[0], y, label="Groundtruth")
-    plt_ax(axes[1], get_y(y,0.6), label="Normal")
+    plt_ax(axes[1], y, label="Groundtruth")
+    plt_ax(axes[0], get_y(y,0.6), label="Normal")
     plt_ax(axes[2], get_y(y,0.9), label="Robust")

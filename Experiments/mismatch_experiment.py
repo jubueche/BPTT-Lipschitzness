@@ -44,7 +44,7 @@ class mismatch_experiment:
         cnn_grid4 = configure(cnn_grid, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         cnn_grid5 = [] #configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2"})
         cnn_grid6 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
-        cnn_grid7 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        cnn_grid7 = configure(cnn_grid, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 + cnn_grid7
 
         final_grid = ecg + speech + cnn_grid
@@ -93,7 +93,7 @@ class mismatch_experiment:
                 legend=False
                 if i0 == shape[0]-1:
                     legend=True
-                colors = ["#4c84e6","#03fc35"]
+                colors = ["#4c84e6","#000000"]
 
                 offset = 0
                 for i1 in range(shape[2]):
@@ -103,6 +103,11 @@ class mismatch_experiment:
                     a_idx = i1-offset
                     el = [np.array(table.get_val(i0, i2, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
                     el = [e for e in el if all(e != [None])]
+
+                    # - Compute the P-value between them here
+                    p_value_mw = stats.mannwhitneyu(el[0], el[1])[1]
+                    print(f"P-Value {p_value_mw} Architecture{table.get_label(0,i0)} MM Level {table.get_label(2,i1)}")
+
                     x = []
                     y = []
                     hue = []
@@ -119,6 +124,10 @@ class mismatch_experiment:
                         inner = 'quartile', cut=0,
                         scale = "width", palette = colors, saturation=1.0, linewidth=0.5)
                     axes[a_idx].set_xticks([])
+
+                    for l in axes[a_idx].lines[3:6]:
+                        l.set_color('white')
+
                     if(not (legend and i1==shape[2]-1)):
                         axes[a_idx].get_legend().remove()
                 
@@ -176,7 +185,9 @@ class mismatch_experiment:
         plot_spectograms(axes_speech["top"], X_speech, y_speech)
         plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
 
-        axes_speech["btm"][0].set_ylabel("Accuracy")
+        axes_speech["btm"][0].set_ylabel("Test acc.")
+        axes_ecg["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta_{\textnormal{relative}}$)")
+        axes_cnn["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta_{\textnormal{relative}}$)")
         axes_speech["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta_{\textnormal{relative}}$)")
 
         plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)

@@ -21,7 +21,7 @@ class Table():
                     d = f"{label_dict.get(key,key)} = {get(data,key,key)}"
                     ret.append(label_dict.get(d,d))
             if ret == []:
-                return "Default"
+                return "Standard"
             return ", ".join(ret)
         
         def prepare(self, label_dict, grid):

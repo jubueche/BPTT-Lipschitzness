@@ -91,7 +91,7 @@ class worst_case_experiment:
             "optimizer": "Optimizer",
             "acc": "Mean Acc.",
             "dropout_prob":"Dropout",
-            "cnn" : "CNN",
+            "cnn" : "F-MNIST",
             "speech_lsnn": "Speech SRNN",
             "ecg_lsnn": "ECG SRNN",
             "awp": "AWP",
@@ -99,11 +99,11 @@ class worst_case_experiment:
             "Beta = 0.25":"Beta",
             "Beta = 0.5":"Beta",
             "noisy_forward_std = 0.3": "Forward Noise",
-            "Beta = 0.5, Forward Noise": "Forward + Beta",
-            "Beta = 0.25, Forward Noise": "Forward + Beta",
-            "Beta = 0.1, Forward Noise": "Forward + Beta",
+            "Beta = 0.5, Forward Noise": "Beta + Forward",
+            "Beta = 0.25, Forward Noise": "Beta + Forward",
+            "Beta = 0.1, Forward Noise": "Beta + Forward",
             "noisy_forward_std = 0.0": "No Forward Noise",
-            "Beta, Forward Noise":"Forward + Beta",
+            "Beta, Forward Noise":"Beta + Forward",
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }
@@ -130,12 +130,12 @@ class worst_case_experiment:
                 axes[i0].grid(axis='x', which='major')
                 axes[i0].set_ylabel("Test Acc.")
                 axes[i0].set_title(table.get_label(axis=0, index=i0))
-                axes[i0].set_xlabel(r"$\zeta_{\textnormal{relative}}$")
+                axes[i0].set_xlabel(r"Attack size $\zeta$")
             axes[0].legend(frameon=True, prop={'size': 7})
 
         def plot(boundary_loss, loss_or_acc):
             sub_grid = [g for g in grid_worst_case if g["boundary_loss"]==boundary_loss and g["optimizer"]=="adam"]
-            fig = plt.figure(figsize=(10, 4), constrained_layout=True)
+            fig = plt.figure(figsize=(10, 3), constrained_layout=True)
             axes = get_axes_worst_case(fig, N_rows=1, N_cols=3, attack_sizes=attack_sizes)
             independent_keys = ["architecture","attack_size", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
             dependent_keys = [loss_or_acc]
