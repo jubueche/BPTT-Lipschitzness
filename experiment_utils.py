@@ -152,8 +152,69 @@ def get_val_acc(model, theta, data_dir, ATTACK=False):
     return _get_acc(model, theta, data_dir, ATTACK, mode="val")
 
 def get_test_acc(model, theta, data_dir, ATTACK=False):
-    return _get_acc(model, theta, data_dir, ATTACK, mode="test")
+    return _get_acc(model, theta, data_dir, ATTACK, mode="test") 
 
+def _batch_IBP_accuracy(y_pred, y):
+    y_pred_lower,y_pred_upper = y_pred
+    batch_size = y_pred_lower.shape[0]
+    correct = 0
+    for b in range(batch_size):
+        y_pred_lower_single = y_pred_lower[b]
+        y_pred_upper_single = y_pred_upper[b]
+        disjoint_indices = _disjoint_index(y_pred_lower_single,y_pred_upper_single)
+        if y[b] == jnp.argmax(y_pred_lower_single) and y[b] in disjoint_indices:
+            correct += 1.
+    return correct,batch_size
+
+def _disjoint_index(lower,upper):
+    return [idx for idx,b in 
+                enumerate([len([idx for idx,(ll,uu) in
+                    enumerate(zip(lower.flatten(),upper.flatten()))
+                    if is_disjoint((l,u),(ll,uu))])==len(lower.flatten())-1 for (l,u) in 
+                    zip(lower.flatten(),upper.flatten())])
+            if b]
+
+def is_disjoint(A,B):
+    lower_a,upper_a = A
+    lower_b,upper_b = B
+    if upper_a < lower_b or lower_a > upper_b:
+        return True
+    else:
+        return False
+
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "zeta"])
+def get_IBP_test_acc(model, zeta, data_dir):
+    class Namespace:
+        def __init__(self,d):
+            self.__dict__.update(d)
+    FLAGS = Namespace(model)
+    loader, set_size = get_loader(FLAGS, data_dir)
+    X_set = loader.X_test
+    Y_set = loader.y_test
+    i = 0
+    batch_size = 100
+    correct = 0.0
+    num = 0.0
+    num_iter = int(jnp.ceil(loader.N_test / batch_size))
+    theta = model["theta"]
+    theta_interval = {}
+    for key in theta:
+        pert = zeta * jnp.abs(theta[key])
+        theta_interval[key] = (theta[key]-pert, theta[key]+pert)
+    for idx in range(num_iter):
+        if idx == num_iter-1:
+            X = X_set[i:]
+            y = Y_set[i:]
+        else:
+            X = X_set[i:i+batch_size]
+            y = Y_set[i:i+batch_size]
+            i += batch_size
+        rnn_out, rnn_state_dict = model["network"].call_verbose_IBP(X, model["network"].unmasked(), **theta_interval)
+        correct_tmp,num_tmp = _batch_IBP_accuracy(rnn_out, y)
+        correct += correct_tmp
+        num += num_tmp
+
+    return correct / num 
 
 @cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "num_steps", "std", "from_", "to_","n_repeat"])
 def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):

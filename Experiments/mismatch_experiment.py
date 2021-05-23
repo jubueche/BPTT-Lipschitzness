@@ -32,7 +32,7 @@ class mismatch_experiment:
         speech4 = configure(speech, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         speech5 = [] #configure(speech, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"40,10", "learning_rate":"0.001,0.0001"})
         speech6 = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-        speech7 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        # speech7 = configure(speech, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         speech8 = configure(speech, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         speech = speech0 + speech1 + speech2 + speech3 + speech4  + speech5 + speech6 + speech8
 
