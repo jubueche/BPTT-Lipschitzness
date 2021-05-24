@@ -134,7 +134,7 @@ class mismatch_experiment:
                 if(legend):
                     a = axes[a_idx]
                     lines = [Line2D([0,0],[0,0], color=c, lw=3.) for c in colors]
-                    labels = ["Ours","Standard"]
+                    labels = ["Standard","Ours"]
                     a.legend(lines, labels, frameon=False, loc=3, prop={'size': 7})
 
         label_dict = {
@@ -186,9 +186,9 @@ class mismatch_experiment:
         plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
 
         axes_speech["btm"][0].set_ylabel("Test acc.")
-        axes_ecg["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta_{\textnormal{relative}}$)")
-        axes_cnn["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta_{\textnormal{relative}}$)")
-        axes_speech["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta_{\textnormal{relative}}$)")
+        axes_ecg["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
+        axes_cnn["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
+        axes_speech["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
 
         plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
         plt.show()

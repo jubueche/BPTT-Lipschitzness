@@ -487,13 +487,14 @@ def plot_images(axes, X, y):
     for i,ax in enumerate(axes[:int(len(axes)/2)]):
         ax.imshow(X[i], cmap="binary")
         if(onp.random.rand() > 0.1):
-            plt.setp(ax.spines.values(), linewidth=1)
+            # pass
+            plt.setp(ax.spines.values(), color="white", linewidth=1)
         else:
             plt.setp(ax.spines.values(), color="r", linewidth=1)
     for i,ax in enumerate(axes[int(len(axes)/2):]):
         ax.imshow(X[i], cmap="binary")
         if(onp.random.rand() > 0.5):
-            plt.setp(ax.spines.values(), linewidth=1)
+            plt.setp(ax.spines.values(), color="white", linewidth=1)
         else:
             plt.setp(ax.spines.values(), color="r", linewidth=1)
 
@@ -531,5 +532,5 @@ def plot_ecg(axes, X, y):
         for idx,y in enumerate(pred.tolist()):
             ax.axvspan(idx*100, idx*100+100, facecolor=class_colors[int(y)], alpha=0.4)
     plt_ax(axes[1], y, label="Groundtruth")
-    plt_ax(axes[0], get_y(y,0.6), label="Normal")
-    plt_ax(axes[2], get_y(y,0.9), label="Robust")
+    plt_ax(axes[2], get_y(y,0.6), label="Normal")
+    plt_ax(axes[0], get_y(y,0.9), label="Robust")
