@@ -8,7 +8,7 @@ repo = input()
 if repo=="f":
     repo = "faberf@login.leonhard.ethz.ch:~/BPTT-Lipschitzness/"
 if repo=="j":
-    repo = "jubuechle@login.leonhard.ethz.ch:~/BPTT-Lipschitzness/"
+    repo = "jubueche@login.leonhard.ethz.ch:~/BPTT-Lipschitzness/"
 
 os.path.join(repo, "Sessions")
 s = os.path.join(repo, "Sessions")
