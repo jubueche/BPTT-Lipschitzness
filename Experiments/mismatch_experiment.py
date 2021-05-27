@@ -11,7 +11,7 @@ class mismatch_experiment:
     
     @staticmethod
     def train_grid():
-        seeds = [0,1,2]
+        seeds = [0,1]
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
@@ -47,7 +47,7 @@ class mismatch_experiment:
         cnn_grid7 = configure(cnn_grid, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 + cnn_grid7
 
-        final_grid = ecg + speech + cnn_grid
+        final_grid = ecg + speech #+ cnn_grid
         final_grid = split(final_grid, "seed", seeds)
 
         return final_grid
@@ -86,7 +86,11 @@ class mismatch_experiment:
 
         @visualizer(dim=4)
         def violin(table, axes_dict):
-
+            def get_val(*args): 
+                l = table.get_val(*args)
+                if l is None:
+                    return None
+                return sum(l,[])
             shape= table.shape()
             for i0 in range(shape[0]):
                 axes = axes_dict[table.get_label(axis=0, index=i0)]
@@ -96,12 +100,9 @@ class mismatch_experiment:
                 colors = ["#4c84e6","#000000"]
 
                 offset = 0
-                for i1 in range(shape[2]):
-                    if len([a for a in [(None == table.get_val(i0, i2, i1, 0)) or (len(table.get_val(i0, i2, i1, 0))==1) for i2 in range(shape[1])] if a==False]) != 2:
-                        offset += 1
-                        continue
-                    a_idx = i1-offset
-                    el = [np.array(table.get_val(i0, i2, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
+                for i1 in range(shape[2])[1:]:
+                    a_idx = i1-1
+                    el = [np.array(get_val(i0, i2, i1, 0)).reshape((-1,)) for i2 in range(shape[1])]
                     el = [e for e in el if all(e != [None])]
 
                     # - Compute the P-value between them here
@@ -168,13 +169,20 @@ class mismatch_experiment:
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }
+        order_violin = {
+            "Method": ["Standard", "Forward + Beta"]
+        }
+
+        order = {
+            "architecture": ["speech_lsnn", "ecg_lsnn", "cnn"],
+            "Method": ["Forward + Beta", "Beta", "Standard"]
+        }
 
         grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0.0))]
-        independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="method"), "mm_level"]
+        independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="Method"), "mm_level"]
         dependent_keys = ["mismatch_list"]
         axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
-        order = [[2,1,0], [2,1,0], None, None]
-        violin(grid_plot, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order)
+        violin(grid_plot, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order_violin)
 
         # - Get the sample data for speech
         X_speech, y_speech = get_data("speech")
@@ -200,10 +208,9 @@ class mismatch_experiment:
 
         independent_keys = ["architecture",Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method"),  "mm_level"]
         dependent_keys = ["mismatch_list_mean", "mismatch_list_std","mismatch_list_min"]
-        order = [None, None, None, None, None, None]
+        
 
         print(latex(reduced, independent_keys, dependent_keys, label_dict, order, bold_order=[max,min,max]))
 
         reduced2 = reduce_keys(grid, "validation_accuracy", reduction=lambda a: float(100 * np.mean([np.max(aa) for aa in a])), group_by=group_by[:-1])
-        order = [None, None, None, None]
         print(latex(reduced2, independent_keys[:-1], dependent_keys=["validation_accuracy"], label_dict=label_dict, order=order))

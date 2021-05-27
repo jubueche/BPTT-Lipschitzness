@@ -72,33 +72,37 @@ class Table():
             elif len(self.independent_keys) +1 < dim:
                 self.independent_keys = [Table.Dummy_Var()] * (dim - len(self.independent_keys) -1) + self.independent_keys
         self.independent_keys = [var.prepare(label_dict, grid) for var in self.independent_keys]
-        
-        if order is None or order[-1] is None:
-            self.dependent_keys = dependent_keys 
-        else:
-            self.dependent_keys = [dependent_keys[order[-1][idx]] for idx in range(len(dependent_keys))]
-        
+        self.dependent_keys = dependent_keys
         self._f = query(grid, self.dependent_keys, group_by=self.independent_keys, return_func=True)
-        def _permute(l, axis):
-            if order is None:
-                return l
-            if order[axis] is None:
-                return l
-            return [l[i] for i in order[axis]] + [l[i] for i in range(len(l)) if not i in order[axis]]
 
-        self.vals = {key: _permute(sorted(list(set([get(data,key,key)  for data in grid]))), i) for i, key in enumerate(self.independent_keys)}
+        self.order = {}
+        
+        for indep_key in self.independent_keys:
+            self.order[indep_key] = sorted(list(set([get(data,indep_key,indep_key)  for data in grid])))
+        
+        for key_or_label in order:
+            if key_or_label in self.independent_keys:
+                indep_key = key_or_label
+            elif key_or_label in self.label_dict.values():
+                indep_key = [key for (key,val) in self.label_dict.items() if val==key_or_label and key in self.independent_keys][0]
+            prior = self.order[indep_key]
+            reverse = {v:k for (k,v) in self.label_dict.items() if k in prior}
+            edited = [val if val in prior else (reverse[val] if val in reverse else None) for val in order[key_or_label]]
+            edited = [val for val in edited if not val is None]
+            edited = [val for val in edited  if val in prior] + [val for val in prior if val not in edited]
+            self.order[indep_key] = edited
+        
+        pass
+
 
     def shape(self):
-        return [len(self.vals[key]) for key in self.independent_keys] + [len(self.dependent_keys)]
+        return [len(self.order[key]) for key in self.independent_keys] + [len(self.dependent_keys)]
     
     def get_val(self, *indices):
         dependent_key = self.dependent_keys[indices[-1]]
-        independent_keys = {key:self.vals[key][idx] for key, idx in zip(self.independent_keys, indices)}
+        independent_keys = {key:self.order[key][idx] for key, idx in zip(self.independent_keys, indices)}
         try:
             ret = self._f(independent_keys).get(dependent_key)
-            if len(ret) > 1:
-                print("Warning: More than one value found for table entry.")
-            ret = ret[0]
         except Exception:
             ret = None
         return ret
@@ -114,7 +118,7 @@ class Table():
         else:
             if index is None:
                 return self._replace(self.independent_keys[axis])
-            return self._replace(self.vals[self.independent_keys[axis]][index])
+            return self._replace(self.order[self.independent_keys[axis]][index])
 
     
     

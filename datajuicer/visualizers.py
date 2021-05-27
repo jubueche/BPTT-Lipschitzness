@@ -21,6 +21,8 @@ def latex(table, decimals=2, bold_order=None):
     string += r"\toprule" + "\n"
 
     def format_value(val):
+        if type(val) is list:
+            val = val[0]
         if type(val) is float:
             return f"%.{decimals}f" % (val)
         elif type(val) is str:
@@ -33,14 +35,14 @@ def latex(table, decimals=2, bold_order=None):
             string += r"\midrule" + " \n"
         string += r"\multicolumn{" + str(len(cols)) + r"}{l}{\bfseries " \
             + format_value(table.get_label(axis=0, index=i0)) \
-            + r"}" + struts + r"\\ \midrule" + "\n"
+            + r"}" + struts + r"\\" + "\n"
 
         relevant = set([])
 
         for i1 in range(shape[1]):
             for i2 in range(shape[2]):
                 for i3 in range(shape[3]):
-                    if not format_value(table.get_val(i0, i1, i2, i3)) == 'None':
+                    if not format_value(table.get_val(i0, i1, i2, i3)) == "None":
                         relevant.add(i1)
         
         # relevant = sorted(list(relevant))
