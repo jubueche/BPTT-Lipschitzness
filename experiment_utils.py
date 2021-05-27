@@ -368,7 +368,7 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
         inner_grid = gridspec[0:int(N_rows/2),:].subgridspec(4, 3, wspace=0.1, hspace=0.1)
         top_axes = [fig.add_subplot(inner_grid[i,j]) for i in range(4) for j in range(3)]
         top_axes[3].text(x=-0.15, y=0.5, s="Robust", fontdict={"rotation": 90})
-        top_axes[6].text(x=-0.15, y=-0.5, s="Normal", fontdict={"rotation": 90})
+        top_axes[6].text(x=-0.15, y=-0.5, s="Standard", fontdict={"rotation": 90})
     elif(id == "ecg"):
         r = int(N_rows/6)
         top_axes = [fig.add_subplot(gridspec[:r,:N_cols]),fig.add_subplot(gridspec[r:2*r,:N_cols]),fig.add_subplot(gridspec[2*r:3*r,:N_cols])]
@@ -378,7 +378,7 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
         inner_grid = gridspec[0:int(N_rows/2),:].subgridspec(4, N_cols, wspace=0.05, hspace=0.05)
         top_axes = [fig.add_subplot(inner_grid[i,j]) for i in range(4) for j in range(N_cols)]
         top_axes[10].text(x=-10, y=10, s="Robust", fontdict={"rotation": 90})
-        top_axes[30].text(x=-10, y=10, s="Normal", fontdict={"rotation": 90})
+        top_axes[30].text(x=-10, y=10, s="Standard", fontdict={"rotation": 90})
     # - Bottom axes
     r = int(N_cols/2)
     btm_axes = [fig.add_subplot(gridspec[int(N_rows/2):,int(i*2):int((i+1)*2)]) for i in range(r)]
@@ -498,22 +498,31 @@ def plot_images(axes, X, y):
         else:
             plt.setp(ax.spines.values(), color="r", linewidth=1)
 
+    axes[0].set_title(r"$\textbf{c}$", x=0, fontdict={'fontsize':15})
+
 def plot_spectograms(axes, X, y):
     x = onp.linspace(0,1,X.shape[2])
     y = onp.linspace(0,1,X.shape[1])
     ims = []
     p = 0.9
-    for i,ax in enumerate(axes):
+    for i,ax in enumerate(axes[:6]):
         if i == 6:
             p = 0.2
         c = None if onp.random.rand() <= p else "r"
-        ims.append(ax.pcolormesh(x,y, X[i], cmap="Greys_r"))
+        ims.append(ax.pcolormesh(x,y, X[i], cmap="Greys"))
+        plt.setp(ax.spines.values(), color=c, linewidth=1)
+    p = 0.2
+    for i,ax in enumerate(axes[6:]):
+        c = None if onp.random.rand() <= p else "r"
+        ims.append(ax.pcolormesh(x,y, X[i], cmap="Greys"))
         plt.setp(ax.spines.values(), color=c, linewidth=1)
     vmin = 0.0
     vmax = 1.0
     norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
     for im in ims:
         im.set_norm(norm)
+
+    axes[0].set_title(r"$\textbf{a}$", x=0, fontdict={'fontsize':15})
 
 def get_y(y, p):
     y_hat = copy(y)
@@ -532,5 +541,7 @@ def plot_ecg(axes, X, y):
         for idx,y in enumerate(pred.tolist()):
             ax.axvspan(idx*100, idx*100+100, facecolor=class_colors[int(y)], alpha=0.4)
     plt_ax(axes[1], y, label="Groundtruth")
-    plt_ax(axes[2], get_y(y,0.6), label="Normal")
+    plt_ax(axes[2], get_y(y,0.6), label="Standard")
     plt_ax(axes[0], get_y(y,0.9), label="Robust")
+
+    axes[0].set_title(r"$\textbf{b}$", x=0, fontdict={'fontsize':15})

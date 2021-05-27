@@ -108,8 +108,7 @@ class IBP_experiment:
         independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="method"), "zeta"]
         dependent_keys = ["interval_accuracy"]
         axes_dict = {"Speech LSNN":axes[0], "ECG LSNN":axes[1]}
-        order = [[1,0], None, None, None]
-        ibp_plot(grid, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order, zetas=zetas)
+        ibp_plot(grid, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=None, zetas=zetas)
 
         def get_voltage(model, data_dir):
             class Namespace:

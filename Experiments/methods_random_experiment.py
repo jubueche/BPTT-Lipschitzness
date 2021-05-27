@@ -12,11 +12,11 @@ class methods_random_experiment:
     
     @staticmethod
     def train_grid():
-        seeds = [0]
+        seeds = [0,1]
 
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch": 0.1})
-        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid = cnn_grid0 + cnn_grid1
 
         final_grid = cnn_grid
@@ -27,7 +27,7 @@ class methods_random_experiment:
     @staticmethod
     def visualize():
 
-        seeds = [0]
+        seeds = [0,1]
         attack_sizes = [0.0,0.01,0.05,0.1,0.2,0.3,0.5,0.7]
         grid = [model for model in methods_random_experiment.train_grid() if model["seed"] in seeds] 
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
@@ -77,7 +77,7 @@ class methods_random_experiment:
             if not labels[0] == None:
                 ax.legend(frameon=True, loc=0, prop={'size': 7})
 
-        plot_val(axes[0], lab=r"\bf{a}", beta=0.0, labels=[r"$\zeta$=0.0",r"$\zeta>0$"])
+        plot_val(axes[0], lab=r"\bf{a}", beta=0.0, labels=[r"Attack $\zeta$=0.0",r"Attack $\zeta>0$"])
         plot_val(axes[1], lab=r"\bf{b}", beta=query([g for g in grid if not g["beta_robustness"]==0.0], "beta_robustness", where={})[0])
 
         plot_attack(axes[2], lab=r"\bf{c}", beta=0.0, labels=["Adversarial","Random"])

@@ -68,7 +68,7 @@ class landscape_experiment:
             "optimizer": "Optimizer",
             "acc": "Mean Acc.",
             "dropout_prob":"Dropout",
-            "cnn" : "CNN",
+            "cnn" : "F-MNIST CNN",
             "speech_lsnn": "Speech SRNN",
             "ecg_lsnn": "ECG SRNN",
             "awp": "AWP",
