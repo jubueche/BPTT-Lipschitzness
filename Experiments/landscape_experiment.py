@@ -11,7 +11,7 @@ class landscape_experiment:
 
     @staticmethod
     def train_grid():
-        seeds = [0]
+        seeds = [0,1]
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
@@ -37,7 +37,7 @@ class landscape_experiment:
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.0, "dropout_prob":0.3})
         cnn_grid3 = configure(cnn_grid, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         cnn_grid4 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
-        cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
+        cnn_grid5 = configure(cnn_grid, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5
 
         final_grid = ecg + speech + cnn_grid
@@ -47,7 +47,7 @@ class landscape_experiment:
 
     @staticmethod
     def visualize():
-        seeds = [0]
+        seeds = [0,1]
         grid = [model for model in landscape_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -119,6 +119,8 @@ class landscape_experiment:
             shape = table.shape()
             for i0 in range(shape[0]):
                 data_dic = {table.get_label(axis=1, index=idx): table.get_val(i0,idx,0) for idx in range(shape[1]) if not table.get_val(i0,idx,0) is None}
+                for key in data_dic:
+                    data_dic[key] = onp.mean(onp.stack(data_dic[key]), 0)
                 for idx,label in enumerate(data_dic):
                     if not data_dic[label] is None:
                         if not mean_only:
