@@ -15,10 +15,7 @@ def visualizer(dim=None):
 @visualizer(dim=4)
 def latex(table, decimals=2, bold_order=None):
     shape = table.shape()
-    cols = "lc" + "c".join(["l"*shape[3]]*len(list(set([table.get_label(1,idx) for idx in range(shape[1])]))))
-    string = r"\resizebox{\columnwidth}{!}{%" + "\n"
-    string += r"\begin{tabular}{" + cols + "}\n"
-    string += r"\toprule" + "\n"
+    
 
     def format_value(val):
         if type(val) is list:
@@ -29,6 +26,24 @@ def latex(table, decimals=2, bold_order=None):
             return val.replace("_", r"\_")
         return str(val)
 
+    relevant = [set([]) for _ in range(shape[0])]
+    diff = [None] * shape[0]
+    for i0 in range(shape[0]):
+        for i1 in range(shape[1]):
+            for i2 in range(shape[2]):
+                for i3 in range(shape[3]):
+                    if not format_value(table.get_val(i0, i1, i2, i3)) == "None":
+                        relevant[i0].add(i1)
+        relevant[i0] = sorted(list(relevant[i0]))
+        diff[i0] = shape[1] - len(relevant[i0])
+    
+    mdiff = min(diff)
+
+    cols = ("lc" + "c".join(["l"*shape[3]]*(shape[1]-mdiff)))
+    string = r"\resizebox{\columnwidth}{!}{%" + "\n"
+    string += r"\begin{tabular}{" + cols + "}\n"
+    string += r"\toprule" + "\n"
+
     for i0 in range(shape[0]):
         struts = r""
         if i0 > 0:
@@ -37,31 +52,22 @@ def latex(table, decimals=2, bold_order=None):
             + format_value(table.get_label(axis=0, index=i0)) \
             + r"}" + struts + r"\\" + "\n"
 
-        relevant = set([])
-
-        for i1 in range(shape[1]):
-            for i2 in range(shape[2]):
-                for i3 in range(shape[3]):
-                    if not format_value(table.get_val(i0, i1, i2, i3)) == "None":
-                        relevant.add(i1)
         
-        # relevant = sorted(list(relevant))
-        # diff = shape[1] - len(relevant)
-        diff = 0
-        padding = " & " * (diff * shape[3] + diff - 1)
 
-        string += "".join([r"&& \multicolumn{" + str(shape[3]) +r"}{l}{" + format_value(table.get_label(axis=1, index=i)) + r"} " for i in relevant]) \
+        padding = " & " * ((diff[i0] - mdiff) * (shape[3] + 1))
+
+        string += "".join([r"&& \multicolumn{" + str(shape[3]) +r"}{l}{" + format_value(table.get_label(axis=1, index=i)) + r"} " for i in relevant[i0]]) \
             + padding + r"\\" \
-            + "".join([r"\cmidrule(r){" + f"{i*(shape[3]+1) +3}-{(i+1)*(shape[3]+1) + 1}" + "}" for i in range(len(relevant))]) \
+            + "".join([r"\cmidrule(r){" + f"{i*(shape[3]+1) +3}-{(i+1)*(shape[3]+1) + 1}" + "}" for i in range(len(relevant[i0]))]) \
             + "\n"
         
         if shape[3] > 1:
             string += format_value(table.get_label(axis=2)) \
-                + (" && " + " & ".join([format_value(table.get_label(axis=3, index=i)) for i in range(shape[3])]) ) * len(relevant) \
+                + (" && " + " & ".join([format_value(table.get_label(axis=3, index=i)) for i in range(shape[3])]) ) * len(relevant[i0]) \
                 + padding + r" \\" + "\n"
         
         for i2 in range(shape[2]):
-            vals = [[format_value(table.get_val(i0, i1, i2, i3)) for i3 in range(shape[3])] for i1 in relevant]
+            vals = [[format_value(table.get_val(i0, i1, i2, i3)) for i3 in range(shape[3])] for i1 in relevant[i0]]
             vals = [[vv if not vv=='None' else '-1' for vv in v] for v in vals]
             if not all([all([val =='None' for val in v]) for v in vals]):
                 if bold_order is None:
