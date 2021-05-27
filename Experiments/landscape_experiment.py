@@ -47,7 +47,7 @@ class landscape_experiment:
 
     @staticmethod
     def visualize():
-        seeds = [0,1]
+        seeds = [0]
         grid = [model for model in landscape_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -85,6 +85,7 @@ class landscape_experiment:
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }
+
         def ma(x, N, fill=True):
             return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
         def moving_average(x, N):

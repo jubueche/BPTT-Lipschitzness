@@ -63,7 +63,7 @@ class worst_case_experiment:
         attack_size_mismatch_speech = 0.1
         attack_size_mismatch_ecg = 0.1
         attack_size_mismatch_cnn = 0.1
-        boundary_loss = ["kl","madry"]
+        boundary_loss = ["madry","kl"]
 
         grid = [model for model in worst_case_experiment.train_grid() if model["seed"] in seeds] 
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
@@ -81,26 +81,33 @@ class worst_case_experiment:
 
         label_dict = {
             "beta_robustness": "Beta",
-            "n_attack_steps": "Attack steps",
-            "attack_size": "Attack size",
             "optimizer": "Optimizer",
-            "acc": "Mean Acc.",
+            "mismatch_list_mean": "Mean Acc.",
+            "mismatch_list_std":"Std.",
+            "mismatch_list_min":"Min.",
             "dropout_prob":"Dropout",
-            "cnn" : "F-MNIST CNN",
-            "speech_lsnn": "Speech SRNN",
-            "ecg_lsnn": "ECG SRNN",
+            "mm_level": "Mismatch",
+            "cnn" : "CNN",
+            "speech_lsnn": "Speech LSNN",
+            "ecg_lsnn": "ECG LSNN",
             "awp": "AWP",
             "AWP = True":"AWP",
-            "Beta = 0.25":"Beta",
-            "Beta = 0.5":"Beta",
-            "noisy_forward_std = 0.3": "Forward Noise",
-            "Beta = 0.5, Forward Noise": "Beta + Forward",
-            "Beta = 0.25, Forward Noise": "Beta + Forward",
-            "Beta = 0.1, Forward Noise": "Beta + Forward",
-            "noisy_forward_std = 0.0": "No Forward Noise",
-            "Beta, Forward Noise":"Beta + Forward",
+            "Beta = 0.25":"Beta 0.25",
+            "Beta = 0.5":"Beta 0.5",
+            "Beta = 0.2, Forward": "Forward + Beta 0.2",
+            "Beta = 0.3, Forward": "Forward + Beta 0.3",
+            "Beta = 0.5, Forward": "Forward + Beta 0.5",
+            "Beta 0.25, Forward": "Forward + Beta 0.25",
+            "Beta 0.5, Forward": "Forward + Beta 0.5",
+            "Beta = 0.1, Forward": "Forward + Beta 0.1",
+            "noisy_forward_std = 0.3": "Forward",
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
+        }
+
+        order = {
+            "architecture": ["speech_lsnn", "ecg_lsnn", "cnn"],
+            "Method": ["Forward + Beta 0.1", "Forward + Beta 0.5", "Beta 0.25", "Beta 0.5", "Standard", "Forward"]
         }
 
         def get_table(architecture, boundary_loss, loss_or_acc):
@@ -136,7 +143,7 @@ class worst_case_experiment:
             axes = get_axes_worst_case(fig, N_rows=1, N_cols=3, attack_sizes=attack_sizes)
             independent_keys = ["architecture","attack_size", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
             dependent_keys = [loss_or_acc]
-            grid_plot(sub_grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None)
+            grid_plot(sub_grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=order)
             plt.savefig(f"Resources/Figures/figure_worst_case_{loss_or_acc}_boundary_{boundary_loss}.pdf", dpi=1200)
             plt.show()
 
