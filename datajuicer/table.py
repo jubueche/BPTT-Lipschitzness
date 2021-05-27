@@ -81,14 +81,18 @@ class Table():
             self.order[indep_key] = sorted(list(set([get(data,indep_key,indep_key)  for data in grid])))
         
         if order:
+            indep_keys = []
             for key_or_label in order:
                 if key_or_label in self.independent_keys:
-                    indep_key = key_or_label
+                    indep_keys.append(key_or_label)
                 elif key_or_label in self.label_dict.values():
-                    indep_key = [key for (key,val) in self.label_dict.items() if val==key_or_label and key in self.independent_keys][0]
+                    indep_keys.append([key for (key,val) in self.label_dict.items() if val==key_or_label and key in self.independent_keys][0])
+
+            for indep_key in indep_keys:
                 prior = self.order[indep_key]
-                reverse = {v:k for (k,v) in self.label_dict.items() if k in prior}
-                edited = [val if val in prior else (reverse[val] if val in reverse else None) for val in order[key_or_label]]
+                reverse = {v:[k for k in label_dict if label_dict[k] == v and k in prior]  for v in self.label_dict.values()}
+                edited = [[val] if val in prior else (reverse[val] if val in reverse else [None]) for val in order[key_or_label]]
+                edited = sum(edited, [])
                 edited = [val for val in edited if not val is None]
                 edited = [val for val in edited  if val in prior] + [val for val in prior if val not in edited]
                 self.order[indep_key] = edited

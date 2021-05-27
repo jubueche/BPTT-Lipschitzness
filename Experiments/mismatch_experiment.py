@@ -47,7 +47,7 @@ class mismatch_experiment:
         cnn_grid7 = configure(cnn_grid, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 + cnn_grid7
 
-        final_grid = ecg + speech #+ cnn_grid
+        final_grid = ecg + speech + cnn_grid
         final_grid = split(final_grid, "seed", seeds)
 
         return final_grid
@@ -151,21 +151,15 @@ class mismatch_experiment:
             "ecg_lsnn": "ECG LSNN",
             "awp": "AWP",
             "AWP = True":"AWP",
-            "Beta = 0.25":"Beta",
-            "Beta = 0.5":"Beta",
-            "noisy_forward_std = 0.3": "Forward Noise",
-            "Beta, Forward Noise": "Forward + Beta",
-            "Beta = 0.5, Forward Noise": "Forward + Beta",
-            "Beta = 0.2, Forward Noise": "Forward + Beta",
-            "Beta = 0.3, Forward Noise": "Forward + Beta",
-            "Beta = 0.25, Forward Noise": "Forward + Beta",
-            "Beta = 0.1, Forward Noise": "Forward + Beta",
-            "Beta = 0.2, noisy_forward_std = 0.3": "Forward + Beta",
-            "Beta = 0.3, noisy_forward_std = 0.3": "Forward + Beta",
-            "Beta = 0.5, noisy_forward_std = 0.3": "Forward + Beta",
-            "Beta = 0.25, noisy_forward_std = 0.3": "Forward + Beta",
-            "Beta = 0.1, noisy_forward_std = 0.3": "Forward + Beta",
-            "noisy_forward_std = 0.0": "No Forward Noise",
+            "Beta = 0.25":"Beta 0.25",
+            "Beta = 0.5":"Beta 0.5",
+            "Beta = 0.2, Forward": "Forward + Beta 0.2",
+            "Beta = 0.3, Forward": "Forward + Beta 0.3",
+            "Beta = 0.5, Forward": "Forward + Beta 0.5",
+            "Beta 0.25, Forward": "Forward + Beta 0.25",
+            "Beta 0.5, Forward": "Forward + Beta 0.5",
+            "Beta = 0.1, Forward": "Forward + Beta 0.1",
+            "noisy_forward_std = 0.3": "Forward",
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }
@@ -175,7 +169,7 @@ class mismatch_experiment:
 
         order = {
             "architecture": ["speech_lsnn", "ecg_lsnn", "cnn"],
-            "Method": ["Forward + Beta", "Beta", "Standard"]
+            "Method": ["Forward + Beta 0.1", "Forward + Beta 0.5", "Beta 0.25", "Beta 0.5", "Standard", "Forward"]
         }
 
         grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0.0))]
