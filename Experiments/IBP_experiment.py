@@ -126,7 +126,7 @@ class IBP_experiment:
         V_speech_def = onp.array(query(grid, "V", where={"architecture":"speech_lsnn", "beta_robustness":0.0, "noisy_forward_std":0.0})).flatten()
 
         ax = axes[0]
-        ax.hist(V_speech_rob, density=True, color=METHOD_COLORS["Beta + Forward"], linewidth=METHOD_LINEWIDTH["Beta + Forward"], linestyle=METHOD_LINESTYLE["Beta + Forward"], label="Robust")
+        ax.hist(V_speech_rob, density=True, color=METHOD_COLORS["Forward Noise + Beta"], linewidth=METHOD_LINEWIDTH["Forward Noise + Beta"], linestyle=METHOD_LINESTYLE["Forward Noise + Beta"], label="Forward Noise + Beta")
         ax.hist(V_speech_def, density=True, alpha=0.5, color=METHOD_COLORS["Standard"], linewidth=METHOD_LINEWIDTH["Standard"], linestyle=METHOD_LINESTYLE["Standard"], label="Standard")
         ax.set_ylabel("Normalized bin count")
         ax.set_xlabel("Membrane potential")
@@ -137,7 +137,7 @@ class IBP_experiment:
         V_ecg_def = onp.array(query(grid, "V", where={"architecture":"speech_lsnn", "beta_robustness":0.0, "noisy_forward_std":0.0})).flatten()
 
         ax = axes[1]
-        ax.hist(V_ecg_rob, density=True, color=METHOD_COLORS["Beta + Forward"], linewidth=METHOD_LINEWIDTH["Beta + Forward"], linestyle=METHOD_LINESTYLE["Beta + Forward"], label="Robust")
+        ax.hist(V_ecg_rob, density=True, color=METHOD_COLORS["Forward Noise + Beta"], linewidth=METHOD_LINEWIDTH["Forward Noise + Beta"], linestyle=METHOD_LINESTYLE["Forward Noise + Beta"], label="Forward Noise + Beta")
         ax.hist(V_ecg_def, density=True, alpha=0.5, color=METHOD_COLORS["Standard"], linewidth=METHOD_LINEWIDTH["Standard"], linestyle=METHOD_LINESTYLE["Standard"], label="Standard")
         ax.set_ylabel("Normalized bin count")
         ax.set_xlabel("Membrane potential")
