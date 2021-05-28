@@ -365,8 +365,9 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
     # - Get the top axes
     if(id == "speech"):
         # yes,no,up,down,left,right
-        inner_grid = gridspec[0:int(N_rows/2),:].subgridspec(4, 3, wspace=0.1, hspace=0.1)
-        top_axes = [fig.add_subplot(inner_grid[i,j]) for i in range(4) for j in range(3)]
+        # inner_grid = gridspec[0:int(N_rows/2),:].subgridspec(4, 3, wspace=0.1, hspace=0.1)
+        inner_grid = [gridspec[int(s*int(N_rows/4)):int(s*int(N_rows/4))+int(N_rows/4),:].subgridspec(2, 3, wspace=0.1, hspace=0.1) for s in range(2)]
+        top_axes = [fig.add_subplot(inner_grid[0][i,j]) for i in range(2) for j in range(3)] + [fig.add_subplot(inner_grid[1][i,j]) for i in range(2) for j in range(3)]
         top_axes[3].text(x=-0.15, y=0.5, s="Robust", fontdict={"rotation": 90})
         top_axes[6].text(x=-0.15, y=-0.5, s="Standard", fontdict={"rotation": 90})
     elif(id == "ecg"):
@@ -375,8 +376,8 @@ def get_axes_main_figure(fig, gridspec, N_cols, N_rows, id, mismatch_levels, btm
         for ax in top_axes:
             remove_all_splines(ax)
     elif(id == "cnn"):
-        inner_grid = gridspec[0:int(N_rows/2),:].subgridspec(4, N_cols, wspace=0.05, hspace=0.05)
-        top_axes = [fig.add_subplot(inner_grid[i,j]) for i in range(4) for j in range(N_cols)]
+        inner_grid = [gridspec[int(s*int(N_rows/4)):int(s*int(N_rows/4))+int(N_rows/4),:].subgridspec(2, N_cols, wspace=0.05, hspace=0.05) for s in range(2)]
+        top_axes = [fig.add_subplot(inner_grid[0][i,j]) for i in range(2) for j in range(N_cols)] + [fig.add_subplot(inner_grid[1][i,j]) for i in range(2) for j in range(N_cols)]
         top_axes[10].text(x=-10, y=10, s="Robust", fontdict={"rotation": 90})
         top_axes[30].text(x=-10, y=10, s="Standard", fontdict={"rotation": 90})
     # - Bottom axes
