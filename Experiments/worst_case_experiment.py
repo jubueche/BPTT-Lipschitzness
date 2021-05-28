@@ -48,10 +48,10 @@ class worst_case_experiment:
         cnn_grid5 = [] #configure(cnn_grid, {"beta_robustness": 0.0, "optimizer":"abcd", "abcd_L":2, "n_epochs":"10,2"})
         cnn_grid6 = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
         cnn_grid7 = configure(cnn_grid, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        cnn_grid = cnn_grid0 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 + cnn_grid7
+        cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3 + cnn_grid4 + cnn_grid5 + cnn_grid6 + cnn_grid7
 
         final_grid = ecg + speech + cnn_grid
-        final_grid = split(final_grid, "seed", seeds) + cnn_grid1
+        final_grid = split(final_grid, "seed", seeds)
 
         return final_grid
 
