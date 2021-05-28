@@ -73,7 +73,7 @@ class worst_case_experiment:
         grid_worst_case = split(grid_worst_case, "n_attack_steps", n_attack_steps)
         grid_worst_case = split(grid_worst_case, "boundary_loss", boundary_loss)
 
-        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=2, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0, "{boundary_loss}")
+        grid_worst_case = run(grid_worst_case, min_whole_attacked_test_acc, n_threads=3, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0, "{boundary_loss}")
         for g in grid_worst_case:
             acc,loss = g["min_acc_test_set_acc"]
             g["acc"] = 100 * acc
