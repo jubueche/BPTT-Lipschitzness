@@ -24,13 +24,15 @@ class IBP_experiment:
         grid0 = configure(grid, {"beta_robustness":0.0})
         grid1 = configure(grid, {"beta_robustness":0.5, "noisy_forward_std":0.3, "attack_size_mismatch":0.1})
         grid2 = configure(grid, {"beta_robustness":0.0, "noisy_forward_std":0.3})
-        speech = grid0 + grid1 + grid2
+        grid3 = configure(grid, {"beta_robustness": 0.5, "attack_size_mismatch": 0.1})
+        speech = grid0 + grid1 + grid2 + grid3
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
         ecg1 = configure(ecg, {"beta_robustness": 0.0, "noisy_forward_std":0.3})
         ecg2 = configure(ecg, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
-        ecg = ecg0 + ecg1 + ecg2
+        ecg3 = configure(ecg, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
+        ecg = ecg0 + ecg1 + ecg2 + ecg3
         final_grid = split(ecg+speech, "seed", seeds)
         return final_grid
 

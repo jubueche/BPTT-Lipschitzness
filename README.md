@@ -1,4 +1,4 @@
-# Network insensitivity to parameter noise viaadversarial regularization
+# Network insensitivity to parameter noise via adversarial regularization
 This repository contains the code to reproduce the results presented in the experiments.
 
 ## Requirements
@@ -9,9 +9,9 @@ pip install tensorflow-datasets seaborn biosppy
 ```
 ## Data
 We use three datasets: ECG anomaly dataset, Fashion-MNIST and the Speech Command dataset. Fashion-MNIST will be downloaded automatically. You can download the ECG dataset from this link: \
-https://drive.google.com/drive/folders/1idNpubBEn36djYST3IIDTQoIp3Gjqd2v?usp=sharing \
+[URL-ECG] \
 And the speech dataset from this link \
-https://drive.google.com/file/d/1edOe-_7jvPNmLOXPAQ1WrvrtNyvN9R4O/view?usp=sharing \
+[URL-SPEECH] \
 After you have downloaded the folders, unzip and place them inside the TensorCommands and ECG folders, respectively. \
 If you want to run experiments on the cluster, you should move the datasets (Fashion-MNIST,ecg_recordings and Speech Command) to your ```$SCRATCH``` directory. \
 Your ```$SCRATCH``` folder should look like this: \
@@ -36,6 +36,8 @@ We suggest to leave most of the command line arguments untouched and stick to th
 - Change the data directory using this flag```-data_dir=to/your/data```
 
 ## Recreating the Figures
+First you need to download the ```Resources/``` folder from [URL-Resources] and place it in this repository. This folder contains the pretrained models, logs and shell logs.
+
 After having setup the environment, you can create the Figures that are in the paper. For the main figures, you can simply run
 ```
 python make_figures.py
