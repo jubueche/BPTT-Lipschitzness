@@ -21,7 +21,4 @@ for module in ["Experiments."+ex for ex in flags.exp]:
 experiments = [getattr(getattr(toplevel,ex),ex) for ex in flags.exp]
 
 for ex in experiments:
-    try:
-        ex.visualize()
-    except:
-        print("Failed to call visualize")
+    ex.visualize()

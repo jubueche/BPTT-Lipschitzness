@@ -5,7 +5,7 @@ This repository contains the code to reproduce the results presented in the expe
 ```
 pip install jax==0.1.75 jaxlib==0.1.52 wfdb
 pip install tensorflow tensorflow-probability python_speech_features ujson
-pip install tensorflow-datasets seaborn
+pip install tensorflow-datasets seaborn biosppy
 ```
 ## Data
 We use three datasets: ECG anomaly dataset, Fashion-MNIST and the Speech Command dataset. Fashion-MNIST will be downloaded automatically. You can download the ECG dataset from this link: \
@@ -41,6 +41,8 @@ After having setup the environment, you can create the Figures that are in the p
 python make_figures.py
 ```
 This command will import any experiment that is present in the ```Experiments``` folder and execute the ```visualize()``` method. This is part of our own experiment manager that we developed for this paper called ```datajuicer``` (see more info further down).
+
+Note: You need to have Latex installed for recreating the figures. Follow the steps on https://www.tug.org/texlive/ to install Latex.
 
 ## Retraining Models
 We pre-trained the models that were used to run the experiments and re-training all the models takes a lot of time. To retrain all models, you can rename the ```Sessions``` folder (rather than deleting it) and simply execute
