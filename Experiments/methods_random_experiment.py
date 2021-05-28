@@ -35,16 +35,28 @@ class methods_random_experiment:
         grid = split(grid, "attack_size", attack_sizes)
 
         grid = run(grid, min_whole_attacked_test_acc, n_threads=5, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0, "{boundary_loss}")
-        grid = run(grid, get_surface_mean, n_threads=5, store_key="random_attack")(5,"{*}","{attack_size}","{data_dir}")
+        grid = run(grid, get_surface_mean, n_threads=2, store_key="random_attack")(5,"{*}","{attack_size}","{data_dir}")
 
         fig = plt.figure(figsize=(10, 5), constrained_layout=True)
         axes = get_axes_weight_scale_exp(fig, 2, 2)
 
         def plot_val(ax, lab, beta, labels=[None,None]):
-            val = query(grid, "validation_accuracy", where={"beta_robustness":beta})[0]
-            attacked_val = query(grid, "attacked_validation_accuracies", where={"beta_robustness":beta})[0]
-            ax.plot(val, color=METHOD_COLORS["Standard"], linestyle=METHOD_LINESTYLE["Standard"],linewidth=2.0,label=labels[0])
-            ax.plot(attacked_val, color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=labels[1])
+            val = [query(grid, "validation_accuracy", where={"beta_robustness":beta, "seed":s})[0] for s in seeds]
+            attacked_val = [query(grid, "attacked_validation_accuracies", where={"beta_robustness":beta, "seed":s})[0] for s in seeds]
+            for idx,(v,a_v) in enumerate(zip(val,attacked_val)):
+                if idx == 0:
+                    l1 = labels[0]
+                    l2 = labels[1]
+                else:
+                    l1 = l2 = None
+                ax.plot(v, alpha=1. / len(val), color=METHOD_COLORS["Standard"], linestyle=METHOD_LINESTYLE["Standard"],linewidth=2.0,label=l1)
+                ax.plot(a_v, alpha=1. / len(attacked_val), color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=l2)
+            if len(val)>1:
+                m_val = onp.mean(onp.array(val), 0)
+                m_attacked_val = onp.mean(onp.array(attacked_val), 0)
+                ax.plot(m_val, color=METHOD_COLORS["Standard"], linestyle=METHOD_LINESTYLE["Standard"],linewidth=2.0,label=l1)
+                ax.plot(m_attacked_val, color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=l2)
+
             ax.set_title(r"Training $\beta_{\textnormal{rob}}$=" + str(beta))
             ax.set_xlabel("Epochs")
             ax.set_ylabel("Validation acc.")
@@ -55,18 +67,25 @@ class methods_random_experiment:
                 ax.legend(frameon=True, loc=0, prop={'size': 7})
 
         def plot_attack(ax, lab, beta, labels=[None,None]):
-            test_attack = [t[0] for t in query(grid, "min_acc_test_set_acc", where={"beta_robustness":beta})]
-            test_random_attack = query(grid, "random_attack", where={"beta_robustness":beta})
+            test_attack = [[t[0] for t in query(grid, "min_acc_test_set_acc", where={"beta_robustness":beta, "seed":s})] for s in seeds]
+            test_random_attack = [query(grid, "random_attack", where={"beta_robustness":beta, "seed":s}) for s in seeds]
             
+            test_attack_mean = onp.mean(onp.array(test_attack), 0)
+            test_random_attack_mean = onp.mean(onp.array(test_random_attack), 0)
             print("===== Attack =====")
-            print(f"beta {beta} Baseline {test_attack[0]}")
-            print("->",test_attack)
+            print(f"beta {beta} Baseline {test_attack_mean[0]}")
+            print("->",test_attack_mean)
             print("===== Random =====")
-            print(f"beta {beta} Baseline {test_random_attack[0]}")
-            print("->",test_random_attack)
+            print(f"beta {beta} Baseline {test_random_attack_mean[0]}")
+            print("->",test_random_attack_mean)
 
-            ax.plot(test_attack, color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=labels[0])
-            ax.plot(test_random_attack, color=METHOD_COLORS["AWP"], linestyle=METHOD_LINESTYLE["AWP"],linewidth=2.0,label=labels[1])
+            for t_a,t_a_r in zip(test_attack,test_random_attack):
+                ax.plot(t_a, alpha=1./len(test_attack), color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0)
+                ax.plot(t_a_r, alpha=1./len(test_random_attack), color=METHOD_COLORS["AWP"], linestyle=METHOD_LINESTYLE["AWP"],linewidth=2.0)
+            
+            ax.plot(test_attack_mean, color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=labels[0])
+            ax.plot(test_random_attack_mean, color=METHOD_COLORS["AWP"], linestyle=METHOD_LINESTYLE["AWP"],linewidth=2.0,label=labels[1])
+
             ax.set_title(r"Training $\beta_{\textnormal{rob}}$=" + str(beta))
             ax.set_xlabel(r"Attack size $\zeta$")
             ax.set_xticklabels(attack_sizes)
