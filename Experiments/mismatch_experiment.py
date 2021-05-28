@@ -153,13 +153,13 @@ class mismatch_experiment:
             "AWP = True":"AWP",
             "Beta = 0.25":"Beta 0.25",
             "Beta = 0.5":"Beta 0.5",
-            "Beta = 0.2, Forward": "Forward + Beta 0.2",
-            "Beta = 0.3, Forward": "Forward + Beta 0.3",
-            "Beta = 0.5, Forward": "Forward + Beta 0.5",
-            "Beta 0.25, Forward": "Forward + Beta 0.25",
-            "Beta 0.5, Forward": "Forward + Beta 0.5",
-            "Beta = 0.1, Forward": "Forward + Beta 0.1",
-            "noisy_forward_std = 0.3": "Forward",
+            "Beta = 0.2, Forward": "Forward Noise + Beta 0.2",
+            "Beta = 0.3, Forward": "Forward Noise + Beta 0.3",
+            "Beta = 0.5, Forward": "Forward Noise + Beta 0.5",
+            "Beta 0.25, Forward": "Forward Noise + Beta 0.25",
+            "Beta 0.5, Forward": "Forward Noise + Beta 0.5",
+            "Beta = 0.1, Forward": "Forward Noise + Beta 0.1",
+            "noisy_forward_std = 0.3": "Forward Noise",
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }
@@ -169,7 +169,7 @@ class mismatch_experiment:
 
         order = {
             "architecture": ["speech_lsnn", "ecg_lsnn", "cnn"],
-            "Method": ["Forward + Beta 0.1", "Forward + Beta 0.5", "Beta 0.25", "Beta 0.5", "Standard", "Forward"]
+            "Method": ["Forward Noise + Beta 0.1", "Forward Noise + Beta 0.5", "Beta 0.25", "Beta 0.5", "Standard", "Forward Noise"]
         }
 
         grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0.0))]

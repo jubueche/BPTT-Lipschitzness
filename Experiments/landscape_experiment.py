@@ -77,11 +77,11 @@ class landscape_experiment:
             "Beta = 0.5":"Beta",
             "Dropout = 0.3": "Dropout",
             "noisy_forward_std = 0.3": "Forward Noise",
-            "Beta = 0.5, Forward Noise": "Forward + Beta",
-            "Beta = 0.25, Forward Noise": "Forward + Beta",
-            "Beta = 0.1, Forward Noise": "Forward + Beta",
+            "Beta = 0.5, Forward Noise": "Forward Noise + Beta",
+            "Beta = 0.25, Forward Noise": "Forward Noise + Beta",
+            "Beta = 0.1, Forward Noise": "Forward Noise + Beta",
             "noisy_forward_std = 0.0": "No Forward Noise",
-            "Beta, Forward Noise":"Forward + Beta",
+            "Beta, Forward Noise":"Forward Noise + Beta",
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }

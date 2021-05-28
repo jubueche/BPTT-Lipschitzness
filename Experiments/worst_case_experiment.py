@@ -92,22 +92,23 @@ class worst_case_experiment:
             "ecg_lsnn": "ECG LSNN",
             "awp": "AWP",
             "AWP = True":"AWP",
-            "Beta = 0.25":"Beta 0.25",
-            "Beta = 0.5":"Beta 0.5",
-            "Beta = 0.2, Forward": "Forward + Beta 0.2",
-            "Beta = 0.3, Forward": "Forward + Beta 0.3",
-            "Beta = 0.5, Forward": "Forward + Beta 0.5",
-            "Beta 0.25, Forward": "Forward + Beta 0.25",
-            "Beta 0.5, Forward": "Forward + Beta 0.5",
-            "Beta = 0.1, Forward": "Forward + Beta 0.1",
-            "noisy_forward_std = 0.3": "Forward",
+            "Beta = 0.25":"Beta",
+            "Beta = 0.5":"Beta",
+            "Beta = 0.1":"Beta",
+            "Beta = 0.2, Forward Noise": "Forward Noise + Beta",
+            "Beta = 0.3, Forward Noise": "Forward Noise + Beta",
+            "Beta, Forward Noise": "Forward Noise + Beta",
+            "Beta, Forward Noise": "Forward Noise + Beta",
+            "Beta, Forward Noise": "Forward Noise + Beta",
+            "Beta, Forward Noise": "Forward Noise + Beta",
+            "noisy_forward_std = 0.3": "Forward Noise",
             "Optimizer = abcd":"ABCD",
             "Optimizer = esgd":"ESGD"
         }
 
         order = {
             "architecture": ["speech_lsnn", "ecg_lsnn", "cnn"],
-            "Method": ["Forward + Beta 0.1", "Forward + Beta 0.5", "Beta 0.25", "Beta 0.5", "Standard", "Forward"]
+            "Method": ["Forward Noise + Beta", "Beta", "Standard", "Forward Noise"]
         }
 
         def get_table(architecture, boundary_loss, loss_or_acc):

@@ -50,12 +50,12 @@ class methods_random_experiment:
                 else:
                     l1 = l2 = None
                 ax.plot(v, alpha=1. / len(val), color=METHOD_COLORS["Standard"], linestyle=METHOD_LINESTYLE["Standard"],linewidth=2.0,label=l1)
-                ax.plot(a_v, alpha=1. / len(attacked_val), color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=l2)
+                ax.plot(a_v, alpha=1. / len(attacked_val), color=METHOD_COLORS["Forward Noise + Beta"], linestyle=METHOD_LINESTYLE["Forward Noise + Beta"],linewidth=2.0,label=l2)
             if len(val)>1:
                 m_val = onp.mean(onp.array(val), 0)
                 m_attacked_val = onp.mean(onp.array(attacked_val), 0)
                 ax.plot(m_val, color=METHOD_COLORS["Standard"], linestyle=METHOD_LINESTYLE["Standard"],linewidth=2.0,label=l1)
-                ax.plot(m_attacked_val, color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=l2)
+                ax.plot(m_attacked_val, color=METHOD_COLORS["Forward Noise + Beta"], linestyle=METHOD_LINESTYLE["Forward Noise + Beta"],linewidth=2.0,label=l2)
 
             ax.set_title(r"Training $\beta_{\textnormal{rob}}$=" + str(beta))
             ax.set_xlabel("Epochs")
@@ -80,10 +80,10 @@ class methods_random_experiment:
             print("->",test_random_attack_mean)
 
             for t_a,t_a_r in zip(test_attack,test_random_attack):
-                ax.plot(t_a, alpha=1./len(test_attack), color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0)
+                ax.plot(t_a, alpha=1./len(test_attack), color=METHOD_COLORS["Forward Noise + Beta"], linestyle=METHOD_LINESTYLE["Forward Noise + Beta"],linewidth=2.0)
                 ax.plot(t_a_r, alpha=1./len(test_random_attack), color=METHOD_COLORS["AWP"], linestyle=METHOD_LINESTYLE["AWP"],linewidth=2.0)
             
-            ax.plot(test_attack_mean, color=METHOD_COLORS["Forward + Beta"], linestyle=METHOD_LINESTYLE["Forward + Beta"],linewidth=2.0,label=labels[0])
+            ax.plot(test_attack_mean, color=METHOD_COLORS["Forward Noise + Beta"], linestyle=METHOD_LINESTYLE["Forward Noise + Beta"],linewidth=2.0,label=labels[0])
             ax.plot(test_random_attack_mean, color=METHOD_COLORS["AWP"], linestyle=METHOD_LINESTYLE["AWP"],linewidth=2.0,label=labels[1])
 
             ax.set_title(r"Training $\beta_{\textnormal{rob}}$=" + str(beta))
