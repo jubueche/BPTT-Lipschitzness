@@ -34,7 +34,7 @@ class methods_random_experiment:
         grid = configure(grid, {"mode":"direct","boundary_loss":"madry", "n_attack_steps":10})
         grid = split(grid, "attack_size", attack_sizes)
 
-        grid = run(grid, min_whole_attacked_test_acc, n_threads=5, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0, "{boundary_loss}")
+        grid = run(grid, min_whole_attacked_test_acc, n_threads=2, store_key="min_acc_test_set_acc")(1, "{*}", "{data_dir}", "{n_attack_steps}", "{attack_size}", 0.0, 0.001, 0.0, "{boundary_loss}")
         grid = run(grid, get_surface_mean, n_threads=2, store_key="random_attack")(5,"{*}","{attack_size}","{data_dir}")
 
         fig = plt.figure(figsize=(10, 5), constrained_layout=True)

@@ -12,5 +12,5 @@ from Experiments import (
 # methods_experiment.methods_experiment.visualize()
 # weight_scale_experiment.weight_scale_experiment.visualize()
 # landscape_experiment.landscape_experiment.visualize()
-# methods_random_experiment.methods_random_experiment.visualize()
+methods_random_experiment.methods_random_experiment.visualize()
 # IBP_experiment.IBP_experiment.visualize()
