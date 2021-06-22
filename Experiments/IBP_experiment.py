@@ -132,9 +132,9 @@ class IBP_experiment:
         ax.set_xlabel("Membrane potential")
         ax.legend()
 
-        V_ecg_rob = onp.array(query(grid, "V", where={"architecture":"speech_lsnn", "noisy_forward_std":0.3})).flatten()
+        V_ecg_rob = onp.array(query(grid, "V", where={"architecture":"ecg_lsnn", "noisy_forward_std":0.3})).flatten()
         V_ecg_rob[V_ecg_rob < -20]=-20
-        V_ecg_def = onp.array(query(grid, "V", where={"architecture":"speech_lsnn", "beta_robustness":0.0, "noisy_forward_std":0.0})).flatten()
+        V_ecg_def = onp.array(query(grid, "V", where={"architecture":"ecg_lsnn", "beta_robustness":0.0, "noisy_forward_std":0.0})).flatten()
 
         ax = axes[1]
         ax.hist(V_ecg_rob, density=True, color=METHOD_COLORS["Forward Noise + Beta"], linewidth=METHOD_LINEWIDTH["Forward Noise + Beta"], linestyle=METHOD_LINESTYLE["Forward Noise + Beta"], label="Forward Noise + Beta")
