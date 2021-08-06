@@ -453,6 +453,15 @@ class cnn:
         d["Dense"]="[[1600,256],[256,64],[64,10]]"
         d["optimizer"]="adam"
         d["learning_rate"] = "0.0001,0.00001"
+        d["dataset"] = "fashion"
+        return d
+
+    @staticmethod
+    def make_cifar():
+        d = cnn.make()
+        d["dataset"] = "cifar"
+        d["Kernels"]="[[64,3,4,4],[64,64,4,4]]"
+        d["Dense"]="[[2304,256],[256,64],[64,10]]"
         return d
 
     @staticmethod

@@ -8,6 +8,7 @@ import sys
 import os.path as path
 sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 from CNN.import_data import CNNDataLoader
+from CIFAR10.cifar_dataloader import CIFARDataLoader
 from CNN_Jax import CNN
 from jax import random
 import jax.numpy as jnp
@@ -29,7 +30,10 @@ if __name__ == '__main__':
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
 
-    data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+    if FLAGS.dataset == "cifar":
+        data_loader = CIFARDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+    else:    
+        data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
     flags_dict = vars(FLAGS)
     epochs_list = list(map(int, FLAGS.n_epochs.split(',')))
     learning_rates_list = list(map(float, FLAGS.learning_rate.split(',')))
@@ -50,7 +54,7 @@ if __name__ == '__main__':
     _, *sks = random.split(rng_key, 10)
     K1 = onp.array(random.truncated_normal(sks[1],-2,2,(Kernels[0][0], Kernels[0][1], Kernels[0][2], Kernels[0][3]))* (onp.sqrt(6/(Kernels[0][0]*Kernels[0][1]*Kernels[0][2] + Kernels[0][0]*Kernels[0][1]*Kernels[0][3]))))
     K2 = onp.array(random.truncated_normal(sks[2],-2,2,(Kernels[1][0], Kernels[1][1], Kernels[1][2], Kernels[1][3]))* (onp.sqrt(6/(Kernels[1][0]*Kernels[1][1]*Kernels[1][2] + Kernels[1][0]*Kernels[1][1]*Kernels[1][3]))))
-    CB1 = onp.array(random.truncated_normal(sks[6],-2,2,(1, Kernels[0][1], 1, 1))* (onp.sqrt(6/(Kernels[0][0]*Kernels[0][1]*Kernels[0][2] + Kernels[0][0]*Kernels[0][1]*Kernels[0][3]))))
+    CB1 = onp.array(random.truncated_normal(sks[6],-2,2,(1, 1, 1, 1))* (onp.sqrt(6/(Kernels[0][0]*Kernels[0][1]*Kernels[0][2] + Kernels[0][0]*Kernels[0][1]*Kernels[0][3])))) # - TODO This should have # of filters many biases
     CB2 = onp.array(random.truncated_normal(sks[7],-2,2,(1, Kernels[1][1], 1, 1))* (onp.sqrt(6/(Kernels[1][0]*Kernels[1][1]*Kernels[1][2] + Kernels[1][0]*Kernels[1][1]*Kernels[1][3]))))
     W1 = onp.array(random.truncated_normal(sks[3],-2,2,(Dense[0][0], Dense[0][1]))* (onp.sqrt(6/(Dense[0][0] + Dense[0][1]))))
     W2 = onp.array(random.truncated_normal(sks[4],-2,2,(Dense[1][0], Dense[1][1]))* (onp.sqrt(6/(Dense[1][0] + Dense[1][1]))))

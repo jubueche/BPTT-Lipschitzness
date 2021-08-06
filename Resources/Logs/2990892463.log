@@ -1,0 +1,67 @@
+2021-08-05 16:16:53.062779: W tensorflow/stream_executor/platform/default/dso_loader.cc:60] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+WARNING:absl:Compiling _split for args (ShapedArray(uint32[2]),).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling compute_gradient_and_update for args (ShapedArray(int32[], weak_type=True), ShapedArray(float32[100,3,32,32]), ShapedArray(int32[100]), ShapedArray(float32[256]), ShapedArray(float32[256]), ShapedArray(float32[256]), ShapedArray(float32[64]), ShapedArray(float32[64]), ShapedArray(float32[64]), ShapedArray(float32[10]), ShapedArray(float32[10]), ShapedArray(float32[10]), ShapedArray(float32[1,1,1,1]), ShapedArray(float32[1,1,1,1]), ShapedArray(float32[1,1,1,1]), ShapedArray(float32[1,64,1,1]), ShapedArray(float32[1,64,1,1]), ShapedArray(float32[1,64,1,1]), ShapedArray(float32[64,3,4,4]), ShapedArray(float32[64,3,4,4]), ShapedArray(float32[64,3,4,4]), ShapedArray(float32[64,64,4,4]), ShapedArray(float32[64,64,4,4]), ShapedArray(float32[64,64,4,4]), ShapedArray(float32[2304,256]), ShapedArray(float32[2304,256]), ShapedArray(float32[2304,256]), ShapedArray(float32[256,64]), ShapedArray(float32[256,64]), ShapedArray(float32[256,64]), ShapedArray(float32[64,10]), ShapedArray(float32[64,10]), ShapedArray(float32[64,10]), ShapedArray(uint32[2])).
+2021-08-05 16:19:21.866544: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+WARNING:absl:Compiling _split for args (ShapedArray(uint32[2]),).
+Traceback (most recent call last):
+  File "main_CNN_jax.py", line 134, in <module>
+    val_acc, attacked_val_acc, loss_over_time, loss = get_val_acc(vars(FLAGS), params, FLAGS.data_dir, ATTACK=True)
+  File "/home/julian/Documents/BPTT-Lipschitzness/experiment_utils.py", line 152, in get_val_acc
+    return _get_acc(model, theta, data_dir, ATTACK, mode="val")
+  File "/home/julian/Documents/BPTT-Lipschitzness/experiment_utils.py", line 133, in _get_acc
+    return _get_acc_batch(X, y, theta, FLAGS, ATTACK)
+  File "/home/julian/Documents/BPTT-Lipschitzness/experiment_utils.py", line 138, in _get_acc_batch
+    logits = _get_logits(max_size, FLAGS.network, X, dropout_mask, theta)
+  File "/home/julian/Documents/BPTT-Lipschitzness/loss_jax.py", line 170, in _get_logits
+    result = future.result()
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/concurrent/futures/_base.py", line 428, in result
+    return self.__get_result()
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/concurrent/futures/_base.py", line 384, in __get_result
+    raise self._exception
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/concurrent/futures/thread.py", line 57, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/julian/Documents/BPTT-Lipschitzness/loss_jax.py", line 163, in <lambda>
+    _f = lambda X, dropout_mask, theta, idx : (model.call(X, dropout_mask, **theta), idx)
+  File "/home/julian/Documents/BPTT-Lipschitzness/CNN_Jax.py", line 35, in call
+    cnn_out = _evolve_CNN(K1, CB1, K2, CB2, W1, W2, W3, B1, B2, B3, input, do_mask)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/api.py", line 171, in f_jitted
+    name=flat_fun.__name__, donated_invars=donated_invars)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/core.py", line 1134, in bind
+    return call_bind(self, fun, *args, **params)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/core.py", line 1123, in call_bind
+    outs = primitive.impl(fun, *args, **params)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/interpreters/xla.py", line 527, in _xla_call_impl
+    *unsafe_map(arg_spec, args))
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/linear_util.py", line 224, in memoized_fun
+    ans = call(fun, *args)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/interpreters/xla.py", line 598, in _xla_callable
+    fun, pvals, instantiate=False, stage_out=True, bottom=True)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/interpreters/partial_eval.py", line 423, in trace_to_jaxpr
+    jaxpr, (out_pvals, consts, env) = fun.call_wrapped(pvals)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/linear_util.py", line 150, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/julian/Documents/BPTT-Lipschitzness/CNN_Jax.py", line 123, in _evolve_CNN
+    x = lax.conv_general_dilated(x, K1, strides, padding = [(2,1),(2,1)]) + CB1 #'SAME'
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/lax/lax.py", line 561, in conv_general_dilated
+    precision=_canonicalize_precision(precision))
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/core.py", line 279, in bind
+    out_tracer = top_trace.process_primitive(self, tracers, kwargs)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/interpreters/partial_eval.py", line 141, in process_primitive
+    return self.default_process_primitive(primitive, tracers, params)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/interpreters/partial_eval.py", line 151, in default_process_primitive
+    out_aval = primitive.abstract_eval(*avals, **params)
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/lax/lax.py", line 1870, in standard_abstract_eval
+    return ShapedArray(shape_rule(*args, **kwargs), dtype_rule(*args, **kwargs))
+  File "/home/julian/anaconda3/envs/synsense/lib/python3.7/site-packages/jax/lax/lax.py", line 2446, in _conv_general_dilated_shape_rule
+    rhs.shape[dimension_numbers.rhs_spec[1]]))
+ValueError: conv_general_dilated lhs feature dimension size divided by feature_group_count must equal the rhs input feature dimension size, but 1 // 1 != 3.

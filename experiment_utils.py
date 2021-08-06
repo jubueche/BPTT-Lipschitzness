@@ -6,6 +6,7 @@ from TensorCommands.data_loader import SpeechDataLoader
 from TensorCommands.extract_data import prepare_npy
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
+from CIFAR10.cifar_dataloader import CIFARDataLoader
 from CNN_Jax import CNN
 from RNN_Jax import RNN
 import ujson as json
@@ -73,7 +74,10 @@ def get_loader(FLAGS, data_dir):
     elif FLAGS.architecture=="ecg_lsnn":
         loader = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
     elif FLAGS.architecture=="cnn":
-        loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+        if FLAGS.dataset == "cifar":
+            loader = CIFARDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+        else:
+            loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
     return loader, loader.N_test
 
 def get_X_y_pair(loader):
