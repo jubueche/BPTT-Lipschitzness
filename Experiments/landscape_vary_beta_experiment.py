@@ -26,7 +26,7 @@ class landscape_vary_beta_experiment:
         cnn_grid = configure(cnn_grid, {"attack_size_mismatch": 0.1})
         cnn_grid = split(cnn_grid, "beta_robustness", [0.1,0.2,0.3])
 
-        final_grid = ecg + speech + cnn_grid
+        final_grid = ecg + speech
         final_grid = split(final_grid, "seed", seeds)
 
         return final_grid
@@ -48,43 +48,13 @@ class landscape_vary_beta_experiment:
 
         label_dict = {
             "beta_robustness": "Beta",
-            "n_attack_steps": "Attack steps",
-            "attack_size": "Attack size",
-            "optimizer": "Optimizer",
-            "acc": "Mean Acc.",
-            "dropout_prob":"Dropout",
             "cnn" : "F-MNIST CNN",
             "speech_lsnn": "Speech SRNN",
             "ecg_lsnn": "ECG SRNN",
-            "awp": "AWP",
-            "AWP = True":"AWP",
-            "Beta = 0.25":"Beta",
-            "Beta = 0.5":"Beta",
-            "Dropout = 0.3": "Dropout",
-            "noisy_forward_std = 0.3": "Forward Noise",
-            "Beta = 0.5, Forward Noise": "Forward Noise + Beta",
-            "Beta = 0.25, Forward Noise": "Forward Noise + Beta",
-            "Beta = 0.1, Forward Noise": "Forward Noise + Beta",
-            "noisy_forward_std = 0.0": "No Forward Noise",
-            "Beta, Forward Noise":"Forward Noise + Beta",
-            "Optimizer = abcd":"ABCD",
-            "Optimizer = esgd":"ESGD"
+            "Beta = 0.1":"Beta 0.1",
+            "Beta = 0.2":"Beta 0.2",
+            "Beta = 0.3":"Beta 0.3",
         }
-
-        def ma(x, N, fill=True):
-            return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
-        def moving_average(x, N):
-            result = onp.zeros_like(x)
-            if x.ndim > 1:
-                over = x.shape[0]
-                for i in range(over):
-                    result[i] = ma(x[i], N)
-            else:
-                result = ma(x, N)
-            return result
-        def get_ma(data,N=5):
-            smoothed_mean = moving_average(onp.mean(onp.array(data), axis=0), N=N)
-            return smoothed_mean
 
         fig = plt.figure(figsize=(12,3), constrained_layout=True)
         gridspec = fig.add_gridspec(1, 3, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
@@ -128,9 +98,15 @@ class landscape_vary_beta_experiment:
 
         plt.savefig("Resources/Figures/landscape_vary_beta.pdf", dpi=1200)
         plt.plot()
+        plt.show()
 
-        for ax in axes:
-            ax.clear()
-        grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=False)
-        plt.savefig("Resources/Figures/landscape_vary_beta_raw.pdf", dpi=1200)
-        plt.plot()
+        # for ax in axes:
+        #     ax.clear()
+        # grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=False)
+        # plt.savefig("Resources/Figures/landscape_vary_beta_raw.pdf", dpi=1200)
+        # plt.plot()
+
+        grid = run(grid, calc_slope, n_threads=1)("{*}","{landscape}", (to_-from_)/num_steps)
+        independent_keys = ["architecture", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
+        dependent_keys = ["slope"]
+        print(latex(grid, independent_keys, dependent_keys, label_dict, decimals=4))

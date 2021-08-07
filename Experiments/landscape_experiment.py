@@ -7,11 +7,12 @@ from datajuicer.table import Table
 from datajuicer.visualizers import latex, visualizer, METHOD_COLORS, METHOD_LINESTYLE, METHOD_LINEWIDTH
 from datajuicer.utils import reduce_keys
 
+seeds = [0,1]
+
 class landscape_experiment:
 
     @staticmethod
     def train_grid():
-        seeds = [0,1]
 
         ecg = [ecg_lsnn.make()]
         ecg0 = configure(ecg, {"beta_robustness": 0.0})
@@ -47,7 +48,6 @@ class landscape_experiment:
 
     @staticmethod
     def visualize():
-        seeds = [0,1]
         grid = [model for model in landscape_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
@@ -86,20 +86,6 @@ class landscape_experiment:
             "Optimizer = esgd":"ESGD"
         }
 
-        def ma(x, N, fill=True):
-            return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
-        def moving_average(x, N):
-            result = onp.zeros_like(x)
-            if x.ndim > 1:
-                over = x.shape[0]
-                for i in range(over):
-                    result[i] = ma(x[i], N)
-            else:
-                result = ma(x, N)
-            return result
-        def get_ma(data,N=5):
-            smoothed_mean = moving_average(onp.mean(onp.array(data), axis=0), N=N)
-            return smoothed_mean
 
         fig = plt.figure(figsize=(12,3), constrained_layout=True)
         gridspec = fig.add_gridspec(1, 3, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
@@ -149,3 +135,8 @@ class landscape_experiment:
         grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=False)
         plt.savefig("Resources/Figures/landscape_raw.pdf", dpi=1200)
         plt.plot()
+
+        grid = run(grid, calc_slope, n_threads=1)("{*}","{landscape}", (to_-from_)/num_steps)
+        independent_keys = ["architecture", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
+        dependent_keys = ["slope"]
+        print(latex(grid, independent_keys, dependent_keys, label_dict, decimals=4))

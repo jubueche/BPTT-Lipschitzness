@@ -14,7 +14,7 @@ class methods_random_vary_beta_experiment:
     
     @staticmethod
     def train_grid():
-        betas = [0.2]
+        betas = [0.5]
         cnn_grid = [cnn.make()]
         cnn_grid0 = configure(cnn_grid, {"beta_robustness": 0.0, "attack_size_mismatch": 0.1})
         cnn_grid1 = configure(cnn_grid, {"attack_size_mismatch": 0.1})

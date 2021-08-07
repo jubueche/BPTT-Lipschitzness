@@ -41,6 +41,34 @@ class Namespace:
     def __init__(self,d):
         self.__dict__.update(d)
 
+def get_average_slope(data, dt):
+    a = data[data != None]
+    b = onp.hstack([a[1:],onp.zeros((1,))])
+    diff = (a - b)[:-1] / dt
+    avg_slope = onp.mean(onp.abs(diff))
+    return avg_slope
+
+def calc_slope(model, data, dt):
+    d = get_ma(data)
+    average_slope = get_average_slope(d, dt)
+    model["slope"] = average_slope
+    return model
+
+def ma(x, N, fill=True):
+    return onp.concatenate([x for x in [ [None]*(N // 2 + N % 2)*fill, onp.convolve(x, onp.ones((N,))/N, mode='valid'), [None]*(N // 2 -1)*fill, ] if len(x)]) 
+def moving_average(x, N):
+    result = onp.zeros_like(x)
+    if x.ndim > 1:
+        over = x.shape[0]
+        for i in range(over):
+            result[i] = ma(x[i], N)
+    else:
+        result = ma(x, N)
+    return result
+def get_ma(data,N=5):
+    smoothed_mean = moving_average(onp.mean(onp.array(data), axis=0), N=N)
+    return smoothed_mean
+
 def get_batched_accuracy(y, logits):
     y = onp.array(y)
     logits = onp.array(logits)

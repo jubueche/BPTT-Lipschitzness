@@ -1,10 +1,60 @@
 from datajuicer.table import Table
 
-METHOD_COLORS = {"Standard":"#4c84e6", "AWP":"#fc033d", "ABCD":"#03fc35", "ESGD":"#aaa2b8", "Beta":"#9b32a8", "Beta 0.25":"#9b32a8", "Beta 0.5":"#9b32a8", "Forward + Beta":"#000000", "Forward + Beta 0.1":"#000000", "Forward + Beta 0.5":"#000000", "Forward Noise + Beta":"#000000", "Forward Noise":"#ed64ed", "Forward":"#ed64ed", "Dropout":"#32a83a"}
-METHOD_LINESTYLE = {"Standard":"solid", "AWP":"solid", "ABCD":"solid", "ESGD":"solid", "Beta":"dashed", "Beta 0.25":"dashed", "Beta 0.5":"dashed", "Forward Noise + Beta":"solid", "Forward + Beta 0.1":"solid", "Forward + Beta 0.5":"solid", "Beta + Forward":"solid", "Forward Noise":"solid", "Forward":"solid", "Dropout":"solid"}
 default_lw = 1.0
 ours_lw = 3.0
-METHOD_LINEWIDTH = {"Standard":default_lw, "AWP":default_lw, "ABCD":default_lw, "ESGD":default_lw, "Beta":ours_lw, "Beta 0.25":ours_lw, "Beta 0.5":ours_lw, "Forward + Beta 0.1":ours_lw, "Forward + Beta 0.5":ours_lw, "Forward Noise + Beta":ours_lw, "Beta + Forward":ours_lw, "Forward Noise":default_lw, "Forward":default_lw, "Dropout":default_lw}
+METHOD_COLORS = {"Standard":"#4c84e6",
+                "AWP":"#fc033d",
+                "ABCD":"#03fc35",
+                "ESGD":"#aaa2b8",
+                "Beta":"#9b32a8",
+                "Beta 0.1":"#9b32a8",
+                "Beta 0.2":"#ed64ed",
+                "Beta 0.3":"#000000",
+                "Beta 0.25":"#9b32a8",
+                "Beta 0.5":"#9b32a8",
+                "Forward + Beta":"#000000",
+                "Forward + Beta 0.1":"#000000",
+                "Forward + Beta 0.5":"#000000",
+                "Forward Noise + Beta":"#000000",
+                "Forward Noise":"#ed64ed",
+                "Forward":"#ed64ed",
+                "Dropout":"#32a83a"}
+
+METHOD_LINESTYLE = {"Standard":"solid",
+                    "AWP":"solid",
+                    "ABCD":"solid",
+                    "ESGD":"solid",
+                    "Beta":"dashed",
+                    "Beta 0.1":"dashed",
+                    "Beta 0.2":"solid",
+                    "Beta 0.3":"dotted",
+                    "Beta 0.25":"dashed",
+                    "Beta 0.5":"dashed",
+                    "Forward Noise + Beta":"solid",
+                    "Forward + Beta 0.1":"solid",
+                    "Forward + Beta 0.5":"solid",
+                    "Beta + Forward":"solid",
+                    "Forward Noise":"solid",
+                    "Forward":"solid",
+                    "Dropout":"solid"}
+
+METHOD_LINEWIDTH = {"Standard":default_lw,
+                    "AWP":default_lw,
+                    "ABCD":default_lw,
+                    "ESGD":default_lw,
+                    "Beta":ours_lw,
+                    "Beta 0.1":ours_lw,
+                    "Beta 0.2":ours_lw,
+                    "Beta 0.3":ours_lw,
+                    "Beta 0.25":ours_lw,
+                    "Beta 0.5":ours_lw,
+                    "Forward + Beta 0.1":ours_lw,
+                    "Forward + Beta 0.5":ours_lw,
+                    "Forward Noise + Beta":ours_lw,
+                    "Beta + Forward":ours_lw,
+                    "Forward Noise":default_lw,
+                    "Forward":default_lw,
+                    "Dropout":default_lw}
 
 def visualizer(dim=None):
     def _func(func, table_args, kwargs):
