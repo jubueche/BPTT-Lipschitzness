@@ -1,1 +1,0 @@
-{"dataset_names": ["cifar10"], "original_fname": "cifar-10-binary.tar.gz", "url_info": {"checksum": "c4a38c50a1bc5f3a1c5537f2155ab9d68f9f25eb1ed8d9ddda3db29a59bca1dd", "filename": "cifar-10-binary.tar.gz", "size": 170052171}, "urls": ["https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz"]}
