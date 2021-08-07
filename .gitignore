@@ -2,6 +2,7 @@
 **/tmp
 **/Data
 **/cifar10
+**/downloads
 **/speech_dataset
 **/speech_commands
 **/results
