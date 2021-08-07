@@ -1,6 +1,7 @@
 **/__pycache__
 **/tmp
 **/Data
+**/cifar10
 **/speech_dataset
 **/speech_commands
 **/results
