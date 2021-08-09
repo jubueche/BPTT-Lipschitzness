@@ -97,7 +97,7 @@ def get_lr_schedule(iteration, lrs):
         return lr_sched[t]
     return lr_schedule
 
-def get_loader(FLAGS, data_dir):
+def get_loader(FLAGS, data_dir, mode="test"):
     if FLAGS.architecture=="speech_lsnn":
         loader = SpeechDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
     elif FLAGS.architecture=="ecg_lsnn":
@@ -107,7 +107,13 @@ def get_loader(FLAGS, data_dir):
             loader = CIFARDataLoader(FLAGS.batch_size, data_dir)
         else:
             loader = CNNDataLoader(FLAGS.batch_size, data_dir)
-    return loader, loader.N_test
+    if mode == "train":
+        N = loader.N_train
+    elif mode == "val":
+        N = loader.N_val
+    else:
+        N = loader.N_test
+    return loader, N
 
 def get_X_y_pair(loader):
     X,y = loader.get_batch("test")
@@ -249,8 +255,8 @@ def get_IBP_test_acc(model, zeta, data_dir):
 
     return correct / num 
 
-@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "num_steps", "std", "from_", "to_","n_repeat"])
-def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "num_steps", "std", "from_", "to_","n_repeat","dset"])
+def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat, dset):
         """
         Compute the adversarial direction and interpolate between Theta and Theta*.
         For each intermediate value, compute the loss.
@@ -261,9 +267,16 @@ def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):
                 self.__dict__.update(d)
         FLAGS = Namespace(model)
         theta = model["theta"]
-        loader, set_size = get_loader(FLAGS, data_dir)
-        X = loader.X_test
-        y = loader.y_test
+        loader, set_size = get_loader(FLAGS, data_dir, mode=dset)
+        if dset == "train":
+            X = loader.X_train
+            y = loader.y_train
+        elif dset == "val":
+            X = loader.X_val
+            y = loader.y_val
+        else:
+            X = loader.X_test
+            y = loader.y_test
 
         # - Choose theta star using the adversary
         rng_key = jax_random.PRNGKey(onp.random.randint(1e15))

@@ -16,17 +16,17 @@ class landscape_vary_beta_experiment:
         
         ecg = [ecg_lsnn.make()]
         ecg = configure(ecg, {"attack_size_mismatch": 0.1})
-        ecg = split(ecg, "beta_robustness", [0.1,0.2,0.3])
+        ecg = split(ecg, "beta_robustness", [0.1,0.5,0.8])
 
         speech = [speech_lsnn.make()]
         speech = configure(speech, {"attack_size_mismatch": 0.1})
-        speech = split(speech, "beta_robustness", [0.1,0.2,0.3])
+        speech = split(speech, "beta_robustness", [0.1,0.3,0.5])
 
         cnn_grid = [cnn.make()]
         cnn_grid = configure(cnn_grid, {"attack_size_mismatch": 0.1})
-        cnn_grid = split(cnn_grid, "beta_robustness", [0.1,0.2,0.3])
+        cnn_grid = split(cnn_grid, "beta_robustness", [0.1,0.3,0.5])
 
-        final_grid = ecg + speech
+        final_grid = ecg + speech + cnn_grid
         final_grid = split(final_grid, "seed", seeds)
 
         return final_grid
@@ -36,6 +36,7 @@ class landscape_vary_beta_experiment:
         grid = [model for model in landscape_vary_beta_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
+        grid = split(grid, "dset", ["test","train"])
 
         num_steps = 50
         std = 0.2
@@ -44,31 +45,36 @@ class landscape_vary_beta_experiment:
         to_ = 2.0
         n_repeat = 5
 
-        grid = run(grid, get_landscape_sweep, n_threads=10, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
+        grid = run(grid, get_landscape_sweep, n_threads=10, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat, "{dset}")
 
         label_dict = {
             "beta_robustness": "Beta",
             "cnn" : "F-MNIST CNN",
             "speech_lsnn": "Speech SRNN",
             "ecg_lsnn": "ECG SRNN",
+            "Beta = 0.05":"Beta 0.05",
             "Beta = 0.1":"Beta 0.1",
             "Beta = 0.2":"Beta 0.2",
             "Beta = 0.3":"Beta 0.3",
+            "Beta = 0.5":"Beta 0.5",
+            "Beta = 0.8":"Beta 0.8"
         }
 
-        fig = plt.figure(figsize=(12,3), constrained_layout=True)
-        gridspec = fig.add_gridspec(1, 3, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
-        axes = [fig.add_subplot(gridspec[0,j]) for j in range(3)]
-        axes[0].set_xlabel(r"$\alpha$")
-        axes[0].set_ylabel("Cross-entropy loss")
-        axes[0].spines['right'].set_visible(False)
-        axes[0].spines['top'].set_visible(False)
-        axes[1].spines['right'].set_visible(False)
-        axes[1].set_xlabel(r"$\alpha$")
-        axes[1].spines['top'].set_visible(False)
-        axes[2].spines['right'].set_visible(False)
-        axes[2].spines['top'].set_visible(False)
-        axes[2].set_xlabel(r"$\alpha$")
+        def get_axes():
+            fig = plt.figure(figsize=(12,3), constrained_layout=True)
+            gridspec = fig.add_gridspec(1, 3, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
+            axes = [fig.add_subplot(gridspec[0,j]) for j in range(3)]
+            axes[0].set_xlabel(r"$\alpha$")
+            axes[0].set_ylabel("Cross-entropy loss")
+            axes[0].spines['right'].set_visible(False)
+            axes[0].spines['top'].set_visible(False)
+            axes[1].spines['right'].set_visible(False)
+            axes[1].set_xlabel(r"$\alpha$")
+            axes[1].spines['top'].set_visible(False)
+            axes[2].spines['right'].set_visible(False)
+            axes[2].spines['top'].set_visible(False)
+            axes[2].set_xlabel(r"$\alpha$")
+            return axes
 
         @visualizer(dim=3)
         def grid_plot(table, axes, mean_only):
@@ -90,18 +96,20 @@ class landscape_vary_beta_experiment:
                 axes[i0].set_ylabel("Cross Entropy Loss")
                 axes[i0].set_title(table.get_label(axis=0, index=i0))
                 axes[i0].set_xlabel(r"$\alpha$")
-            axes[0].legend(frameon=True, prop={'size': 7})
+                axes[i0].legend(frameon=True, prop={'size': 7})
 
         independent_keys = ["architecture", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
         dependent_keys = ["landscape"]
-        grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=True)
+        grid_plot([g for g in grid if g["dset"]=="test"], independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=get_axes(), order=None, mean_only=True)
 
-        plt.savefig("Resources/Figures/landscape_vary_beta.pdf", dpi=1200)
-        plt.plot()
+        plt.savefig("Resources/Figures/landscape_vary_beta_test.pdf", dpi=1200)
         plt.show()
 
-        # for ax in axes:
-        #     ax.clear()
+        grid_plot([g for g in grid if g["dset"]=="train"], independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=get_axes(), order=None, mean_only=True)
+
+        plt.savefig("Resources/Figures/landscape_vary_beta_train.pdf", dpi=1200)
+        plt.show()
+
         # grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=False)
         # plt.savefig("Resources/Figures/landscape_vary_beta_raw.pdf", dpi=1200)
         # plt.plot()
@@ -109,4 +117,4 @@ class landscape_vary_beta_experiment:
         grid = run(grid, calc_slope, n_threads=1)("{*}","{landscape}", (to_-from_)/num_steps)
         independent_keys = ["architecture", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
         dependent_keys = ["slope"]
-        print(latex(grid, independent_keys, dependent_keys, label_dict, decimals=4))
+        print(latex([g for g in grid if g["dset"]=="test"], independent_keys, dependent_keys, label_dict, decimals=4))

@@ -59,7 +59,7 @@ class adversarial_landscape_experiment:
         n_attack_steps = 10
         attack_size_mismatch = 0.1
 
-        grid = run(grid, get_adversarial_landscape_sweep, n_threads=4, run_mode="force", store_key="landscape")("{*}", num_steps, "{data_dir}", scale, from_, to_, n_attack_steps, attack_size_mismatch)
+        grid = run(grid, get_adversarial_landscape_sweep, n_threads=4, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", scale, from_, to_, n_attack_steps, attack_size_mismatch)
 
         label_dict = {
             "beta_robustness": "Beta",
