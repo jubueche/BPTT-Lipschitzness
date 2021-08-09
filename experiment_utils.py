@@ -1,3 +1,4 @@
+from enum import Flag
 from jax import config
 
 import os
@@ -14,7 +15,7 @@ import numpy as onp
 import jax.numpy as jnp
 import jax.random as jax_random
 from jax import grad
-from loss_jax import loss_kl, categorical_cross_entropy, loss_normal, _get_logits, attack_network, _attack_network, split_and_sample
+from loss_jax import loss_kl, categorical_cross_entropy, loss_normal, _get_logits, attack_network, _attack_network, make_theta_star, split_and_sample
 import matplotlib
 import numpy as onp
 import matplotlib
@@ -103,9 +104,9 @@ def get_loader(FLAGS, data_dir):
         loader = ECGDataLoader(path=data_dir, batch_size=FLAGS.batch_size)
     elif FLAGS.architecture=="cnn":
         if FLAGS.dataset == "cifar":
-            loader = CIFARDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+            loader = CIFARDataLoader(FLAGS.batch_size, data_dir)
         else:
-            loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+            loader = CNNDataLoader(FLAGS.batch_size, data_dir)
     return loader, loader.N_test
 
 def get_X_y_pair(loader):
@@ -282,6 +283,44 @@ def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat):
                 losses_tmp.append(float(categorical_cross_entropy(y,logits_theta_current)))
             losses.append(losses_tmp)
         return onp.array(losses)
+
+@cachable(dependencies = ["model:{architecture}_session_id", "model:architecture", "num_steps", "scale", "from_", "to_","n_attack_steps","attack_size_mismatch"])
+def get_adversarial_landscape_sweep(model, num_steps, data_dir, scale, from_, to_, n_attack_steps, attack_size_mismatch):
+        """
+        Compute the adversarial direction and interpolate between Theta and Theta*.
+        For each intermediate value, compute the loss.
+        """
+        max_size = 1000
+        class Namespace:
+            def __init__(self,d):
+                self.__dict__.update(d)
+        FLAGS = Namespace(model)
+        theta = model["theta"]
+        loader, set_size = get_loader(FLAGS, data_dir)
+        X = loader.X_test
+        y = loader.y_test
+
+        # - Choose theta star using the adversary
+        rng_key = jax_random.PRNGKey(onp.random.randint(1e15))
+        FLAGS.n_attack_steps = n_attack_steps
+        FLAGS.attack_size_mismatch = attack_size_mismatch
+        FLAGS.boundary_loss = "madry"
+
+        loader, set_size = get_loader(FLAGS, data_dir)
+        _,_, theta_star = _attack_network(loader.X_test,loader.y_test, model["theta"], FLAGS.network, FLAGS, jax_random.PRNGKey(onp.random.randint(1e15)))
+        d = {}
+        for key in theta:
+            d[key] = (theta_star[key] - theta[key]) * scale
+
+        losses_tmp = []
+        for alpha in onp.linspace(from_,to_,num_steps):
+            theta_current = {}
+            for key in theta:
+                theta_current[key] = theta[key] + alpha * d[key]
+            logits_theta_current = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta_current)
+            losses_tmp.append(float(categorical_cross_entropy(y,logits_theta_current)))
+        
+        return onp.array(losses_tmp)
 
 
 

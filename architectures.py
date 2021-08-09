@@ -462,6 +462,14 @@ class cnn:
         d["dataset"] = "cifar"
         d["Kernels"]="[[64,3,4,4],[64,64,4,4]]"
         d["Dense"]="[[2304,256],[256,64],[64,10]]"
+        def mk_data_dir(mode="direct"):
+            if mode=="direct":
+                return "CIFAR10/"
+            elif mode=="bsub":
+                return "$SCRATCH/CIFAR10"
+            raise Exception("Invalid Mode")
+        d["mk_data_dir"] = mk_data_dir
+        d["data_dir"] = "{mk_data_dir({mode})}"
         return d
 
     @staticmethod
