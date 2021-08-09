@@ -59,7 +59,7 @@ class landscape_experiment:
         to_ = 2.0
         n_repeat = 5
 
-        grid = run(grid, get_landscape_sweep, n_threads=10, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat)
+        grid = run(grid, get_landscape_sweep, n_threads=10, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat, "test")
 
         label_dict = {
             "beta_robustness": "Beta",
