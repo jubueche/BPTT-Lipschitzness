@@ -16,15 +16,15 @@ class landscape_vary_beta_experiment:
         
         ecg = [ecg_lsnn.make()]
         ecg = configure(ecg, {"attack_size_mismatch": 0.1})
-        ecg = split(ecg, "beta_robustness", [0.1,0.5,0.8])
+        ecg = split(ecg, "beta_robustness", [0.05,0.1,0.2,0.3,0.5,0.8])
 
         speech = [speech_lsnn.make()]
         speech = configure(speech, {"attack_size_mismatch": 0.1})
-        speech = split(speech, "beta_robustness", [0.1,0.3,0.5])
+        speech = split(speech, "beta_robustness", [0.05,0.1,0.2,0.3,0.5,0.8])
 
         cnn_grid = [cnn.make()]
         cnn_grid = configure(cnn_grid, {"attack_size_mismatch": 0.1})
-        cnn_grid = split(cnn_grid, "beta_robustness", [0.1,0.3,0.5])
+        cnn_grid = split(cnn_grid, "beta_robustness", [0.05,0.1,0.2,0.3,0.5,0.8])
 
         final_grid = ecg + speech + cnn_grid
         final_grid = split(final_grid, "seed", seeds)
@@ -45,7 +45,7 @@ class landscape_vary_beta_experiment:
         to_ = 2.0
         n_repeat = 5
 
-        grid = run(grid, get_landscape_sweep, n_threads=10, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat, "{dset}")
+        grid = run(grid, get_landscape_sweep, n_threads=1, run_mode="normal", store_key="landscape")("{*}", num_steps, "{data_dir}", std, from_, to_, n_repeat, "{dset}")
 
         label_dict = {
             "beta_robustness": "Beta",
@@ -96,7 +96,8 @@ class landscape_vary_beta_experiment:
                 axes[i0].set_ylabel("Cross Entropy Loss")
                 axes[i0].set_title(table.get_label(axis=0, index=i0))
                 axes[i0].set_xlabel(r"$\alpha$")
-                axes[i0].legend(frameon=True, prop={'size': 7})
+            
+            axes[0].legend(frameon=True, prop={'size': 7})
 
         independent_keys = ["architecture", Table.Deviation_Var({"beta_robustness":0.0, "awp":False, "dropout_prob":0.0, "optimizer":"adam", "noisy_forward_std":0.0}, label="Method")]
         dependent_keys = ["landscape"]
