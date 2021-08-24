@@ -48,7 +48,14 @@ class adversarial_landscape_experiment:
 
     @staticmethod
     def visualize():
-        grid = [model for model in adversarial_landscape_experiment.train_grid() if model["seed"] in seeds]
+        grid = [model {
+            "name": "Run",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-dataset=cifar","-Kernels=[[64,3,4,4],[64,64,4,4]]","-Dense=[[2304,256],[256,64],[64,10]]"],
+            "console": "integratedTerminal"
+        }for model in adversarial_landscape_experiment.train_grid() if model["seed"] in seeds]
         grid = run(grid, "train", run_mode="load", store_key="*")("{*}")
         grid = configure(grid, {"mode":"direct"})
 
@@ -125,12 +132,6 @@ class adversarial_landscape_experiment:
         grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=True)
 
         plt.savefig("Resources/Figures/landscape_adv.pdf", dpi=1200)
-        plt.plot()
-
-        for ax in axes:
-            ax.clear()
-        grid_plot(grid, independent_keys=independent_keys, dependent_keys=dependent_keys, label_dict=label_dict, axes=axes, order=None, mean_only=False)
-        plt.savefig("Resources/Figures/landscape_adv_raw.pdf", dpi=1200)
         plt.plot()
 
         grid = run(grid, calc_slope, n_threads=1)("{*}","{landscape}", (to_-from_)/num_steps)
