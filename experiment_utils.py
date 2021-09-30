@@ -294,6 +294,7 @@ def get_landscape_sweep(model, num_steps, data_dir, std, from_, to_, n_repeat, d
                     theta_current[key] = theta[key] + alpha * d[key]
                 logits_theta_current = _get_logits(max_size, FLAGS.network, X, FLAGS.network.unmasked(), theta_current)
                 losses_tmp.append(float(categorical_cross_entropy(y,logits_theta_current)))
+                print("Loss", float(categorical_cross_entropy(y,logits_theta_current)))
             losses.append(losses_tmp)
         return onp.array(losses)
 

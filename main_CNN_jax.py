@@ -29,11 +29,8 @@ if __name__ == '__main__':
     FLAGS = arch.get_flags()
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
-
-    if FLAGS.dataset == "cifar":
-        data_loader = CIFARDataLoader(FLAGS.batch_size, FLAGS.data_dir)
-    else:    
-        data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
+    
+    data_loader = CNNDataLoader(FLAGS.batch_size, FLAGS.data_dir)
     flags_dict = vars(FLAGS)
     epochs_list = list(map(int, FLAGS.n_epochs.split(',')))
     learning_rates_list = list(map(float, FLAGS.learning_rate.split(',')))
