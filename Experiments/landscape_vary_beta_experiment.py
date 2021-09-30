@@ -7,7 +7,7 @@ from datajuicer.table import Table
 from datajuicer.visualizers import latex, visualizer, METHOD_COLORS, METHOD_LINESTYLE, METHOD_LINEWIDTH
 from datajuicer.utils import reduce_keys
 
-seeds = [0]
+seeds = [0,1]
 
 class landscape_vary_beta_experiment:
 
