@@ -7,7 +7,6 @@ from TensorCommands.data_loader import SpeechDataLoader
 from TensorCommands.extract_data import prepare_npy
 from ECG.ecg_data_loader import ECGDataLoader
 from CNN.import_data import CNNDataLoader
-from CIFAR10.cifar_dataloader import CIFARDataLoader
 from CNN_Jax import CNN
 from RNN_Jax import RNN
 import ujson as json
