@@ -6,7 +6,9 @@ import matplotlib as mpl
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["r", "k", "c", "b", "r", "g"])
 import matplotlib.pyplot as plt
-from scipy import stats
+
+import os
+print(os.environ["PATH"])
 
 class weight_scale_experiment:
 
@@ -48,7 +50,7 @@ class weight_scale_experiment:
         params = ["".join(list(map(lambda x : " " if x=="_" else x,p))) for p in theta] # - Exclude the bias
         N_cols = 4
 
-        fig = plt.figure(figsize=(12, 2), constrained_layout=False)
+        fig = plt.figure(figsize=(12, 4), constrained_layout=False)
         gridspec = fig.add_gridspec(1, N_cols, left=0.05, right=0.95, hspace=0.5, wspace=0.5)
         axes = [fig.add_subplot(gridspec[0,i]) for i in range(2)] + [fig.add_subplot(gridspec[0,2:])]
         remove_all_but_left_btm(axes)
@@ -89,6 +91,7 @@ class weight_scale_experiment:
         ax1.plot(query(mlp_grid, "robustness", where={"weight_increase":0.0})[0], label=r"$\epsilon$-test acc.,$\Theta$", marker="o")
         ax1.plot(query(mlp_grid, "robustness", where={"weight_increase":100000.0})[0], label=r"$\epsilon$-test acc.,$\Theta^*$", marker="o")
         ax1.set_ylabel("Test accuracy (\%)")
+        ax1.set_xlabel("Epoch")
         ax1.legend(loc=2,fontsize=legend_font_size)
         ax1.set_title("MLP MNIST")
         ax1.grid()
