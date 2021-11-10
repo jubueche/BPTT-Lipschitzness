@@ -5,7 +5,9 @@ import jax.numpy as jnp
 import numpy as onp
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import copy
-from jax.experimental.stax import logsoftmax
+
+def one_hot(x, k, dtype=jnp.float32):
+    return jnp.array(x[:, None] == jnp.arange(k), dtype)
 
 def fast_gradient_method(
     model_fn,
@@ -15,7 +17,7 @@ def fast_gradient_method(
 ):
     def loss_adv(image, label):
         pred = model_fn(image[None])
-        loss = -jnp.sum(logsoftmax(pred) * label)
+        loss = -jnp.sum(jnp.log(softmax(pred)) * label)
         return loss
     grads_fn = vmap(grad(loss_adv), in_axes=(0, 0), out_axes=0)
     grads = grads_fn(x, y)
@@ -29,11 +31,14 @@ def l_inf_pga(
     eps,
     eps_iter,
     nb_iter,
-    y
+    y,
+    k
 ):
     assert eps_iter <= eps, (eps_iter, eps)
+    y = one_hot(y, k)
     # Initialize loop variables
-    eta = jnp.zeros_like(x)
+    rand_minmax = eps
+    eta = onp.random.uniform(low=-rand_minmax, high=rand_minmax, size=x.shape)
     # Clip eta
     eta = clip_eta(eta, eps)
     adv_x = x + eta
@@ -177,21 +182,37 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
     
     if(FLAGS.awp and epoch>=FLAGS.warmup):
         logits, _ = model.call(X, dropout_mask, **params)
-        theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
-        for key in theta_star:
-            theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])
-            if FLAGS.awp_perturb_input:
-                X_star = l_inf_pga(
-                    model_fn=model,
-                    x=X,
-                    eps=FLAGS.eps_pga,
-                    eps_iter=FLAGS.eps_pga_iter,
-                    nb_iter=FLAGS.nb_iter,
-                    y=y
-                )
-                grads = grad(training_loss, argnums=2)(X_star, y, theta_star, FLAGS, model, dropout_mask, subkey)
+        
+        if FLAGS.awp_perturb_input:
+            if FLAGS.architecture == "cnn":
+                k = 10
+            elif FLAGS.architecture == "speech_lsnn":
+                k = 8
             else:
-                grads = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask, subkey)
+                raise NotImplementedError
+            
+            def model_fn(x):
+                ret = model.call(x, dropout_mask, **params)
+                return ret[0]
+
+            X_star = l_inf_pga(
+                model_fn=model_fn,
+                x=X,
+                eps=FLAGS.eps_pga,
+                eps_iter=FLAGS.eps_pga / FLAGS.nb_iter,
+                nb_iter=FLAGS.nb_iter,
+                y=y,
+                k=k
+            )
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
+            for key in theta_star:
+                theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])
+            grads = grad(training_loss, argnums=2)(X_star, y, theta_star, FLAGS, model, dropout_mask, subkey)
+        else:
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
+            for key in theta_star:
+                theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])
+            grads = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask, subkey)
 
     elif(FLAGS.beta_robustness==0 or epoch < FLAGS.warmup):
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask, subkey)

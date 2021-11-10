@@ -29,19 +29,8 @@ if __name__ == '__main__':
     base_path = path.dirname(path.abspath(__file__))
     model_save_path = path.join(base_path, f"Resources/Models/{FLAGS.session_id}_model.json")
 
-    audio_processor = input_data.AudioProcessor(
-        data_url=FLAGS.data_url, data_dir=FLAGS.data_dir,
-        silence_percentage=FLAGS.silence_percentage, unknown_percentage=FLAGS.unknown_percentage,
-        wanted_words=FLAGS.wanted_words.split(','), validation_percentage=FLAGS.validation_percentage,
-        testing_percentage=FLAGS.testing_percentage, 
-        n_thr_spikes=FLAGS.n_thr_spikes, n_repeat=FLAGS.in_repeat, seed=FLAGS.seed
-    )
-
     FLAGS.label_count = len(input_data.prepare_words_list(FLAGS.wanted_words.split(',')))
     FLAGS.time_shift_samples = int((FLAGS.time_shift_ms * FLAGS.sample_rate) / 1000)
-
-    # - Extract the data if needed
-    prepare_npy(FLAGS, audio_processor)
 
     # - Create the data loader
     speech_processor = SpeechDataLoader(path=FLAGS.data_dir, batch_size=FLAGS.batch_size)
@@ -55,7 +44,7 @@ if __name__ == '__main__':
                                                         len(learning_rates_list)))
     
     
-    steps_list = [math.ceil(epochs * audio_processor.set_size("training")/FLAGS.batch_size) for epochs in epochs_list]
+    steps_list = [math.ceil(epochs * speech_processor.N_train/FLAGS.batch_size) for epochs in epochs_list]
     
 
     n_thr_spikes = max(1, FLAGS.n_thr_spikes)

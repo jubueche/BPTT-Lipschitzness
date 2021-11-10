@@ -8,22 +8,19 @@ import numpy as np
 import seaborn as sns
 
 seeds = [0]
+eps_pgas = [0.01,0.1,1.0]
+nb_iter = 3
 
 class awp_experiment:
     
     @staticmethod
     def train_grid():
 
-        ecg = [ecg_lsnn.make()]
-        ecg = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-
         speech = [speech_lsnn.make()]
-        speech = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
-
-        cnn_grid = [cnn.make()]
-        cnn_grid = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
-        
-        final_grid = ecg + speech + cnn_grid
+        speech_awp = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        speech_awp_eps = split(speech_awp, "eps_pga", eps_pgas)
+        speech_awp_eps = configure(speech_awp_eps, {"nb_iter":3})
+        final_grid = speech_awp + speech_awp_eps
         final_grid = split(final_grid, "seed", seeds)
         return final_grid
 
