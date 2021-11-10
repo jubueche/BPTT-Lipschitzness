@@ -1,10 +1,58 @@
 from jax.nn import softmax, log_softmax
-from jax import jit, random, partial, grad, value_and_grad
+from jax import jit, random, partial, grad, value_and_grad, vmap
 from jax.lax import stop_gradient
 import jax.numpy as jnp
 import numpy as onp
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import copy
+from jax.experimental.stax import logsoftmax
+
+def fast_gradient_method(
+    model_fn,
+    x,
+    eps,
+    y
+):
+    def loss_adv(image, label):
+        pred = model_fn(image[None])
+        loss = -jnp.sum(logsoftmax(pred) * label)
+        return loss
+    grads_fn = vmap(grad(loss_adv), in_axes=(0, 0), out_axes=0)
+    grads = grads_fn(x, y)
+    perturbation = eps * jnp.sign(grads)
+    adv_x = x + perturbation
+    return adv_x
+
+def l_inf_pga(
+    model_fn,
+    x,
+    eps,
+    eps_iter,
+    nb_iter,
+    y
+):
+    assert eps_iter <= eps, (eps_iter, eps)
+    # Initialize loop variables
+    eta = jnp.zeros_like(x)
+    # Clip eta
+    eta = clip_eta(eta, eps)
+    adv_x = x + eta
+    for _ in range(nb_iter):
+        adv_x = fast_gradient_method(
+            model_fn,
+            adv_x,
+            eps_iter,
+            y=y
+        )
+        # Clipping perturbation eta to norm norm ball
+        eta = adv_x - x
+        eta = clip_eta(eta, eps)
+        adv_x = x + eta
+    return adv_x
+
+def clip_eta(eta, eps):
+    eta = jnp.clip(eta, a_min=-eps, a_max=eps)
+    return eta
 
 @jit
 def categorical_cross_entropy(y, logits):
@@ -131,8 +179,20 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
         logits, _ = model.call(X, dropout_mask, **params)
         theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
         for key in theta_star:
-            theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])  
-        grads = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask, subkey)
+            theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])
+            if FLAGS.awp_perturb_input:
+                X_star = l_inf_pga(
+                    model_fn=model,
+                    x=X,
+                    eps=FLAGS.eps_pga,
+                    eps_iter=FLAGS.eps_pga_iter,
+                    nb_iter=FLAGS.nb_iter,
+                    y=y
+                )
+                grads = grad(training_loss, argnums=2)(X_star, y, theta_star, FLAGS, model, dropout_mask, subkey)
+            else:
+                grads = grad(training_loss, argnums=2)(X, y, theta_star, FLAGS, model, dropout_mask, subkey)
+
     elif(FLAGS.beta_robustness==0 or epoch < FLAGS.warmup):
         grads = grad(training_loss, argnums=2)(X, y, params, FLAGS, model, dropout_mask, subkey)
     else:

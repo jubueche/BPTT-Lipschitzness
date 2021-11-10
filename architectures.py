@@ -41,7 +41,11 @@ def standard_defaults():
         "awp":False,
         "noisy_forward_std":0.0,
         "warmup":0,
-        "awp_gamma":0.1
+        "awp_gamma":0.1,
+        "awp_perturb_input":False,
+        "eps_pga":0.1,
+        "eps_pga_iter":0.1,
+        "nb_iter":10
         }
 
 def help():
