@@ -44,7 +44,7 @@ class awp_experiment:
 
         fig = plt.figure(figsize=(5,5), constrained_layout=False)
         ax = plt.gca()
-        ax.set_ylabel("Test acc. (%)")
+        ax.set_ylabel("Test acc.")
         ax.set_xlabel("Mismatch level")
 
         eps_pgas_list = [0] + eps_pgas
