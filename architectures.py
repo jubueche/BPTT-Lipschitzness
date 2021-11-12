@@ -1,6 +1,3 @@
-from TensorCommands import input_data
-from ECG.ecg_data_loader import ECGDataLoader
-from CNN.import_data import CNNDataLoader
 from CNN_Jax import CNN
 from RNN_Jax import RNN
 from MLP_Jax import MLP
