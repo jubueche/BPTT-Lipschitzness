@@ -1,4 +1,5 @@
 from jax import lax
+from jax.lax import stop_gradient
 from jax import jit, random, partial
 import numpy as onp
 import jax.numpy as jnp
@@ -81,6 +82,12 @@ class CNN:
         mask[2] = jnp.ones(shape=(1,self.model_settings["Dense"][2][0])).astype(jnp.float32)
         return mask
 
+def custom_normalize(x, axis, epsilon=1e-5):
+    mean = stop_gradient(jnp.mean(x, axis, keepdims=True))
+    variance = stop_gradient(jnp.mean(jnp.square(x), axis, keepdims=True) - jnp.square(mean))
+    ret = (x - stop_gradient(mean)) / stop_gradient(jnp.sqrt(variance + epsilon))
+    return ret
+
 @jit
 def _evolve_CNN(K1,
                 CB1,
@@ -118,7 +125,7 @@ def _evolve_CNN(K1,
         return result
 
     batch_size = P_input.shape[0]
-    x = normalize(P_input, axis=(0,2,3))
+    x = custom_normalize(P_input, axis=(0,2,3))
     strides = (1,1)
     x = lax.conv_general_dilated(x, K1, strides, padding = [(2,1),(2,1)]) + CB1 #'SAME'
     x = relu(x)
@@ -131,6 +138,6 @@ def _evolve_CNN(K1,
     x = relu(x) * dropout_mask[1]
     x = x @ W2 + B2
     x = relu(x) * dropout_mask[2]
-    x = normalize(x, axis=0)
+    x = custom_normalize(x, axis=0)
     x = x @ W3 + B3
     return x, jnp.array([[0]])

@@ -7,12 +7,18 @@ import matplotlib.pyplot as plt
 
 seeds = [0]
 eps_pgas = [0.01,0.1,1.0]
+eps_pgas_cnn = [0.001,0.01,0.1]
 nb_iter = 3
 
 class awp_experiment:
     
     @staticmethod
     def train_grid():
+
+        cnn_grid = [cnn.make()]
+        cnn_awp = configure(cnn_grid, {"beta_robustness":0.0, "awp":True, "awp_gamma":0.1, "boundary_loss":"madry"})
+        cnn_awp_eps = split(cnn_awp, "eps_pga", eps_pgas_cnn)
+        cnn_awp_eps = configure(cnn_awp_eps, {"nb_iter":3})
 
         ecg = [ecg_lsnn.make()]
         ecg_awp = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
@@ -24,7 +30,7 @@ class awp_experiment:
         speech_awp_eps = split(speech_awp, "eps_pga", eps_pgas)
         speech_awp_eps = configure(speech_awp_eps, {"nb_iter":3})
 
-        final_grid = ecg_awp + ecg_awp_eps + speech_awp + speech_awp_eps
+        final_grid = cnn_awp + cnn_awp_eps
         final_grid = split(final_grid, "seed", seeds)
         return final_grid
 
