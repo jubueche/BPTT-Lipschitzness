@@ -188,6 +188,8 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
                 k = 10
             elif FLAGS.architecture == "speech_lsnn":
                 k = 8
+            elif FLAGS.architecture == "ecg_lsnn":
+                k = 4
             else:
                 raise NotImplementedError
             

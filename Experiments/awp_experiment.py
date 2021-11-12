@@ -14,11 +14,17 @@ class awp_experiment:
     @staticmethod
     def train_grid():
 
+        ecg = [ecg_lsnn.make()]
+        ecg_awp = configure(ecg, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
+        ecg_awp_eps = split(ecg_awp, "eps_pga", eps_pgas)
+        ecg_awp_eps = configure(ecg_awp_eps, {"nb_iter":3})
+
         speech = [speech_lsnn.make()]
         speech_awp = configure(speech, {"beta_robustness": 0.0, "awp":True, "boundary_loss":"madry", "awp_gamma":0.1})
         speech_awp_eps = split(speech_awp, "eps_pga", eps_pgas)
         speech_awp_eps = configure(speech_awp_eps, {"nb_iter":3})
-        final_grid = speech_awp + speech_awp_eps
+
+        final_grid = ecg_awp + ecg_awp_eps + speech_awp + speech_awp_eps
         final_grid = split(final_grid, "seed", seeds)
         return final_grid
 
