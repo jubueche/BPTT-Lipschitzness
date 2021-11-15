@@ -30,13 +30,14 @@ class awp_experiment:
         speech_awp_eps = split(speech_awp, "eps_pga", eps_pgas)
         speech_awp_eps = configure(speech_awp_eps, {"nb_iter":3})
 
-        final_grid = cnn_awp + cnn_awp_eps
+        final_grid = ecg_awp+ecg_awp_eps+speech_awp+speech_awp_eps+cnn_awp+cnn_awp_eps
         final_grid = split(final_grid, "seed", seeds)
         return final_grid
 
     @staticmethod
     def visualize():
 
+        architectures = ["speech_lsnn","ecg_lsnn","cnn"]
         mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
 
         grid = [model for model in awp_experiment.train_grid() if model["seed"] in seeds] 
@@ -48,22 +49,30 @@ class awp_experiment:
         grid_mm = run(grid_mm, get_mismatch_list, n_threads=10, store_key="mismatch_list")\
             ("{n_iterations}", "{*}", "{mm_level}", "{data_dir}")
 
-        fig = plt.figure(figsize=(5,5), constrained_layout=False)
-        ax = plt.gca()
-        ax.set_ylabel("Test acc.")
-        ax.set_xlabel("Mismatch level")
+        _ = plt.figure(figsize=(13,4), constrained_layout=False)
+        for i,arch in enumerate(architectures):
+            eps_pgas_arch = eps_pgas_cnn if arch == "cnn" else eps_pgas
+            ax = plt.subplot(1, len(architectures), i+1)
+            
+            ax.set_ylabel("Test acc.")
+            ax.set_xlabel("Mismatch level")
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
 
-        eps_pgas_list = [0] + eps_pgas
-        for eps_pga in eps_pgas_list:
-            accs = np.empty(shape=(len(mm_levels),))
-            stds = np.empty(shape=(len(mm_levels),))
-            for idx,mm_level in enumerate(mm_levels):
-                accuracy_list = query(grid_mm, "mismatch_list", where={"eps_pga":eps_pga, "mm_level":mm_level})
-                accs[idx] = np.mean(accuracy_list)
-                stds[idx] = np.std(accuracy_list)
-            ax.errorbar(x=mm_levels, y=accs, yerr=stds, label=r"$\epsilon_{pga}=$" + ("%.2f"%eps_pga))
+            eps_pgas_list = [0] + eps_pgas_arch
+            for eps_pga in eps_pgas_list:
+                accs = np.empty(shape=(len(mm_levels),))
+                stds = np.empty(shape=(len(mm_levels),))
+                for idx,mm_level in enumerate(mm_levels):
+                    accuracy_list = query(grid_mm, "mismatch_list", where={"architecture":arch, "eps_pga":eps_pga, "mm_level":mm_level})
+                    accs[idx] = np.mean(accuracy_list)
+                    stds[idx] = np.std(accuracy_list)
+                ax.errorbar(x=mm_levels, y=accs, yerr=stds, label=r"$\epsilon_{pga}=$" + ("%.3f"%eps_pga))
         
-        plt.legend()
+            ax.legend()
+
+
+        plt.savefig("Resources/Figures/AWP_sweep.pdf", dpi=1200)
         plt.show()
             
 
