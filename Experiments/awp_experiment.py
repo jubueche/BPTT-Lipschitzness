@@ -30,7 +30,7 @@ class awp_experiment:
         speech_awp_eps = split(speech_awp, "eps_pga", eps_pgas)
         speech_awp_eps = configure(speech_awp_eps, {"nb_iter":3})
 
-        final_grid = ecg_awp + ecg_awp_eps
+        final_grid = cnn_awp + cnn_awp_eps
         final_grid = split(final_grid, "seed", seeds)
         return final_grid
 
