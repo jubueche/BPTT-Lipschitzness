@@ -1,0 +1,6 @@
+WARNING:absl:Compiling _split for args (ShapedArray(uint32[2]),).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _where for args (ShapedArray(bool[]), ShapedArray(int32[]), ShapedArray(int32[])).
+WARNING:absl:Compiling compute_gradient_and_update for args (ShapedArray(int32[], weak_type=True), ShapedArray(float32[100,3920]), ShapedArray(int32[100]), ShapedArray(float32[40,256]), ShapedArray(float32[40,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,8]), ShapedArray(float32[256,8]), ShapedArray(float32[256,8]), ShapedArray(float32[256,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,256]), ShapedArray(float32[8]), ShapedArray(float32[8]), ShapedArray(float32[8]), ShapedArray(uint32[2])).
