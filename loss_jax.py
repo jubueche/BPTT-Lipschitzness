@@ -67,8 +67,17 @@ def training_loss(X, y, params, FLAGS, model, dropout_mask, rand_key):
 def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits):
     make_step = {
         "inf": jnp.sign,
-        "2": lambda grad: grad/jnp.linalg.norm(grad)
+        "2": lambda x: x
     }
+    def project(diff): 
+        if FLAGS.p_norm == "2":
+            #this only works for constant attack size (hacky solution by fynn)
+            assert(FLAGS.attack_size_mismatch==0.0)
+            factor = jnp.min([1, FLAGS.attack_size_constant/jnp.linalg.norm(diff)])
+            return diff * factor
+        else:
+            return diff
+
     step_size = {}
     theta_star = {}
     # - Initialize theta_star randomly 
@@ -81,7 +90,9 @@ def make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits):
     for _ in range(FLAGS.n_attack_steps):
         grads_theta_star = grad(lip_loss, argnums=2)(X,y, theta_star, logits, FLAGS, model, dropout_mask, rand_key)
         for key in theta_star.keys():
-            theta_star[key] = theta_star[key] + step_size[key] * make_step[FLAGS.p_norm](grads_theta_star[key])
+            update = theta_star[key] + step_size[key] * make_step[FLAGS.p_norm](grads_theta_star[key])
+            diff = update - params[key]
+            theta_star[key] = params[key] + project(diff)
     return theta_star
 
 def lip_loss(X, y, theta_star, logits, FLAGS, model, dropout_mask, rand_key):
@@ -120,6 +131,8 @@ def loss_general(X, y, params, FLAGS, model, rand_key, dropout_mask, theta_star)
     loss_n = training_loss(X, y, params, FLAGS, model, dropout_mask, rand_key)
     _, subkey = random.split(rand_key)
     loss_r = robust_loss(X, y, params, FLAGS, model, subkey, dropout_mask, theta_star)
+    if FLAGS.beta_robustness > 999:
+        return loss_n
     return loss_n + FLAGS.beta_robustness*loss_r
 
 def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):

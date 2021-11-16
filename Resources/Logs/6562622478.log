@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "main_speech_lsnn.py", line 5, in <module>
+    from TensorCommands import input_data
+  File "/home/faberf/Documents/BPTT-Lipschitzness/TensorCommands/input_data.py", line 14, in <module>
+    import tensorflow as tf
+ModuleNotFoundError: No module named 'tensorflow'

@@ -1,0 +1,38 @@
+2021-11-12 19:22:45.992361: W tensorflow/stream_executor/platform/default/dso_loader.cc:59] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+WARNING:absl:Compiling _split for args (ShapedArray(uint32[2]),).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _truncated_normal for args (ShapedArray(uint32[2]), ShapedArray(int32[], weak_type=True), ShapedArray(int32[], weak_type=True)).
+WARNING:absl:Compiling _where for args (ShapedArray(bool[]), ShapedArray(int32[]), ShapedArray(int32[])).
+Traceback (most recent call last):
+  File "main_ecg_lsnn.py", line 94, in <module>
+    opt_state = compute_gradient_and_update(i, X, y, opt_state, opt_update, get_params, rnn, FLAGS, rnn._rng_key,e)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/api.py", line 171, in f_jitted
+    name=flat_fun.__name__, donated_invars=donated_invars)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/core.py", line 1134, in bind
+    return call_bind(self, fun, *args, **params)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/core.py", line 1123, in call_bind
+    outs = primitive.impl(fun, *args, **params)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/interpreters/xla.py", line 527, in _xla_call_impl
+    *unsafe_map(arg_spec, args))
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/linear_util.py", line 224, in memoized_fun
+    ans = call(fun, *args)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/interpreters/xla.py", line 598, in _xla_callable
+    fun, pvals, instantiate=False, stage_out=True, bottom=True)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/interpreters/partial_eval.py", line 423, in trace_to_jaxpr
+    jaxpr, (out_pvals, consts, env) = fun.call_wrapped(pvals)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/linear_util.py", line 150, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/faberf/Documents/BPTT-Lipschitzness/loss_jax.py", line 168, in compute_gradient_and_update
+    grads = compute_gradients(X,y,params,model,FLAGS,rand_key, epoch)
+  File "/home/faberf/Documents/BPTT-Lipschitzness/loss_jax.py", line 154, in compute_gradients
+    theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
+  File "/home/faberf/Documents/BPTT-Lipschitzness/loss_jax.py", line 95, in make_theta_star
+    theta_star[key] = params[key] + project(diff)
+  File "/home/faberf/Documents/BPTT-Lipschitzness/loss_jax.py", line 76, in project
+    factor = jnp.min(1, FLAGS.attack_size_constant/jnp.linalg.norm(diff))
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/numpy/lax_numpy.py", line 1624, in reduction
+    dims = _reduction_dims(a, axis)
+  File "/home/faberf/.local/lib/python3.6/site-packages/jax/numpy/lax_numpy.py", line 1649, in _reduction_dims
+    raise TypeError("Unexpected type of axis argument: {}".format(type(axis)))
+TypeError: Unexpected type of axis argument: <class 'jax.interpreters.partial_eval.JaxprTracer'>
