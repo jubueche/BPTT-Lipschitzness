@@ -37,6 +37,12 @@ class awp_experiment:
     @staticmethod
     def visualize():
 
+        title_dict = {
+            "speech_lsnn": "Speech LSNN",
+            "ecg_lsnn": "ECG LSNN",
+            "cnn": "FMNIST CNN"
+        }
+
         architectures = ["speech_lsnn","ecg_lsnn","cnn"]
         mm_levels = [0.0,0.1,0.2,0.3,0.5,0.7]
 
@@ -58,6 +64,7 @@ class awp_experiment:
             ax.set_xlabel("Mismatch level")
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
+            ax.set_title(title_dict[arch])
 
             eps_pgas_list = [0] + eps_pgas_arch
             for eps_pga in eps_pgas_list:

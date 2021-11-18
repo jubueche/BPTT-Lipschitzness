@@ -170,28 +170,28 @@ class mismatch_experiment:
             "Method": ["Forward Noise + Beta 0.1", "Forward Noise + Beta 0.5", "Beta 0.25", "Beta 0.5", "Standard", "Forward Noise"]
         }
 
-        grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0.0))]
-        independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="Method"), "mm_level"]
-        dependent_keys = ["mismatch_list"]
-        axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
-        violin(grid_plot, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order_violin)
+        # grid_plot = [g for g in grid_mm if g["optimizer"]=="adam" and not g["awp"] and g["dropout_prob"]==0.0 and ((g["beta_robustness"]==0.0 and g["noisy_forward_std"]==0) or (g["beta_robustness"]!=0.0 and g["noisy_forward_std"]!=0.0))]
+        # independent_keys = ["architecture", Table.Deviation_Var(default={"beta_robustness":0.0, "noisy_forward_std":0.0},label="Method"), "mm_level"]
+        # dependent_keys = ["mismatch_list"]
+        # axes_dict = {"Speech LSNN":axes_speech["btm"], "ECG LSNN":axes_ecg["btm"], "CNN":axes_cnn["btm"]}
+        # violin(grid_plot, independent_keys=independent_keys,dependent_keys=dependent_keys,label_dict=label_dict, axes_dict=axes_dict, order=order_violin)
 
-        # - Get the sample data for speech
-        X_speech, y_speech = get_data("speech")
-        X_ecg, y_ecg = get_data("ecg")
-        X_cnn, y_cnn = get_data("cnn")
+        # # - Get the sample data for speech
+        # X_speech, y_speech = get_data("speech")
+        # X_ecg, y_ecg = get_data("ecg")
+        # X_cnn, y_cnn = get_data("cnn")
 
-        plot_images(axes_cnn["top"], X_cnn, y_cnn)
-        plot_spectograms(axes_speech["top"], X_speech, y_speech)
-        plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
+        # plot_images(axes_cnn["top"], X_cnn, y_cnn)
+        # plot_spectograms(axes_speech["top"], X_speech, y_speech)
+        # plot_ecg(axes_ecg["top"], X_ecg, y_ecg)
 
-        axes_speech["btm"][0].set_ylabel("Test acc.")
-        axes_ecg["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
-        axes_cnn["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
-        axes_speech["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
+        # axes_speech["btm"][0].set_ylabel("Test acc.")
+        # axes_ecg["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
+        # axes_cnn["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
+        # axes_speech["btm"][2].text(x = -0.5, y = -0.2, s=r"Mismatch level ($\zeta$)")
 
-        plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
-        plt.show()
+        # plt.savefig("Resources/Figures/figure_main.pdf", dpi=1200)
+        # plt.show()
 
         group_by = ["architecture", "awp", "beta_robustness", "dropout_prob", "optimizer", "noisy_forward_std", "mm_level"]
         for g in grid_mm:
