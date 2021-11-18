@@ -31,9 +31,10 @@ class amp_experiment:
         cnn_grid1 = configure(cnn_grid, {"beta_robustness": 0.25, "attack_size_mismatch": 0.1})
         cnn_grid2 = configure(cnn_grid, {"beta_robustness": 0.1, "attack_size_mismatch": 0.1, "noisy_forward_std":0.3})
         cnn_grid3 = configure(cnn_grid, {"beta_robustness":9999, "treat_as_constant":True, "attack_size_mismatch":0.0, "attack_size_constant":0.01, "boundary_loss":"madry", "p_norm":"2"})
+        cnn_grid3 = split(cnn_grid3, "attack_size_constant", [0.02, 0.01, 0.005, 0.001, 0.0005])
         cnn_grid = cnn_grid0 + cnn_grid1 + cnn_grid2 + cnn_grid3
 
-        final_grid = ecg3 + speech3 + cnn_grid
+        final_grid = ecg3 + speech3 + cnn_grid3
         final_grid = split(final_grid, "seed", seeds)
 
         return final_grid
