@@ -193,8 +193,12 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
             else:
                 raise NotImplementedError
             
+            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
+            for key in theta_star:
+                theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])
+
             def model_fn(x):
-                ret = model.call(x, dropout_mask, **params)
+                ret = model.call(x, dropout_mask, **theta_star)
                 return ret[0]
 
             X_star = l_inf_pga(
@@ -206,9 +210,6 @@ def compute_gradients(X, y, params, model, FLAGS, rand_key, epoch):
                 y=y,
                 k=k
             )
-            theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)
-            for key in theta_star:
-                theta_star[key] = params[key] + FLAGS.awp_gamma * (theta_star[key] - params[key])
             grads = grad(training_loss, argnums=2)(X_star, y, theta_star, FLAGS, model, dropout_mask, subkey)
         else:
             theta_star = make_theta_star(X, y, params, FLAGS, rand_key, dropout_mask, model, logits)

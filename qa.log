@@ -1,0 +1,902 @@
+nohup: ignoring input
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[500,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,500,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,457,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,457,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,457,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,457,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling _evolve_RNN for args (ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[457,256]), ShapedArray(float32[40,256]), ShapedArray(float32[256,256]), ShapedArray(float32[256,8]), ShapedArray(float32[8]), ShapedArray(float32[1,256]), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[1,256]), ShapedArray(float32[1,1]), ShapedArray(float32[], weak_type=True), ShapedArray(float32[], weak_type=True), ShapedArray(float32[98,457,40]), ShapedArray(float32[1,256])).
+WARNING:absl:Compiling categorical_cross_entropy for args (ShapedArray(int32[2957]), ShapedArray(float32[2957,8])).
+WARNING:absl:Compiling categorical_cross_entropy for args (ShapedArray(int32[2957]), ShapedArray(float32[2957,8])).
+/home/jbu/.vscode-server/bin/f4af3cbf5a99787542e2a30fe1fd37cd644cc31f/bin:/home/jbu/.vscode-server/bin/f4af3cbf5a99787542e2a30fe1fd37cd644cc31f/bin:/home/jbu/anaconda3/envs/iclr/bin:/home/jbu/anaconda3/condabin:/home/jbu/.local/bin:/home/jbu/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/var/lib/snapd/snap/bin
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_9449103267.pickle'
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_7242085602.pickle'
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_5501085621.pickle'
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_7673363945.pickle'
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_9138778560.pickle'
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_2097815637.pickle'
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_2946601492.pickle'
+[Errno 2] No such file or directory: 'Sessions/get_mismatch_list_9951942971.pickle'
+0 / 100
+0 / 100
+0 / 100
+0 / 100
+0 / 100
+0 / 100
+0 / 100
+0 / 100
+1 / 100
+1 / 100
+1 / 100
+1 / 100
+1 / 100
+1 / 100
+1 / 100
+1 / 100
+2 / 100
+2 / 100
+2 / 100
+2 / 100
+2 / 100
+2 / 100
+2 / 100
+2 / 100
+3 / 100
+3 / 100
+3 / 100
+3 / 100
+3 / 100
+3 / 100
+3 / 100
+3 / 100
+4 / 100
+4 / 100
+4 / 100
+4 / 100
+4 / 100
+4 / 100
+4 / 100
+4 / 100
+5 / 100
+5 / 100
+5 / 100
+5 / 100
+5 / 100
+5 / 100
+5 / 100
+5 / 100
+6 / 100
+6 / 100
+6 / 100
+6 / 100
+6 / 100
+6 / 100
+6 / 100
+6 / 100
+7 / 100
+7 / 100
+7 / 100
+7 / 100
+7 / 100
+7 / 100
+7 / 100
+7 / 100
+8 / 100
+8 / 100
+8 / 100
+8 / 100
+8 / 100
+8 / 100
+8 / 100
+8 / 100
+9 / 100
+9 / 100
+9 / 100
+9 / 100
+9 / 100
+9 / 100
+10 / 100
+9 / 100
+9 / 100
+10 / 100
+10 / 100
+10 / 100
+10 / 100
+10 / 100
+10 / 100
+11 / 100
+10 / 100
+11 / 100
+11 / 100
+11 / 100
+11 / 100
+11 / 100
+11 / 100
+12 / 100
+11 / 100
+12 / 100
+12 / 100
+12 / 100
+12 / 100
+12 / 100
+12 / 100
+13 / 100
+12 / 100
+13 / 100
+13 / 100
+13 / 100
+13 / 100
+13 / 100
+13 / 100
+14 / 100
+13 / 100
+14 / 100
+14 / 100
+14 / 100
+14 / 100
+14 / 100
+14 / 100
+14 / 100
+15 / 100
+15 / 100
+15 / 100
+15 / 100
+15 / 100
+15 / 100
+15 / 100
+15 / 100
+16 / 100
+16 / 100
+16 / 100
+16 / 100
+16 / 100
+16 / 100
+16 / 100
+16 / 100
+17 / 100
+17 / 100
+17 / 100
+17 / 100
+17 / 100
+17 / 100
+17 / 100
+17 / 100
+18 / 100
+18 / 100
+18 / 100
+18 / 100
+18 / 100
+18 / 100
+18 / 100
+18 / 100
+19 / 100
+19 / 100
+19 / 100
+19 / 100
+19 / 100
+19 / 100
+19 / 100
+19 / 100
+20 / 100
+20 / 100
+20 / 100
+20 / 100
+20 / 100
+20 / 100
+20 / 100
+20 / 100
+21 / 100
+21 / 100
+21 / 100
+21 / 100
+21 / 100
+21 / 100
+21 / 100
+21 / 100
+22 / 100
+22 / 100
+22 / 100
+22 / 100
+22 / 100
+22 / 100
+22 / 100
+22 / 100
+23 / 100
+23 / 100
+23 / 100
+23 / 100
+23 / 100
+23 / 100
+23 / 100
+24 / 100
+23 / 100
+24 / 100
+24 / 100
+24 / 100
+24 / 100
+24 / 100
+24 / 100
+25 / 100
+24 / 100
+25 / 100
+25 / 100
+25 / 100
+25 / 100
+25 / 100
+25 / 100
+25 / 100
+26 / 100
+26 / 100
+26 / 100
+26 / 100
+26 / 100
+26 / 100
+27 / 100
+26 / 100
+26 / 100
+27 / 100
+27 / 100
+27 / 100
+27 / 100
+27 / 100
+27 / 100
+28 / 100
+27 / 100
+28 / 100
+28 / 100
+28 / 100
+28 / 100
+28 / 100
+28 / 100
+29 / 100
+28 / 100
+29 / 100
+29 / 100
+29 / 100
+29 / 100
+29 / 100
+29 / 100
+30 / 100
+29 / 100
+30 / 100
+30 / 100
+30 / 100
+30 / 100
+30 / 100
+30 / 100
+30 / 100
+31 / 100
+31 / 100
+31 / 100
+31 / 100
+31 / 100
+31 / 100
+31 / 100
+31 / 100
+32 / 100
+32 / 100
+32 / 100
+32 / 100
+32 / 100
+32 / 100
+33 / 100
+32 / 100
+32 / 100
+33 / 100
+33 / 100
+33 / 100
+33 / 100
+33 / 100
+33 / 100
+33 / 100
+34 / 100
+34 / 100
+34 / 100
+34 / 100
+34 / 100
+34 / 100
+34 / 100
+34 / 100
+35 / 100
+35 / 100
+35 / 100
+35 / 100
+35 / 100
+35 / 100
+35 / 100
+36 / 100
+35 / 100
+36 / 100
+36 / 100
+36 / 100
+36 / 100
+36 / 100
+36 / 100
+36 / 100
+37 / 100
+37 / 100
+37 / 100
+37 / 100
+37 / 100
+37 / 100
+37 / 100
+37 / 100
+38 / 100
+38 / 100
+38 / 100
+38 / 100
+38 / 100
+38 / 100
+38 / 100
+39 / 100
+38 / 100
+39 / 100
+39 / 100
+39 / 100
+39 / 100
+39 / 100
+39 / 100
+39 / 100
+40 / 100
+40 / 100
+40 / 100
+40 / 100
+40 / 100
+40 / 100
+40 / 100
+40 / 100
+41 / 100
+41 / 100
+41 / 100
+41 / 100
+41 / 100
+41 / 100
+41 / 100
+41 / 100
+42 / 100
+42 / 100
+42 / 100
+42 / 100
+42 / 100
+42 / 100
+43 / 100
+42 / 100
+42 / 100
+43 / 100
+43 / 100
+43 / 100
+43 / 100
+43 / 100
+43 / 100
+44 / 100
+43 / 100
+44 / 100
+44 / 100
+44 / 100
+44 / 100
+44 / 100
+44 / 100
+45 / 100
+44 / 100
+45 / 100
+45 / 100
+45 / 100
+45 / 100
+45 / 100
+45 / 100
+46 / 100
+45 / 100
+46 / 100
+46 / 100
+46 / 100
+46 / 100
+46 / 100
+47 / 100
+46 / 100
+46 / 100
+47 / 100
+47 / 100
+47 / 100
+47 / 100
+47 / 100
+47 / 100
+48 / 100
+47 / 100
+48 / 100
+48 / 100
+48 / 100
+48 / 100
+48 / 100
+48 / 100
+49 / 100
+48 / 100
+49 / 100
+49 / 100
+49 / 100
+49 / 100
+49 / 100
+50 / 100
+49 / 100
+49 / 100
+50 / 100
+50 / 100
+50 / 100
+50 / 100
+50 / 100
+50 / 100
+51 / 100
+50 / 100
+51 / 100
+51 / 100
+51 / 100
+51 / 100
+51 / 100
+52 / 100
+51 / 100
+52 / 100
+51 / 100
+52 / 100
+52 / 100
+52 / 100
+52 / 100
+53 / 100
+52 / 100
+52 / 100
+53 / 100
+53 / 100
+53 / 100
+53 / 100
+53 / 100
+54 / 100
+53 / 100
+53 / 100
+54 / 100
+54 / 100
+54 / 100
+54 / 100
+55 / 100
+54 / 100
+54 / 100
+54 / 100
+55 / 100
+55 / 100
+55 / 100
+55 / 100
+56 / 100
+55 / 100
+55 / 100
+55 / 100
+56 / 100
+56 / 100
+56 / 100
+56 / 100
+56 / 100
+57 / 100
+56 / 100
+56 / 100
+57 / 100
+57 / 100
+57 / 100
+57 / 100
+58 / 100
+57 / 100
+57 / 100
+57 / 100
+58 / 100
+58 / 100
+58 / 100
+58 / 100
+59 / 100
+58 / 100
+58 / 100
+59 / 100
+59 / 100
+58 / 100
+59 / 100
+60 / 100
+59 / 100
+59 / 100
+60 / 100
+60 / 100
+59 / 100
+59 / 100
+60 / 100
+61 / 100
+60 / 100
+60 / 100
+61 / 100
+61 / 100
+60 / 100
+60 / 100
+62 / 100
+61 / 100
+61 / 100
+61 / 100
+62 / 100
+62 / 100
+61 / 100
+61 / 100
+63 / 100
+62 / 100
+62 / 100
+62 / 100
+63 / 100
+62 / 100
+63 / 100
+62 / 100
+64 / 100
+63 / 100
+63 / 100
+63 / 100
+64 / 100
+63 / 100
+63 / 100
+64 / 100
+65 / 100
+64 / 100
+64 / 100
+64 / 100
+65 / 100
+64 / 100
+64 / 100
+65 / 100
+66 / 100
+65 / 100
+65 / 100
+65 / 100
+66 / 100
+65 / 100
+65 / 100
+66 / 100
+67 / 100
+66 / 100
+66 / 100
+66 / 100
+67 / 100
+66 / 100
+67 / 100
+66 / 100
+68 / 100
+67 / 100
+67 / 100
+67 / 100
+68 / 100
+67 / 100
+68 / 100
+67 / 100
+69 / 100
+68 / 100
+68 / 100
+68 / 100
+69 / 100
+68 / 100
+68 / 100
+69 / 100
+70 / 100
+69 / 100
+69 / 100
+69 / 100
+70 / 100
+69 / 100
+69 / 100
+70 / 100
+71 / 100
+70 / 100
+70 / 100
+70 / 100
+70 / 100
+71 / 100
+70 / 100
+71 / 100
+72 / 100
+71 / 100
+71 / 100
+71 / 100
+71 / 100
+72 / 100
+71 / 100
+72 / 100
+73 / 100
+72 / 100
+72 / 100
+72 / 100
+73 / 100
+72 / 100
+72 / 100
+73 / 100
+74 / 100
+73 / 100
+73 / 100
+73 / 100
+74 / 100
+73 / 100
+73 / 100
+75 / 100
+74 / 100
+74 / 100
+74 / 100
+74 / 100
+75 / 100
+74 / 100
+74 / 100
+76 / 100
+75 / 100
+75 / 100
+75 / 100
+75 / 100
+76 / 100
+75 / 100
+75 / 100
+77 / 100
+76 / 100
+76 / 100
+76 / 100
+76 / 100
+77 / 100
+76 / 100
+76 / 100
+77 / 100
+78 / 100
+77 / 100
+77 / 100
+77 / 100
+78 / 100
+77 / 100
+77 / 100
+78 / 100
+79 / 100
+78 / 100
+78 / 100
+78 / 100
+79 / 100
+78 / 100
+78 / 100
+79 / 100
+80 / 100
+79 / 100
+79 / 100
+79 / 100
+80 / 100
+79 / 100
+79 / 100
+81 / 100
+80 / 100
+80 / 100
+80 / 100
+80 / 100
+80 / 100
+81 / 100
+80 / 100
+82 / 100
+81 / 100
+81 / 100
+81 / 100
+81 / 100
+81 / 100
+82 / 100
+81 / 100
+83 / 100
+82 / 100
+82 / 100
+82 / 100
+82 / 100
+82 / 100
+83 / 100
+82 / 100
+84 / 100
+83 / 100
+83 / 100
+83 / 100
+83 / 100
+84 / 100
+83 / 100
+83 / 100
+85 / 100
+84 / 100
+84 / 100
+84 / 100
+84 / 100
+84 / 100
+85 / 100
+84 / 100
+85 / 100
+86 / 100
+85 / 100
+85 / 100
+85 / 100
+86 / 100
+85 / 100
+85 / 100
+87 / 100
+86 / 100
+86 / 100
+86 / 100
+86 / 100
+87 / 100
+86 / 100
+86 / 100
+88 / 100
+87 / 100
+87 / 100
+87 / 100
+87 / 100
+87 / 100
+88 / 100
+87 / 100
+88 / 100
+89 / 100
+88 / 100
+88 / 100
+88 / 100
+89 / 100
+88 / 100
+88 / 100
+89 / 100
+90 / 100
+89 / 100
+89 / 100
+89 / 100
+89 / 100
+89 / 100
+90 / 100
+91 / 100
+90 / 100
+90 / 100
+90 / 100
+90 / 100
+90 / 100
+91 / 100
+90 / 100
+91 / 100
+92 / 100
+91 / 100
+91 / 100
+91 / 100
+91 / 100
+92 / 100
+91 / 100
+93 / 100
+92 / 100
+92 / 100
+92 / 100
+92 / 100
+92 / 100
+93 / 100
+92 / 100
+94 / 100
+93 / 100
+93 / 100
+93 / 100
+93 / 100
+93 / 100
+94 / 100
+93 / 100
+95 / 100
+94 / 100
+94 / 100
+94 / 100
+94 / 100
+94 / 100
+95 / 100
+94 / 100
+96 / 100
+95 / 100
+95 / 100
+95 / 100
+95 / 100
+95 / 100
+95 / 100
+96 / 100
+97 / 100
+96 / 100
+96 / 100
+96 / 100
+96 / 100
+96 / 100
+96 / 100
+97 / 100
+98 / 100
+97 / 100
+97 / 100
+97 / 100
+97 / 100
+97 / 100
+97 / 100
+98 / 100
+98 / 100
+99 / 100
+98 / 100
+98 / 100
+98 / 100
+98 / 100
+98 / 100
+99 / 100
+99 / 100
+99 / 100
+99 / 100
+99 / 100
+99 / 100
+99 / 100
+Traceback (most recent call last):
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/texmanager.py", line 254, in _run_checked_subprocess
+    stderr=subprocess.STDOUT)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/subprocess.py", line 411, in check_output
+    **kwargs).stdout
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/subprocess.py", line 488, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/subprocess.py", line 800, in __init__
+    restore_signals, start_new_session)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/subprocess.py", line 1551, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'latex': 'latex'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "quick_access.py", line 22, in <module>
+    awp_experiment.awp_experiment.visualize()
+  File "/home/jbu/BPTT-Lipschitzness/Experiments/awp_experiment.py", line 75, in visualize
+    plt.savefig("Resources/Figures/AWP_sweep.pdf", dpi=1200)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/pyplot.py", line 966, in savefig
+    res = fig.savefig(*args, **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/figure.py", line 3015, in savefig
+    self.canvas.print_figure(fname, **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/backend_bases.py", line 2261, in print_figure
+    **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/backend_bases.py", line 1669, in wrapper
+    return func(*args, **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/_api/deprecation.py", line 431, in wrapper
+    return func(*inner_args, **inner_kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/backends/backend_pdf.py", line 2725, in print_pdf
+    self.figure.draw(renderer)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/artist.py", line 74, in draw_wrapper
+    result = draw(artist, renderer, *args, **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/artist.py", line 51, in draw_wrapper
+    return draw(artist, renderer, *args, **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/figure.py", line 2791, in draw
+    renderer, self, artists, self.suppressComposite)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/image.py", line 132, in _draw_list_compositing_images
+    a.draw(renderer)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/artist.py", line 51, in draw_wrapper
+    return draw(artist, renderer, *args, **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/_api/deprecation.py", line 431, in wrapper
+    return func(*inner_args, **inner_kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/axes/_base.py", line 2921, in draw
+    mimage._draw_list_compositing_images(renderer, self, artists)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/image.py", line 132, in _draw_list_compositing_images
+    a.draw(renderer)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/artist.py", line 51, in draw_wrapper
+    return draw(artist, renderer, *args, **kwargs)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/axis.py", line 1143, in draw
+    renderer)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/axis.py", line 1069, in _get_tick_bboxes
+    for tick in ticks if tick.label1.get_visible()],
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/axis.py", line 1069, in <listcomp>
+    for tick in ticks if tick.label1.get_visible()],
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/text.py", line 903, in get_window_extent
+    bbox, info, descent = self._get_layout(self._renderer)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/text.py", line 308, in _get_layout
+    ismath="TeX" if self.get_usetex() else False)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/backends/_backend_pdf_ps.py", line 89, in get_text_width_height_descent
+    s, fontsize, renderer=self)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/texmanager.py", line 399, in get_text_width_height_descent
+    dvifile = self.make_dvi(tex, fontsize)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/texmanager.py", line 293, in make_dvi
+    texfile], tex, cwd=tmpdir)
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/matplotlib/texmanager.py", line 258, in _run_checked_subprocess
+    'found'.format(command[0])) from exc
+RuntimeError: Failed to process string with tex because latex could not be found
