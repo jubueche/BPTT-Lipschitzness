@@ -8,7 +8,6 @@ import sys
 import os.path as path
 sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
 from CNN.import_data import CNNDataLoader
-from CIFAR10.cifar_dataloader import CIFARDataLoader
 from CNN_Jax import CNN
 from jax import random
 import jax.numpy as jnp
