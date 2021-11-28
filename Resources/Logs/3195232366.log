@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "main_speech_lsnn.py", line 7, in <module>
+    from TensorCommands.data_loader import SpeechDataLoader
+  File "/home/jbu/BPTT-Lipschitzness/TensorCommands/data_loader.py", line 2, in <module>
+    import jax.numpy as jnp
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/jax/__init__.py", line 89, in <module>
+    from . import nn
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/jax/nn/__init__.py", line 19, in <module>
+    from .functions import (
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/jax/nn/functions.py", line 24, in <module>
+    from jax.scipy.special import expit
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/jax/scipy/__init__.py", line 18, in <module>
+    from . import signal
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/jax/scipy/signal.py", line 15, in <module>
+    import scipy.signal as osp_signal
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/scipy/signal/__init__.py", line 294, in <module>
+    from ._max_len_seq import max_len_seq
+  File "/home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/scipy/signal/_max_len_seq.py", line 8, in <module>
+    from ._max_len_seq_inner import _max_len_seq_inner
+ImportError: /lib64/libstdc++.so.6: version `GLIBCXX_3.4.26' not found (required by /home/jbu/anaconda3/envs/iclr/lib/python3.7/site-packages/scipy/signal/_max_len_seq_inner.cpython-37m-x86_64-linux-gnu.so)
